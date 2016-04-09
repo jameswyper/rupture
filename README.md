@@ -17,9 +17,12 @@ I'm going to split the logic up into (at least) two programs - something to crea
 
 The rough plan of attack is
 
-- create some generic classes for UPnP devices and services
+- create some generic classes for UPnP devices and services [underway]
 - create a server that will handle SSDP discovery & advertisement (basically a simple, threaded UDP server)
 - extend this to add generic handling of Description, Control, Eventing and (maybe) Presentation
 - start specialising the classes to handle serving audio
 - create the virtual container hierarchy
 - get the specialised classes to use that..
+
+Notes to self: use REXML for starters to create / parse XML, switch the Nokogiri and/or builder if needed
+Try Webrick as the server
