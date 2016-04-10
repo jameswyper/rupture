@@ -1,6 +1,7 @@
 
 require 'securerandom'
 require 'time'
+require 'pry'
 
 class UPnPDevice
 	
@@ -20,7 +21,7 @@ class UPnPDevice
 	
 	def deviceMessages
 		a = Array.new
-		a. << ["uuid:#{@uuid}","uuid:#{@uuid}"]
+		a << ["uuid:#{@uuid}","uuid:#{@uuid}"]
 		a << ["urn:schemas-upnp-org:device:#{@type}:#{@version}","uuid:#{@uuid}:urn:schemas-upnp-org:device:#{@type}:#{@version}"]
 		return a
 	end
@@ -40,6 +41,8 @@ class UPnPRootDevice < UPnPDevice
 
 	NOTIFY  = "NOTIFY * HTTP/1.1"
 	HOST = "HOST: 239.255.255.250:1900"
+	
+	attr_reader :devices
 
 	def initialize(type,version,ip,port,product)
 		super("root",type,version)
@@ -71,10 +74,10 @@ class UPnPRootDevice < UPnPDevice
 		a = Array.new
 		a << createAliveMessage("upnp:rootdevice","uuid:#{@uuid}::upnp:rootdevice")
 		@devices.each_value do |d|
-			d.deviceMessages do |n|
+			d.deviceMessages.each do |n|
 				a << createAliveMessage(n[0],n[1])
 			end
-			d.serviceMessages do |n|
+			d.serviceMessages.each do |n|
 				a << createAliveMessage(n[0],n[1])
 			end
 		end
@@ -92,12 +95,12 @@ class UPnPRootDevice < UPnPDevice
 	
 	def byeBye
 		a = Array.new
-		a << createByeByeMessage("upnp:rootdevice","uuid:#{@uuid}::upnp:rootdevice")
+		a << createByeByeMessage("upnp:rootdevice","#{@uuid}::upnp:rootdevice")
 		@devices.each_value do |d|
-			d.deviceMessages do |n|
+			d.deviceMessages.each do |n|
 				a << createByeByeMessage(n[0],n[1])
 			end
-			d.serviceMessages do |n|
+			d.serviceMessages.each do |n|
 				a << createByeByeMessage(n[0],n[1])
 			end
 		end
@@ -106,8 +109,8 @@ class UPnPRootDevice < UPnPDevice
 
 	def createSearchResponse(st,usn)
 		s = String.new
-		s << NOTIFY << "200 OK \n" 
-		s << "CACHE-CONTROL: " << @cachecontrol.to_s << "\n"
+		s << NOTIFY << " 200 OK \n" 
+		s << "CACHE-CONTROL: " << @cacheControl.to_s << "\n"
 		s << "DATE: " << Time.now.rfc822 << "\n" 
 		s << "LOCATION: #{@location}\n"
 		s << "SERVER: #{@os} UPnP/1.0 #{@product}\n"
@@ -121,10 +124,18 @@ class UPnPRootDevice < UPnPDevice
 		a = Array.new
 		line = message.split("\n")
 		/MX: (?<delay>\w+)/ =~ line[3]
-		/ST: (?<target>\w+)/ =~ line[4]
+		/ST: (?<target>.*)/ =~ line[4]
 		target.chomp!
 		if target == "ssdp:all"
-			# return everything
+			a << createSearchResponse("upnp:rootdevice","uuid:#{@uuid}::upnp:rootdevice")
+			@devices.each_value do |d|
+				d.deviceMessages.each do |n|
+					a << createSearchResponse(n[0],n[1])
+				end
+				d.serviceMessages.each do |n|
+					a << createSearchResponse(n[0],n[1])
+				end
+			end
 		elsif target == "upnp:rootdevice"
 			a << createSearchResponse("upnp:rootdevice","uuid:#{@uuid}::upnp:rootdevice")
 		else
