@@ -142,6 +142,7 @@ class UPnPRootDevice < UPnPDevice
 			/^urn:schemas-upnp-org:device:(?<deviceType>\w+):(?<deviceVersion>\w+)$/ =~ target
 			/^urn:schemas-upnp-org:service:(?<serviceType>\w+):(?<serviceVersion>\w+)$/ =~ target
 			/^uuid:(?<uniqueDevice>\w+)$/ =~ target
+			binding.pry
 			if uniqueDevice != nil
 				devices.each_value do |d|
 					if uniqueDevice == d.uuid
@@ -149,9 +150,19 @@ class UPnPRootDevice < UPnPDevice
 					end
 				end
 			elsif (serviceVersion != nil) && (serviceType != nil)
-				# return matching services
+				devices.each_value do |d|
+					d.services.each do |s|
+						if (s.type == serviceType) && (s.version >= serviceVersion)
+							a << createSearchresponse("urn:schemas-upnp-org:service:#{serviceType}:#{serviceVersion}","uuid:#{d.uuid}:urn:schemas-upnp-org:service:#{serviceType}:#{serviceVersion}")
+						end
+					end
+				end
 			elsif (deviceVersion != nil) && (deviceType != nil)
-				# return matching devices
+				device.each_value do |d|
+					if (d.type == deviceType) && (d.version >= deviceVersion)
+						a << createSearchresponse("urn:schemas-upnp-org:device:#{deviceType}:#{deviceVersion}","uuid:#{d.uuid}:urn:schemas-upnp-org:device:#{deviceType}:#{deviceVersion}")
+					end
+				end
 			end
 		end
 			
