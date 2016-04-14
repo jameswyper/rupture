@@ -20,9 +20,12 @@ m3 = m + "urn:schemas-upnp-org:service:test_service:8"
 m4 = m + "urn:schemas-upnp-org:device:test_type:2"
 m5 = m + "uuid:" + root.uuid
 
-puts m3
 
-delay, response = root.handleSearch(m3)
+
+
+puts m5
+
+delay, response = root.handleSearch(m5)
 
 puts "response: delay=" + delay
 puts response
