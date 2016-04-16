@@ -27,10 +27,10 @@ class UPnPDevice
 	"manufacturer" => "M" ,
 	"manufacturerURL" => "O",
 	"modelDescription" => "O",
-	"modelname" => "M"
-	"modelNumber" => "M"
-	"modelURL" => "O"
-	"serialNumber" => "O"
+	"modelname" => "M",
+	"modelNumber" => "M",
+	"modelURL" => "O",
+	"serialNumber" => "O",
 	"UPC" => "O"
 	} 
 	
@@ -90,14 +90,15 @@ class UPnPDevice
 				ix.add_element("URL").add_text(i.URL)
 				il.add_element(ix.dup)
 			end
-		end
 		a << il
+		end
+		
 		
 		sl = REXML::Element.new("serviceList")
 		@services.each do |s|
 			sx = REXML::Element.new "service"
 			sx.add_element("serviceType").add_text("urn:schemas-upnp-org:service:#{s.type}:#{s.version}")
-			sx.add_element("serviceID").add_text("urn:upnp-org:serviceID:"+s.id)
+			sx.add_element("serviceID").add_text("urn:upnp-org:serviceID:#{s.type}")
 			sx.add_element("SCPDURL").add_text("#{URLBase}/#{@name}/SCPD/#{s.type}/#{s.version}")
 			sx.add_element("controlURL").add_text("#{URLBase}/#{@name}/control/#{s.type}/#{s.version}")
 			sx.add_element("eventSubURL").add_text("#{URLBase}/#{@name}/events/#{s.type}/#{s.version}")
@@ -116,6 +117,8 @@ class UPnPDevice
 		
 		return a
 	end
+	
+	
 end
 
 

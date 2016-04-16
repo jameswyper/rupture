@@ -30,4 +30,15 @@ delay, response = root.handleSearch(m5)
 puts "response: delay=" + delay
 puts response
 
+d = REXML::Document.new
+d << REXML::XMLDecl.new
+d << REXML::Element.new("root")
+root.deviceXMLDescription.each do |e|
+	d.root.add_element(e)
+end
+
+d.write($stdout, 4)
+puts
+
+
 # add search stuff
