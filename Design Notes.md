@@ -16,15 +16,15 @@ There are six things in UPnP that devices and/or services get involved with:
 
 2.  Discovery.  When a UPnP device starts up, it sends a series of "advertisment" messages using a protocol called SSDP.  These are sent as multicast UDP packets.  The number and content of the messages depends on whether the root device has any embedded devices, and which services are offered by the collection of devices.  There's a lot of boilerplate in the messages, the key things sent are the type and version for each device and each service offered by each device, as well as the uuid of the device (rupture assigns a uuid when any instance of UPnPDevice is created).  A URL that's used for stage 3 (Description) is also sent.
 
-The advertisment messages are repeated at a configurable interval, anything from 15 minutes upwards.
+  The advertisment messages are repeated at a configurable interval, anything from 15 minutes upwards.
 
-When the device shuts down (assuming it can do so gracefully) it will send another series of messages cancelling the advertisments.
+  When the device shuts down (assuming it can do so gracefully) it will send another series of messages cancelling the advertisments.
 
-The device also needs to listen for "search requests" which are sent by UPnP control points (things that request services) when they join the network (and maybe at other times?).  These search requests may ask for all root devices, all devices (root and embedded), devices or services of a specific type and version, or a device with a particular UUID.  The device must respond with information about the service(s) and device(s) that meet the request criteria, the format is similar to (and the key information the same as) the advertisments above.
+  The device also needs to listen for "search requests" which are sent by UPnP control points (things that request services) when they join the network (and maybe at other times?).  These search requests may ask for all root devices, all devices (root and embedded), devices or services of a specific type and version, or a device with a particular UUID.  The device must respond with information about the service(s) and device(s) that meet the request criteria, the format is similar to (and the key information the same as) the advertisments above.
 
-The search requests are also sent over multicast UDP, the responses are also sent over UDP but just to the IP address and port that the request came from.
+  The search requests are also sent over multicast UDP, the responses are also sent over UDP but just to the IP address and port that the request came from.
 
-All messages are clear text and have a fairly simple, rigid format (parsing the search request just takes a handful of regular expressions).
+  All messages are clear text and have a fairly simple, rigid format (parsing the search request just takes a handful of regular expressions).
 
 3.  Description.  Technically this is much simpler than discovery.  By this time a control point knows that a device of interest is out there, and what services are offered.  It also has the device's Description URL.  The control point fires a standard http request to the URL and the device responds with a summary in XML format of
     - the root device
