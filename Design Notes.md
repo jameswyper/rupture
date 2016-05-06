@@ -50,8 +50,8 @@ There are six things in UPnP that devices and/or services get involved with:
 
 In summary, rupture needs to do the following:
 
-Send multicast UDP messages (for advertisment and cancelling advertisments)
-Act as a server for multicast UDP messages (for search requests)
-Send non-multicast UDP messages (responding to search requests)
-Act as a http server (for Discovery, Control, Presentation and handling state variable subscriptions / renewals / cancellations)
-Act as a http client (sending event messages to control points when state variables change)
+Send multicast UDP messages (for advertisment and cancelling advertisments)  
+Act as a server for multicast UDP messages (for search requests)  
+Send non-multicast UDP messages (responding to search requests)  
+Act as a http server (for Discovery, Control, Presentation and handling state variable subscriptions / renewals / cancellations)  
+Act as a http client (sending event messages to control points when state variables change)  
