@@ -155,7 +155,7 @@ class UPnPRootDevice < UPnPDevice
 # standard text for the HOST HTTP header used in Discovery	
 	HOST = "HOST: 239.255.255.250:1900"
 	
-	attr_reader :devices
+	attr_reader :devices, :cacheControl
 
 	def initialize(type,version,ip,port,product)
 		super("root",type,version)
