@@ -4,8 +4,10 @@ require 'time'
 require 'pry'
 require 'rexml/document'
 
+# Constant - used to namespace the URLs that will be handled e.g. 1.2.3.4/rupture/whatever
 URLBase = "rupture"
 
+# Simple structure to hold information about an Icon
 class UPnPIcon
 	attr_reader :type, :width, :height, :depth, :path, :url
 	def initialize(t,w,h,d,p)
@@ -18,10 +20,15 @@ class UPnPIcon
 	end
 end
 
+=begin rdoc
+  The base class describing a UPnP device.  Implementations should derive a class from this or #UPnPRootDevice depending on how the devices are modelled.
+  The UPnP specification allows for devices to be contained within a root device, or for there to be just a single root device.
+  I can't see why anyone would want to bother set up contained devices but the code will attempt to handle it.
+=end
 class UPnPDevice
 	
-	#list all device properties and whether they are mandatory or optional
-	
+	# Hash containing all valid device properties from the UPnP spec and whether they are mandatory or optional
+	# The properties variable will hold the actual properties used in this device
 	@@allProperties = {
 	"friendlyName" => "M" ,
 	"manufacturer" => "M" ,
@@ -34,6 +41,11 @@ class UPnPDevice
 	"UPC" => "O"
 	} 
 	
+=begin rdoc
+  [name] the name of the UPnP device
+  [type] the type (should be a UPnP standard e.g. MediaServer)
+  [version] UPnP device types can have multiple versions, this specifies which one we are supporting
+=end 
 	def initialize(name,type,version)
 		@services=Array.new
 		@uuid=SecureRandom.uuid
@@ -44,6 +56,7 @@ class UPnPDevice
 		@icons = Array.new
 	end
 	
+	# trivial method to add a new service to the list of supported ones.  Expected to be called during setup only.  No support for removing services.
 	def addService(service)
 		@services << service
 	end
@@ -51,13 +64,21 @@ class UPnPDevice
 	attr_reader :services, :name, :uuid, :type, :version
 	attr_accessor :properties, :icons
 	
+=begin rdoc
+    The UPnP spec specifies (Step 1 - discovery) that a message is sent on startup, periodically, and in response to a search request with the essential elements of the UPnP root device,
+    any embedded devices and services.  This method helps to construct that message for devices.  #serviceMessages does the same for services.  
+    They should only be needed by the methods in the #UPnPRootDevice class
+=end
 	def deviceMessages
 		a = Array.new
 		a << ["uuid:#{@uuid}","uuid:#{@uuid}"]
 		a << ["urn:schemas-upnp-org:device:#{@type}:#{@version}","uuid:#{@uuid}:urn:schemas-upnp-org:device:#{@type}:#{@version}"]
 		return a
 	end
-		
+	
+=begin rdoc
+    Similar helper method to that for #deviceMessages
+=end
 	def serviceMessages
 		a = Array.new
 		@services.each do |s|
@@ -65,6 +86,11 @@ class UPnPDevice
 		end
 		return a
 	end
+	
+=begin rdoc
+     For Step 2 - description.  Once a client has discovered a device it will then request more detailed information about the device and the services offered.
+     This information is constructed as an XML message.
+=end
 	
 	def deviceXMLDescription
 		a  = Array.new
@@ -124,7 +150,9 @@ end
 
 class UPnPRootDevice < UPnPDevice
 
+# standard text for the NOTIFY HTTP header used in Discovery
 	NOTIFY  = "NOTIFY * HTTP/1.1"
+# standard text for the HOST HTTP header used in Discovery	
 	HOST = "HOST: 239.255.255.250:1900"
 	
 	attr_reader :devices
@@ -139,11 +167,13 @@ class UPnPRootDevice < UPnPDevice
 		@cacheControl = 1800
 	end
 
+# trivial method to add devices to a root device, it's just a list.  No support for removing them.  Should only be called at runtime.
 	def addDevice(device)
 		@devices.store(device.name,device)
 	end
 	
-	def createAliveMessage(nt,usn) #creates a single message to multicast
+# For Step 1 - discovery.  Helper method to create a single message that will be multicast. Called by #keepAlive, not intended to be called elsewhere	
+	def createAliveMessage(nt,usn) 
 		s = String.new
 		s << NOTIFY << "\n" << HOST << "\n"
 		s << "CACHE-CONTROL: " << @cachecontrol.to_s << "\n"
@@ -155,7 +185,8 @@ class UPnPRootDevice < UPnPDevice
 		return s
 	end
 	
-	def keepAlive #creates all messages for root & embedded devices and services
+# For Step 1 - discovery.  The keepAlive process creates a series of messages for each device and service	
+	def keepAlive 
 		a = Array.new
 		a << createAliveMessage("upnp:rootdevice","uuid:#{@uuid}::upnp:rootdevice")
 		@devices.each_value do |d|
@@ -168,7 +199,8 @@ class UPnPRootDevice < UPnPDevice
 		end
 		return a
 	end
-	
+
+# For Step 1 - discovery.  Helper method to create a single message that will be multicast. Called by #byeBye, not intended to be called elsewhere	
 	def createByeByeMessage(nt,usn)
 		s = String.new
 		s << NOTIFY << "\n" << HOST << "\n"
@@ -177,7 +209,8 @@ class UPnPRootDevice < UPnPDevice
 		s << "USN: uuid:#{usn}\n\n"
 		return s
 	end
-	
+
+# For Step 1 - discovery.  The byeBye process creates a series of messages for each device and service.  To be called upon shutdown of the root device
 	def byeBye
 		a = Array.new
 		a << createByeByeMessage("upnp:rootdevice","#{@uuid}::upnp:rootdevice")
@@ -192,6 +225,8 @@ class UPnPRootDevice < UPnPDevice
 		return a
 	end
 
+
+# For Step 1 - discovery.  Helper method to create a single message that will be multicast. Called by #handleSearch, not intended to be called elsewhere	
 	def createSearchResponse(st,usn)
 		s = String.new
 		s << NOTIFY << " 200 OK \n" 
@@ -204,7 +239,13 @@ class UPnPRootDevice < UPnPDevice
 		return s
 	end
 
-
+=begin
+     Client devices searching for devices on the network will send a brief search message via UDP multicast.  This message contains some standard text and two
+     parameters - a search target describing what the client is looking for (everything, root device, a specific device or service) and how long to wait in seconds
+     before sending the response.
+     This method constructs the response based on what the client asked for and also extracts the delay parameter to pass back
+     FIXME doesn't handle the case where there's no match between what the client wants and we have
+=end
 	def handleSearch(message)
 		a = Array.new
 		line = message.split("\n")
@@ -257,6 +298,12 @@ class UPnPRootDevice < UPnPDevice
 		
 	
 end
+
+=begin
+   A UPnP Service consists of state variables and actions, this is a simple base class to hold essential information about the service
+   A real service should implement a class derived from this one, set up the state variables and actions (which are also derived from simple base classes #UPnPAction
+   and #UPnPStateVariable) and use #addStateVariable and #addAction to associate them with the service
+=end
 
 class UPnPService
 	attr_reader :type, :version, :actions, :stateVariables

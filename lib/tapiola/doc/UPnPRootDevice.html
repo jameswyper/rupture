@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<meta charset="UTF-8">
+
+<title>class UPnPRootDevice - RDoc Documentation</title>
+
+<script type="text/javascript">
+  var rdoc_rel_prefix = "./";
+</script>
+
+<script src="./js/jquery.js"></script>
+<script src="./js/darkfish.js"></script>
+
+<link href="./css/fonts.css" rel="stylesheet">
+<link href="./css/rdoc.css" rel="stylesheet">
+
+
+
+<body id="top" role="document" class="class">
+<nav role="navigation">
+  <div id="project-navigation">
+    <div id="home-section" role="region" title="Quick navigation" class="nav-section">
+  <h2>
+    <a href="./index.html" rel="home">Home</a>
+  </h2>
+
+  <div id="table-of-contents-navigation">
+    <a href="./table_of_contents.html#pages">Pages</a>
+    <a href="./table_of_contents.html#classes">Classes</a>
+    <a href="./table_of_contents.html#methods">Methods</a>
+  </div>
+</div>
+
+    <div id="search-section" role="search" class="project-section initially-hidden">
+  <form action="#" method="get" accept-charset="utf-8">
+    <div id="search-field-wrapper">
+      <input id="search-field" role="combobox" aria-label="Search"
+             aria-autocomplete="list" aria-controls="search-results"
+             type="text" name="search" placeholder="Search" spellcheck="false"
+             title="Type to search, Up and Down to navigate, Enter to load">
+    </div>
+
+    <ul id="search-results" aria-label="Search Results"
+        aria-busy="false" aria-expanded="false"
+        aria-atomic="false" class="initially-hidden"></ul>
+  </form>
+</div>
+
+  </div>
+
+  
+
+  <div id="class-metadata">
+    
+    <div id="parent-class-section" class="nav-section">
+  <h3>Parent</h3>
+
+  
+  <p class="link"><a href="UPnPDevice.html">UPnPDevice</a>
+  
+</div>
+
+    
+    
+    <!-- Method Quickref -->
+<div id="method-list-section" class="nav-section">
+  <h3>Methods</h3>
+
+  <ul class="link-list" role="directory">
+    
+    <li class="calls-super" ><a href="#method-c-new">::new</a>
+    
+    <li ><a href="#method-i-addDevice">#addDevice</a>
+    
+    <li ><a href="#method-i-byeBye">#byeBye</a>
+    
+    <li ><a href="#method-i-createAliveMessage">#createAliveMessage</a>
+    
+    <li ><a href="#method-i-createByeByeMessage">#createByeByeMessage</a>
+    
+    <li ><a href="#method-i-createSearchResponse">#createSearchResponse</a>
+    
+    <li ><a href="#method-i-handleSearch">#handleSearch</a>
+    
+    <li ><a href="#method-i-keepAlive">#keepAlive</a>
+    
+  </ul>
+</div>
+
+  </div>
+</nav>
+
+<main role="main" aria-labelledby="class-UPnPRootDevice">
+  <h1 id="class-UPnPRootDevice" class="class">
+    class UPnPRootDevice
+  </h1>
+
+  <section class="description">
+    
+  </section>
+
+  
+  
+  
+  <section id="5Buntitled-5D" class="documentation-section">
+    
+
+    
+
+    
+    <section class="constants-list">
+      <header>
+        <h3>Constants</h3>
+      </header>
+      <dl>
+      
+        <dt id="HOST">HOST
+        
+        <dd>
+        
+      
+        <dt id="NOTIFY">NOTIFY
+        
+        <dd><p>some standard constants to save typing</p>
+        
+      
+      </dl>
+    </section>
+    
+
+    
+    <section class="attribute-method-details" class="method-section">
+      <header>
+        <h3>Attributes</h3>
+      </header>
+
+      
+      <div id="attribute-i-devices" class="method-detail">
+        <div class="method-heading attribute-method-heading">
+          <span class="method-name">devices</span><span
+            class="attribute-access-type">[R]</span>
+        </div>
+
+        <div class="method-description">
+        
+        
+        
+        </div>
+      </div>
+      
+    </section>
+    
+
+    
+     <section id="public-class-5Buntitled-5D-method-details" class="method-section">
+       <header>
+         <h3>Public Class Methods</h3>
+       </header>
+
+    
+      <div id="method-c-new" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">new</span><span
+            class="method-args">(type,version,ip,port,product)</span>
+          
+          <span class="method-click-advice">click to toggle source</span>
+          
+        </div>
+        
+
+        <div class="method-description">
+          
+          
+          
+          
+            <div class="method-calls-super">
+              Calls superclass method
+              <a href="UPnPDevice.html#method-c-new">UPnPDevice.new</a>
+            </div>
+          
+
+          
+          <div class="method-source-code" id="new-source">
+            <pre><span class="ruby-comment"># File UPnPBase.rb, line 159</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">initialize</span>(<span class="ruby-identifier">type</span>,<span class="ruby-identifier">version</span>,<span class="ruby-identifier">ip</span>,<span class="ruby-identifier">port</span>,<span class="ruby-identifier">product</span>)
+        <span class="ruby-keyword">super</span>(<span class="ruby-string">&quot;root&quot;</span>,<span class="ruby-identifier">type</span>,<span class="ruby-identifier">version</span>)
+        <span class="ruby-ivar">@devices</span>=<span class="ruby-constant">Hash</span>.<span class="ruby-identifier">new</span>
+        <span class="ruby-identifier">addDevice</span>(<span class="ruby-keyword">self</span>)
+        <span class="ruby-ivar">@location</span>= <span class="ruby-node">&quot;http://#{ip}:#{port}/#{URLBase}/description&quot;</span>
+        <span class="ruby-ivar">@product</span> = <span class="ruby-identifier">product</span>
+        <span class="ruby-ivar">@os</span> = <span class="ruby-string">&quot;Linux/3&quot;</span> <span class="ruby-comment">#this should be dynamic but who uses it?</span>
+        <span class="ruby-ivar">@cacheControl</span> = <span class="ruby-value">1800</span>
+<span class="ruby-keyword">end</span></pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </section>
+  
+     <section id="public-instance-5Buntitled-5D-method-details" class="method-section">
+       <header>
+         <h3>Public Instance Methods</h3>
+       </header>
+
+    
+      <div id="method-i-addDevice" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">addDevice</span><span
+            class="method-args">(device)</span>
+          
+          <span class="method-click-advice">click to toggle source</span>
+          
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>trivial method to add devices to a root device, it&#39;s just a list.  No
+support for removing them.  Should only be called at runtime.</p>
+          
+          
+
+          
+          <div class="method-source-code" id="addDevice-source">
+            <pre><span class="ruby-comment"># File UPnPBase.rb, line 170</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">addDevice</span>(<span class="ruby-identifier">device</span>)
+        <span class="ruby-ivar">@devices</span>.<span class="ruby-identifier">store</span>(<span class="ruby-identifier">device</span>.<span class="ruby-identifier">name</span>,<span class="ruby-identifier">device</span>)
+<span class="ruby-keyword">end</span></pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="method-i-byeBye" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">byeBye</span><span
+            class="method-args">()</span>
+          
+          <span class="method-click-advice">click to toggle source</span>
+          
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>For Step 1 - discovery.  The byeBye process creates a series of messages
+for each device and service.  To be called upon shutdown of the root device</p>
+          
+          
+
+          
+          <div class="method-source-code" id="byeBye-source">
+            <pre><span class="ruby-comment"># File UPnPBase.rb, line 213</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">byeBye</span>
+        <span class="ruby-identifier">a</span> = <span class="ruby-constant">Array</span>.<span class="ruby-identifier">new</span>
+        <span class="ruby-identifier">a</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">createByeByeMessage</span>(<span class="ruby-string">&quot;upnp:rootdevice&quot;</span>,<span class="ruby-node">&quot;#{@uuid}::upnp:rootdevice&quot;</span>)
+        <span class="ruby-ivar">@devices</span>.<span class="ruby-identifier">each_value</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">d</span><span class="ruby-operator">|</span>
+                <span class="ruby-identifier">d</span>.<span class="ruby-identifier">deviceMessages</span>.<span class="ruby-identifier">each</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">n</span><span class="ruby-operator">|</span>
+                        <span class="ruby-identifier">a</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">createByeByeMessage</span>(<span class="ruby-identifier">n</span>[<span class="ruby-value">0</span>],<span class="ruby-identifier">n</span>[<span class="ruby-value">1</span>])
+                <span class="ruby-keyword">end</span>
+                <span class="ruby-identifier">d</span>.<span class="ruby-identifier">serviceMessages</span>.<span class="ruby-identifier">each</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">n</span><span class="ruby-operator">|</span>
+                        <span class="ruby-identifier">a</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">createByeByeMessage</span>(<span class="ruby-identifier">n</span>[<span class="ruby-value">0</span>],<span class="ruby-identifier">n</span>[<span class="ruby-value">1</span>])
+                <span class="ruby-keyword">end</span>
+        <span class="ruby-keyword">end</span>
+        <span class="ruby-keyword">return</span> <span class="ruby-identifier">a</span>
+<span class="ruby-keyword">end</span></pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="method-i-createAliveMessage" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">createAliveMessage</span><span
+            class="method-args">(nt,usn)</span>
+          
+          <span class="method-click-advice">click to toggle source</span>
+          
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>For Step 1 - discovery.  Helper method to create a single message that will
+be multicast. Called by <a
+href="UPnPRootDevice.html#method-i-keepAlive">keepAlive</a>, not intended
+to be called elsewhere</p>
+          
+          
+
+          
+          <div class="method-source-code" id="createAliveMessage-source">
+            <pre><span class="ruby-comment"># File UPnPBase.rb, line 175</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">createAliveMessage</span>(<span class="ruby-identifier">nt</span>,<span class="ruby-identifier">usn</span>) 
+        <span class="ruby-identifier">s</span> = <span class="ruby-constant">String</span>.<span class="ruby-identifier">new</span>
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-constant">NOTIFY</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-string">&quot;\n&quot;</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-constant">HOST</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-string">&quot;\n&quot;</span>
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-string">&quot;CACHE-CONTROL: &quot;</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-ivar">@cachecontrol</span>.<span class="ruby-identifier">to_s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-string">&quot;\n&quot;</span>
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;LOCATION: #{@location}\n&quot;</span>
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;NT: #{nt}\n&quot;</span>
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-string">&quot;NTS: ssdp:alive\n&quot;</span>
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;SERVER: #{@os} UPnP/1.0 #{@product}\n&quot;</span>
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;USN: #{usn}\n\n&quot;</span>
+        <span class="ruby-keyword">return</span> <span class="ruby-identifier">s</span>
+<span class="ruby-keyword">end</span></pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="method-i-createByeByeMessage" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">createByeByeMessage</span><span
+            class="method-args">(nt,usn)</span>
+          
+          <span class="method-click-advice">click to toggle source</span>
+          
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>For Step 1 - discovery.  Helper method to create a single message that will
+be multicast. Called by <a
+href="UPnPRootDevice.html#method-i-byeBye">byeBye</a>, not intended to be
+called elsewhere</p>
+          
+          
+
+          
+          <div class="method-source-code" id="createByeByeMessage-source">
+            <pre><span class="ruby-comment"># File UPnPBase.rb, line 203</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">createByeByeMessage</span>(<span class="ruby-identifier">nt</span>,<span class="ruby-identifier">usn</span>)
+        <span class="ruby-identifier">s</span> = <span class="ruby-constant">String</span>.<span class="ruby-identifier">new</span>
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-constant">NOTIFY</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-string">&quot;\n&quot;</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-constant">HOST</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-string">&quot;\n&quot;</span>
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;NT: #{nt}\n&quot;</span>
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-string">&quot;NTS: ssdp:byebye\n&quot;</span>
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;USN: uuid:#{usn}\n\n&quot;</span>
+        <span class="ruby-keyword">return</span> <span class="ruby-identifier">s</span>
+<span class="ruby-keyword">end</span></pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="method-i-createSearchResponse" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">createSearchResponse</span><span
+            class="method-args">(st,usn)</span>
+          
+          <span class="method-click-advice">click to toggle source</span>
+          
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>For Step 1 - discovery.  Helper method to create a single message that will
+be multicast. Called by <a
+href="UPnPRootDevice.html#method-i-handleSearch">handleSearch</a>, not
+intended to be called elsewhere</p>
+          
+          
+
+          
+          <div class="method-source-code" id="createSearchResponse-source">
+            <pre><span class="ruby-comment"># File UPnPBase.rb, line 229</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">createSearchResponse</span>(<span class="ruby-identifier">st</span>,<span class="ruby-identifier">usn</span>)
+        <span class="ruby-identifier">s</span> = <span class="ruby-constant">String</span>.<span class="ruby-identifier">new</span>
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-constant">NOTIFY</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-string">&quot; 200 OK \n&quot;</span> 
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-string">&quot;CACHE-CONTROL: &quot;</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-ivar">@cacheControl</span>.<span class="ruby-identifier">to_s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-string">&quot;\n&quot;</span>
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-string">&quot;DATE: &quot;</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-constant">Time</span>.<span class="ruby-identifier">now</span>.<span class="ruby-identifier">rfc822</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-string">&quot;\n&quot;</span> 
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;LOCATION: #{@location}\n&quot;</span>
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;SERVER: #{@os} UPnP/1.0 #{@product}\n&quot;</span>
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;ST: #{st}\n&quot;</span>
+        <span class="ruby-identifier">s</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-node">&quot;USN: #{usn}\n\n&quot;</span>
+        <span class="ruby-keyword">return</span> <span class="ruby-identifier">s</span>
+<span class="ruby-keyword">end</span></pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="method-i-handleSearch" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">handleSearch</span><span
+            class="method-args">(message)</span>
+          
+          <span class="method-click-advice">click to toggle source</span>
+          
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>Client devices searching for devices on the network will send a brief
+search message via UDP multicast.  This message contains some standard text
+and two parameters - a search target describing what the client is looking
+for (everything, root device, a specific device or service) and how long to
+wait in seconds before sending the response. This method constructs the
+response based on what the client asked for and also extracts the delay
+parameter to pass back FIXME doesn&#39;t handle the case where there&#39;s
+no match between what the client wants and we have</p>
+          
+          
+
+          
+          <div class="method-source-code" id="handleSearch-source">
+            <pre><span class="ruby-comment"># File UPnPBase.rb, line 248</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">handleSearch</span>(<span class="ruby-identifier">message</span>)
+        <span class="ruby-identifier">a</span> = <span class="ruby-constant">Array</span>.<span class="ruby-identifier">new</span>
+        <span class="ruby-identifier">line</span> = <span class="ruby-identifier">message</span>.<span class="ruby-identifier">split</span>(<span class="ruby-string">&quot;\n&quot;</span>)
+        <span class="ruby-regexp">/MX: (?&lt;delay&gt;\w+)/</span> <span class="ruby-operator">=~</span> <span class="ruby-identifier">line</span>[<span class="ruby-value">3</span>]
+        <span class="ruby-regexp">/ST: (?&lt;target&gt;.*)/</span> <span class="ruby-operator">=~</span> <span class="ruby-identifier">line</span>[<span class="ruby-value">4</span>]
+        <span class="ruby-identifier">target</span>.<span class="ruby-identifier">chomp!</span>
+        <span class="ruby-keyword">if</span> <span class="ruby-identifier">target</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;ssdp:all&quot;</span>
+                <span class="ruby-identifier">a</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">createSearchResponse</span>(<span class="ruby-string">&quot;upnp:rootdevice&quot;</span>,<span class="ruby-node">&quot;uuid:#{@uuid}::upnp:rootdevice&quot;</span>)
+                <span class="ruby-ivar">@devices</span>.<span class="ruby-identifier">each_value</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">d</span><span class="ruby-operator">|</span>
+                        <span class="ruby-identifier">d</span>.<span class="ruby-identifier">deviceMessages</span>.<span class="ruby-identifier">each</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">n</span><span class="ruby-operator">|</span>
+                                <span class="ruby-identifier">a</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">createSearchResponse</span>(<span class="ruby-identifier">n</span>[<span class="ruby-value">0</span>],<span class="ruby-identifier">n</span>[<span class="ruby-value">1</span>])
+                        <span class="ruby-keyword">end</span>
+                        <span class="ruby-identifier">d</span>.<span class="ruby-identifier">serviceMessages</span>.<span class="ruby-identifier">each</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">n</span><span class="ruby-operator">|</span>
+                                <span class="ruby-identifier">a</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">createSearchResponse</span>(<span class="ruby-identifier">n</span>[<span class="ruby-value">0</span>],<span class="ruby-identifier">n</span>[<span class="ruby-value">1</span>])
+                        <span class="ruby-keyword">end</span>
+                <span class="ruby-keyword">end</span>
+        <span class="ruby-keyword">elsif</span> <span class="ruby-identifier">target</span> <span class="ruby-operator">==</span> <span class="ruby-string">&quot;upnp:rootdevice&quot;</span>
+                <span class="ruby-identifier">a</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">createSearchResponse</span>(<span class="ruby-string">&quot;upnp:rootdevice&quot;</span>,<span class="ruby-node">&quot;uuid:#{@uuid}::upnp:rootdevice&quot;</span>)
+        <span class="ruby-keyword">else</span>
+                <span class="ruby-regexp">/^urn:schemas-upnp-org:device:(?&lt;deviceType&gt;\w+):(?&lt;deviceVersion&gt;\d+)$/</span> <span class="ruby-operator">=~</span> <span class="ruby-identifier">target</span>
+                <span class="ruby-regexp">/^urn:schemas-upnp-org:service:(?&lt;serviceType&gt;\w+):(?&lt;serviceVersion&gt;\d+)$/</span> <span class="ruby-operator">=~</span> <span class="ruby-identifier">target</span>
+                <span class="ruby-regexp">/^uuid:(?&lt;uniqueDevice&gt;.*)$/</span> <span class="ruby-operator">=~</span> <span class="ruby-identifier">target</span>
+                <span class="ruby-keyword">if</span> <span class="ruby-identifier">uniqueDevice</span> <span class="ruby-operator">!=</span> <span class="ruby-keyword">nil</span>
+                        <span class="ruby-identifier">devices</span>.<span class="ruby-identifier">each_value</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">d</span><span class="ruby-operator">|</span>
+                                <span class="ruby-keyword">if</span> <span class="ruby-identifier">uniqueDevice</span> <span class="ruby-operator">==</span> <span class="ruby-identifier">d</span>.<span class="ruby-identifier">uuid</span>
+                                        <span class="ruby-identifier">a</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">createSearchResponse</span>(<span class="ruby-node">&quot;uuid:#{@uuid}&quot;</span>,<span class="ruby-node">&quot;uuid:#{@uuid}&quot;</span>)
+                                <span class="ruby-keyword">end</span>
+                        <span class="ruby-keyword">end</span>
+                <span class="ruby-keyword">elsif</span> (<span class="ruby-identifier">serviceVersion</span> <span class="ruby-operator">!=</span> <span class="ruby-keyword">nil</span>) <span class="ruby-operator">&amp;&amp;</span> (<span class="ruby-identifier">serviceType</span> <span class="ruby-operator">!=</span> <span class="ruby-keyword">nil</span>)
+                        <span class="ruby-identifier">devices</span>.<span class="ruby-identifier">each_value</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">d</span><span class="ruby-operator">|</span>
+                                <span class="ruby-identifier">d</span>.<span class="ruby-identifier">services</span>.<span class="ruby-identifier">each</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">s</span><span class="ruby-operator">|</span>
+                                        <span class="ruby-comment">#binding.pry</span>
+                                        <span class="ruby-keyword">if</span> (<span class="ruby-identifier">s</span>.<span class="ruby-identifier">type</span> <span class="ruby-operator">==</span> <span class="ruby-identifier">serviceType</span>) <span class="ruby-operator">&amp;&amp;</span> (<span class="ruby-identifier">s</span>.<span class="ruby-identifier">version</span> <span class="ruby-operator">&gt;=</span> <span class="ruby-identifier">serviceVersion</span>.<span class="ruby-identifier">to_i</span>)
+                                                <span class="ruby-identifier">a</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">createSearchResponse</span>(<span class="ruby-node">&quot;urn:schemas-upnp-org:service:#{serviceType}:#{serviceVersion}&quot;</span>,<span class="ruby-node">&quot;uuid:#{d.uuid}:urn:schemas-upnp-org:service:#{serviceType}:#{serviceVersion}&quot;</span>)
+                                        <span class="ruby-keyword">end</span>
+                                <span class="ruby-keyword">end</span>
+                        <span class="ruby-keyword">end</span>
+                <span class="ruby-keyword">elsif</span> (<span class="ruby-identifier">deviceVersion</span> <span class="ruby-operator">!=</span> <span class="ruby-keyword">nil</span>) <span class="ruby-operator">&amp;&amp;</span> (<span class="ruby-identifier">deviceType</span> <span class="ruby-operator">!=</span> <span class="ruby-keyword">nil</span>)
+                        <span class="ruby-identifier">devices</span>.<span class="ruby-identifier">each_value</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">d</span><span class="ruby-operator">|</span>
+                                <span class="ruby-keyword">if</span> (<span class="ruby-identifier">d</span>.<span class="ruby-identifier">type</span> <span class="ruby-operator">==</span> <span class="ruby-identifier">deviceType</span>) <span class="ruby-operator">&amp;&amp;</span> (<span class="ruby-identifier">d</span>.<span class="ruby-identifier">version</span> <span class="ruby-operator">&gt;=</span> <span class="ruby-identifier">deviceVersion</span>.<span class="ruby-identifier">to_i</span>)
+                                        <span class="ruby-identifier">a</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">createSearchResponse</span>(<span class="ruby-node">&quot;urn:schemas-upnp-org:device:#{deviceType}:#{deviceVersion}&quot;</span>,<span class="ruby-node">&quot;uuid:#{d.uuid}:urn:schemas-upnp-org:device:#{deviceType}:#{deviceVersion}&quot;</span>)
+                                <span class="ruby-keyword">end</span>
+                        <span class="ruby-keyword">end</span>
+                <span class="ruby-keyword">end</span>
+        <span class="ruby-keyword">end</span>
+                
+                
+        <span class="ruby-keyword">return</span> <span class="ruby-identifier">delay</span>, <span class="ruby-identifier">a</span>
+<span class="ruby-keyword">end</span></pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+      <div id="method-i-keepAlive" class="method-detail ">
+        
+        <div class="method-heading">
+          <span class="method-name">keepAlive</span><span
+            class="method-args">()</span>
+          
+          <span class="method-click-advice">click to toggle source</span>
+          
+        </div>
+        
+
+        <div class="method-description">
+          
+          <p>For Step 1 - discovery.  The keepAlive process creates a series of messages
+for each device and service</p>
+          
+          
+
+          
+          <div class="method-source-code" id="keepAlive-source">
+            <pre><span class="ruby-comment"># File UPnPBase.rb, line 188</span>
+<span class="ruby-keyword">def</span> <span class="ruby-identifier">keepAlive</span> 
+        <span class="ruby-identifier">a</span> = <span class="ruby-constant">Array</span>.<span class="ruby-identifier">new</span>
+        <span class="ruby-identifier">a</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">createAliveMessage</span>(<span class="ruby-string">&quot;upnp:rootdevice&quot;</span>,<span class="ruby-node">&quot;uuid:#{@uuid}::upnp:rootdevice&quot;</span>)
+        <span class="ruby-ivar">@devices</span>.<span class="ruby-identifier">each_value</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">d</span><span class="ruby-operator">|</span>
+                <span class="ruby-identifier">d</span>.<span class="ruby-identifier">deviceMessages</span>.<span class="ruby-identifier">each</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">n</span><span class="ruby-operator">|</span>
+                        <span class="ruby-identifier">a</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">createAliveMessage</span>(<span class="ruby-identifier">n</span>[<span class="ruby-value">0</span>],<span class="ruby-identifier">n</span>[<span class="ruby-value">1</span>])
+                <span class="ruby-keyword">end</span>
+                <span class="ruby-identifier">d</span>.<span class="ruby-identifier">serviceMessages</span>.<span class="ruby-identifier">each</span> <span class="ruby-keyword">do</span> <span class="ruby-operator">|</span><span class="ruby-identifier">n</span><span class="ruby-operator">|</span>
+                        <span class="ruby-identifier">a</span> <span class="ruby-operator">&lt;&lt;</span> <span class="ruby-identifier">createAliveMessage</span>(<span class="ruby-identifier">n</span>[<span class="ruby-value">0</span>],<span class="ruby-identifier">n</span>[<span class="ruby-value">1</span>])
+                <span class="ruby-keyword">end</span>
+        <span class="ruby-keyword">end</span>
+        <span class="ruby-keyword">return</span> <span class="ruby-identifier">a</span>
+<span class="ruby-keyword">end</span></pre>
+          </div>
+          
+        </div>
+
+        
+
+        
+      </div>
+
+    
+    </section>
+  
+  </section>
+</main>
+
+
+<footer id="validator-badges" role="contentinfo">
+  <p><a href="http://validator.w3.org/check/referer">Validate</a>
+  <p>Generated by <a href="http://docs.seattlerb.org/rdoc/">RDoc</a> 4.2.1.
+  <p>Based on <a href="http://deveiate.org/projects/Darkfish-RDoc/">Darkfish</a> by <a href="http://deveiate.org">Michael Granger</a>.
+</footer>
+
