@@ -1,6 +1,6 @@
 
-require_relative 'UPnPBase'
-require 'pry'
+require_relative '../lib/tapiola/UPnPBase'
+#require 'pry'
 
 root = UPnPRootDevice.new("test_type",2,"127.0.0.1",54321,"test UPnP server v0000")
 root.addService(UPnPService.new("test_service",9))
@@ -8,7 +8,7 @@ root.addService(UPnPService.new("test_other_service",8))
 
 root.keepAlive.each { |s| puts s}
 
-#root.byeBye.each { |s| puts s }
+root.byeBye.each { |s| puts s }
 
 m= "M-SEARCH * HTTP 1.1\nHOST: 239.255.255.150:1900\nMAN: "
 m << '"ssdp:discover"'

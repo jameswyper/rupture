@@ -176,7 +176,7 @@ class UPnPRootDevice < UPnPDevice
 	def createAliveMessage(nt,usn) 
 		s = String.new
 		s << NOTIFY << "\n" << HOST << "\n"
-		s << "CACHE-CONTROL: " << @cachecontrol.to_s << "\n"
+		s << "CACHE-CONTROL: max-age = " << @cacheControl.to_s << "\n"
 		s << "LOCATION: #{@location}\n"
 		s << "NT: #{nt}\n"
 		s << "NTS: ssdp:alive\n"
