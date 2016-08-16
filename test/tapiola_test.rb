@@ -6,9 +6,9 @@ root = UPnPRootDevice.new("test_type",2,"127.0.0.1",54321,"test UPnP server v000
 root.addService(UPnPService.new("test_service",9))
 root.addService(UPnPService.new("test_other_service",8))
 
-root.keepAlive.each { |s| puts s}
+#root.keepAlive.each { |s| puts s}
 
-root.byeBye.each { |s| puts s }
+#root.byeBye.each { |s| puts s }
 
 m= "M-SEARCH * HTTP 1.1\nHOST: 239.255.255.150:1900\nMAN: "
 m << '"ssdp:discover"'
@@ -25,7 +25,7 @@ m5 = m + "uuid:" + root.uuid
 
 puts m5
 
-delay, response = root.handleSearch(m5)
+delay, response = root.handleSearch(m1)
 
 puts "response: delay=" + delay
 puts response

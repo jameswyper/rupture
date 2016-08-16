@@ -206,14 +206,14 @@ class UPnPRootDevice < UPnPDevice
 		s << NOTIFY << "\n" << HOST << "\n"
 		s << "NT: #{nt}\n"
 		s << "NTS: ssdp:byebye\n"
-		s << "USN: uuid:#{usn}\n\n"
+		s << "USN: #{usn}\n\n"
 		return s
 	end
 
 # For Step 1 - discovery.  The byeBye process creates a series of messages for each device and service.  To be called upon shutdown of the root device
 	def byeBye
 		a = Array.new
-		a << createByeByeMessage("upnp:rootdevice","#{@uuid}::upnp:rootdevice")
+		a << createByeByeMessage("upnp:rootdevice","uuid:#{@uuid}::upnp:rootdevice")
 		@devices.each_value do |d|
 			d.deviceMessages.each do |n|
 				a << createByeByeMessage(n[0],n[1])
