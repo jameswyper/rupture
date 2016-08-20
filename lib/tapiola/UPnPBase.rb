@@ -9,7 +9,24 @@ URLBase = "rupture"
 
 # Simple structure to hold information about an Icon
 class UPnPIcon
-	attr_reader :type, :width, :height, :depth, :path, :url
+	
+	# class variable to hold reference (by URL) to each icon
+	@@icons = Hash.new
+	
+	# MIME type e.g "image/png"
+	attr_reader :type   
+	# width in pixels
+	attr_reader :width
+	# height in pixels
+	attr_reader :height
+	# colour depth - bits per pixel
+	attr_reader :depth
+	# path to where the icon is stored on the filesystem.  Might need to turn this into a method.
+	attr_reader :path
+	# url where clients will be able to access the icon from
+	attr_reader :url
+	
+	# create an icon object and add it to the collection
 	def initialize(t,w,h,d,p)
 		@type = t
 		@width = w
@@ -17,7 +34,9 @@ class UPnPIcon
 		@depth = d
 		@path = p
 		@url = "icons/" + SecureRandom.uuid
+		@@icons[@url.dup] = self
 	end
+	
 end
 
 =begin rdoc
@@ -61,8 +80,20 @@ class UPnPDevice
 		@services << service
 	end
 	
-	attr_reader :services, :name, :uuid, :type, :version
-	attr_accessor :properties, :icons
+	# set of services supported by the device
+	attr_reader :services
+	# device name
+	attr_accessor :name 
+	# Unique ID in uuid format for the device, generated when it is first created
+	attr_accessor :uuid 
+	# UPnP device type e.g. "MediaServer"
+	attr_accessor :type 
+	# UPnP device version (an integer)
+	attr_accessor :version
+	# Hash containing the name and value of all the properties for the device e.g. Manufacturer, Serial Number etc.  All valid properties are held in #allProperties
+	attr_accessor :properties
+	# Array of icons representing the device
+	attr_accessor :icons
 	
 =begin rdoc
     The UPnP spec specifies (Step 1 - discovery) that a message is sent on startup, periodically, and in response to a search request with the essential elements of the UPnP root device,
@@ -155,7 +186,10 @@ class UPnPRootDevice < UPnPDevice
 # standard text for the HOST HTTP header used in Discovery	
 	HOST = "HOST: 239.255.255.250:1900"
 	
-	attr_reader :devices, :cacheControl
+	# any devices contained within the root device.  Not sure if we need to refer to this outside the class so may remove this
+	attr_reader :devices
+	# Cache-Control value, default to 1800 seconds.  Again may not be needed outside the class
+	attr_reader :cacheControl
 
 	def initialize(type,version,ip,port,product)
 		super("root",type,version)
@@ -303,10 +337,41 @@ end
    A UPnP Service consists of state variables and actions, this is a simple base class to hold essential information about the service
    A real service should implement a class derived from this one, set up the state variables and actions (which are also derived from simple base classes #UPnPAction
    and #UPnPStateVariable) and use #addStateVariable and #addAction to associate them with the service
+   
+   
+	TODO
+	
+	each service needs to attach itself to WeBrick as a servlet method (do we need to define the control URL as part of the service?)
+	this method will 
+	- decode the XML / SOAP request
+	- validate the action requested and the parameters passed
+	- invoke the action to do the work
+	- pick up the error code (if any) from the action and the output parameters
+	
+	when an Action is invoked it will
+	- use the arguments passed to it (in a hash)
+	- do whatever it needs to do
+	- if any state variables should change it will find them by name (self.service.stateVariables["name"]) and change the value
+	- add any out arguments to the hash
+	
+	each service will need to attach itself to Webrick with an additional servlet method for eventing which will
+	- 
+   
 =end
 
 class UPnPService
-	attr_reader :type, :version, :actions, :stateVariables
+	
+	# standard UPnP name for the service e.g. ConnectionManager
+	attr_reader :type 
+	# standard UPnP version, an integer
+	attr_reader :version 
+	# list of all actions associated with the service
+	attr_reader :actions 
+	# list of all state variables associated with the service
+	attr_reader :stateVariables
+	
+	# the device this service is attached to
+	attr_writer :device
 	
 	def initialize(t, v)
 		@type = t
@@ -317,17 +382,26 @@ class UPnPService
 	
 	def addStateVariable(s)
 		@stateVariables[s.name]  = s
+		s.service = self
 	end
 	
 	def addAction(a)
 		@actions[a.name] = a
+		a.service = self
 	end
 	
 end
 
 class UPnPArgument
 	
-	attr_reader :name, :relatedStateVariable, :direction
+	# argument name
+	attr_reader :name 
+	# each argument must be linked to a state variable.  No idea why
+	attr_reader :relatedStateVariable
+	# whether this is an input or output argument
+	attr_reader :direction
+	# the action this argument is associated with
+	attr_writer :action
 	
 	def initialize(n,d,s)
 		@name = n
@@ -338,7 +412,12 @@ end
 
 class UPnPAction
 	
-	attr_reader :name, :args
+	# the name of the action
+	attr_reader :name
+	# Hash containing all the arguments (in and out) associated with this service
+	attr_reader :args
+	# the service this action is associated with
+	attr_writer :service
 	
 	def initialize(n)
 		@name = n
@@ -353,9 +432,25 @@ end
 
 class UPnPStateVariable
 	
-	attr_reader:name, :value, :defaultValue, :type, :allowedValues, :allowedMax, :allowedMin, :allowedIncrement
+	# variable name - should be as per the Service specification
+	attr_reader :name 
+	# current value - might replace this with proper getter / setter methods
+	attr_reader :value 
+	# default value for the variable
+	attr_reader :defaultValue
+	# variable type e.g. int, char, string
+	attr_reader :type 
+	# pemitted values for strings
+	attr_reader :allowedValues
+	# maximum value for numbers
+	attr_reader :allowedMax
+	# minimum value for numbers
+	attr_reader :allowedMin
+	# the smallest amount the value of this variable (if numeric) can change by
+	attr_reader :allowedIncrement
+	
 		
-	def initialize(n, t, dv, av, amx, amn, ai)
+	def initialize(n, t, dv, av, amx, amn, ai, ev)
 		@name = n
 		@defaultValue = dv
 		@type = t
@@ -363,6 +458,20 @@ class UPnPStateVariable
 		@allowedMax = amx
 		@allowedMin = amn
 		@allowedIncrement = ai
+		@evented = ev
+	end
+	
+	# check if the state variable is evented or not
+	def evented? 
+		@evented
+	end
+	
+	# assign a new value and trigger eventing if necessary
+	def value=(v)
+		value =  v
+		if (self.evented?)
+			
+		end
 	end
 	
 	

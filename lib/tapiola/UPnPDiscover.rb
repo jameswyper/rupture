@@ -3,6 +3,8 @@ require 'socket'
 require 'ipaddr'
 
 =begin rdoc
+
+	I think this should probably just be moved to a method in #UPnPRootDevice
     
     initialisation: 
     create a response queue object to hold responses
@@ -20,6 +22,8 @@ require 'ipaddr'
     termination:
     
     set "terminated" condition to true
+    
+    The multicast socket code owes everything to github.com/ptrv/ruby-multicast-example
   
     
     
@@ -39,13 +43,18 @@ class UPnPDiscoveryServer
 		@multicastQueue = @rootd.keepAlive
 	end
 	
+	# runs three threads
+	# the first one adds keep-alive messages to a queue at random intervals
+	# the second one listens for M-search requests and passes them to the handler code which creates responses, it then adds them to a second queue
+	# the third thread checks and empties both queues by sending responses
+	
 	def run
 		
 		t1 = Thread.start do
 			while (!@terminated) do
+				@multicastLock.synchronize { @multicastQueue.concat(@rootd.keepAlive) }
 				interval = (@rootd.cacheControl * 0.1) + rand(@rootd.cacheControl * 0.4)
 				sleep (interval)
-				@multicastLock.synchronize { @multicastQueue.concat(@rootd.keepAlive) }
 			end
 		end
 		
@@ -96,7 +105,7 @@ class UPnPDiscoveryServer
 					# msock.send(ARGV.join(' '), 0, MULTICAST_ADDR, PORT)
 				end
 				
-				send byebye message
+				#send byebye message
 				
 			ensure
 				socket.close 	
@@ -104,6 +113,8 @@ class UPnPDiscoveryServer
 		end
 		
 	end
+	
+	# Sets a terminated flag that will be picked up by the threads in the run method
 	
 	def terminate
 		@terminated = true
