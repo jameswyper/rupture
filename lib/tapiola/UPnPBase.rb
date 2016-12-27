@@ -331,7 +331,7 @@ class UPnPRootDevice < UPnPDevice
 	end
 		
 	
-end
+end   #UPnPRootDevice
 
 =begin
    A UPnP Service consists of state variables and actions, this is a simple base class to hold essential information about the service
