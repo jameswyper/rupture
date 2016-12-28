@@ -1,10 +1,10 @@
 
-require_relative '../lib/tapiola/UPnPBase'
+require_relative '../lib/tapiola/UPnP'
 #require 'pry'
 
-root = UPnPRootDevice.new("test_type",2,"127.0.0.1",54321,"test UPnP server v0000")
-root.addService(UPnPService.new("test_service",9))
-root.addService(UPnPService.new("test_other_service",8))
+root = UPnP::RootDevice.new("test_type",2,"127.0.0.1",54321,"test UPnP server v0000")
+root.addService(UPnP::Service.new("test_service",9))
+root.addService(UPnP::Service.new("test_other_service",8))
 
 #root.keepAlive.each { |s| puts s}
 

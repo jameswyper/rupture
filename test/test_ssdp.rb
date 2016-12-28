@@ -135,8 +135,13 @@ class TestUPnPBase < Test::Unit::TestCase
 		m = m + "urn:schemas-upnp-org:device:test_type:2"
 		m = m + "uuid:" + @root.uuid
 
-
-
-
+	end
+	
+	def test_ssdp_server
+		
+		s = @root.discoveryStart
+		sleep(60)
+		@root.discoveryStop(s)
+		
 	end
 end

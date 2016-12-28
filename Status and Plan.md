@@ -16,3 +16,11 @@ When UPnPBase is started (not just initialised) this webserver will be started, 
 When UPnPBase is initialised a procedure will be attached to the webserver to call the description-handling code
 
 
+Notes to self
+
+
+
+"rdoc lib" to document everything
+run a unit test just by running the __test.rb file
+
+
