@@ -140,7 +140,7 @@ class TestUPnPBase < Test::Unit::TestCase
 	def test_ssdp_server
 		
 		s = @root.discoveryStart
-		sleep(60)
+		sleep(100)
 		@root.discoveryStop(s)
 		
 	end

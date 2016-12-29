@@ -11,6 +11,7 @@ class RootDevice < Device
 	NOTIFY  = "NOTIFY * HTTP/1.1"
 # standard text for the HOST HTTP header used in Discovery	
 	HOST = "HOST: 239.255.255.250:1900"
+
 	
 # standard multicast IP address	
 	MULTICAST_ADDR = "239.255.255.250" 
@@ -101,11 +102,11 @@ class RootDevice < Device
 # For Step 1 - discovery.  Helper method to create a single message that will be multicast. Called by #handleSearch, not intended to be called elsewhere	
 	def createSearchResponse(st,usn)
 		s = String.new
-		s << NOTIFY << " 200 OK \n" 
-		s << "CACHE-CONTROL: " << @cacheControl.to_s << "\n"
+		s <<  "HTTP/1.1 200 OK \n" 
+		s << "CACHE-CONTROL: max-age = " << @cacheControl.to_s << "\n"
 		s << "DATE: " << Time.now.rfc822 << "\n" 
 		s << "LOCATION: #{@location}\n"
-		s << "SERVER: #{@os} UPnP/1.0 #{@product}\n"
+		s << "SERVER: #{@os} UPnP/1.0  product}\n"
 		s << "ST: #{st}\n"
 		s << "USN: #{usn}\n\n"
 		return s
@@ -121,44 +122,61 @@ class RootDevice < Device
 	def handleSearch(message)
 		a = Array.new
 		line = message.split("\n")
-		/MX: (?<delay>\w+)/ =~ line[3]
-		/ST: (?<target>.*)/ =~ line[4]
-		target.chomp!
-		if target == "ssdp:all"
-			a << createSearchResponse("upnp:rootdevice","uuid:#{@uuid}::upnp:rootdevice")
-			@devices.each_value do |d|
-				d.deviceMessages.each do |n|
-					a << createSearchResponse(n[0],n[1])
-				end
-				d.serviceMessages.each do |n|
-					a << createSearchResponse(n[0],n[1])
-				end
+		
+		#line.each_index {|n| @log.debug n.to_s + ":#{line[n]}" }
+		
+		# run through the message looking for the MX and ST records - note these should be in lines 3 and 4 but not all clients respect that so we go through each line
+		delay = nil
+		target = nil
+		line.each do |l|
+			if (delay == nil)
+				/MX: (?<delay>\w+)/ =~ l
 			end
-		elsif target == "upnp:rootdevice"
-			a << createSearchResponse("upnp:rootdevice","uuid:#{@uuid}::upnp:rootdevice")
+			if (target == nil)
+				/ST: (?<target>.*)/ =~ l
+			end
+		end
+		
+		if target == nil  # didn't find an ST record so this wasn't an SSDP search request
+			return 0, a
 		else
-			/^urn:schemas-upnp-org:device:(?<deviceType>\w+):(?<deviceVersion>\d+)$/ =~ target
-			/^urn:schemas-upnp-org:service:(?<serviceType>\w+):(?<serviceVersion>\d+)$/ =~ target
-			/^uuid:(?<uniqueDevice>.*)$/ =~ target
-			if uniqueDevice != nil
-				devices.each_value do |d|
-					if uniqueDevice == d.uuid
-						a << createSearchResponse("uuid:#{@uuid}","uuid:#{@uuid}")
+			target.chomp!
+			@log.debug "Search target:#{target}:"
+			if target == "ssdp:all"
+				a << createSearchResponse("upnp:rootdevice","uuid:#{@uuid}::upnp:rootdevice")
+				@devices.each_value do |d|
+					d.deviceMessages.each do |n|
+						a << createSearchResponse(n[0],n[1])
+					end
+					d.serviceMessages.each do |n|
+						a << createSearchResponse(n[0],n[1])
 					end
 				end
-			elsif (serviceVersion != nil) && (serviceType != nil)
-				devices.each_value do |d|
-					d.services.each do |s|
-						#binding.pry
-						if (s.type == serviceType) && (s.version >= serviceVersion.to_i)
-							a << createSearchResponse("urn:schemas-upnp-org:service:#{serviceType}:#{serviceVersion}","uuid:#{d.uuid}:urn:schemas-upnp-org:service:#{serviceType}:#{serviceVersion}")
+			elsif target == "upnp:rootdevice"
+				a << createSearchResponse("upnp:rootdevice","uuid:#{@uuid}::upnp:rootdevice")
+			else
+				/^urn:schemas-upnp-org:device:(?<deviceType>\w+):(?<deviceVersion>\d+)$/ =~ target
+				/^urn:schemas-upnp-org:service:(?<serviceType>\w+):(?<serviceVersion>\d+)$/ =~ target
+				/^uuid:(?<uniqueDevice>.*)$/ =~ target
+				if uniqueDevice != nil
+					devices.each_value do |d|
+						if uniqueDevice == d.uuid
+							a << createSearchResponse("uuid:#{@uuid}","uuid:#{@uuid}")
 						end
 					end
-				end
-			elsif (deviceVersion != nil) && (deviceType != nil)
-				devices.each_value do |d|
-					if (d.type == deviceType) && (d.version >= deviceVersion.to_i)
-						a << createSearchResponse("urn:schemas-upnp-org:device:#{deviceType}:#{deviceVersion}","uuid:#{d.uuid}:urn:schemas-upnp-org:device:#{deviceType}:#{deviceVersion}")
+				elsif (serviceVersion != nil) && (serviceType != nil)
+					devices.each_value do |d|
+						d.services.each do |s|
+							if (s.type == serviceType) && (s.version >= serviceVersion.to_i)
+								a << createSearchResponse("urn:schemas-upnp-org:service:#{serviceType}:#{serviceVersion}","uuid:#{d.uuid}:urn:schemas-upnp-org:service:#{serviceType}:#{serviceVersion}")
+							end
+						end
+					end
+				elsif (deviceVersion != nil) && (deviceType != nil)
+					devices.each_value do |d|
+						if (d.type == deviceType) && (d.version >= deviceVersion.to_i)
+							a << createSearchResponse("urn:schemas-upnp-org:device:#{deviceType}:#{deviceVersion}","uuid:#{d.uuid}:urn:schemas-upnp-org:device:#{deviceType}:#{deviceVersion}")
+						end
 					end
 				end
 			end
@@ -196,6 +214,8 @@ Returns the last of these threads (the sender one) so that the main program can 
 		# set up two sockets for sending (normal responses and multicast adverts)
 
 		ssock = UDPSocket.open
+		#ssock.setsockopt(:SOCKET,:REUSEADDR,1)
+		#ssock.bind(Socket::INADDR_ANY,PORT)
 		msock = UDPSocket.open
 		msock.setsockopt(:IP, :TTL, 4)
 		
@@ -208,20 +228,31 @@ Returns the last of these threads (the sender one) so that the main program can 
 				
 				@log.debug "Responder: Waiting for multicast message"
 				rmsg,rinfo = rsock.recvfrom(1024)
-				@log.debug "Responder: Received multicast message from #{rinfo[3]}:#{rinfo[1]}: " + rmsg
+				@log.debug "Responder: Received multicast message from #{rinfo[3]}:#{rinfo[1]}"
 				
+				begin
 				
-				#d, r = handleSearch(rmsg)
+				d, r = handleSearch(rmsg)
 				
 				@log.debug "Responder: handleSearch returned"
 				
-				if (r != nil)
+				if (!r.empty?)
+					#@log.debug "Responder: " + r.join("\n")
+					@log.debug "Valid search request, creating response"
 					# pass an array of four values onto the queue, the IP address and port of the requestor
 					# the time in seconds the requestor said it would wait for a response
 					# finally the response messages (itself an array)
-						@ssdpMessages.push([rinfo[3], rinfo[1], d, r ])
+					@ssdpMessages.push([rinfo[3], rinfo[1], d, r ])
+				else
+					@log.debug "Invalid search request"
 				end
-			
+				
+				rescue StandardError => detail
+					
+					@log.debug detail.to_s
+					@log.debug detail.backtrace.join("\n")
+				
+				end
 				@log.debug "Responder: ready to go round again"
 			end
 			
@@ -244,15 +275,15 @@ Returns the last of these threads (the sender one) so that the main program can 
 		ssdpSender = Thread.new do
 			
 			while (@discoveryRunning || !@ssdpMessages.empty?) do
-				@log.debug"Send #{@ssdpMessages.size} " 
+				@log.debug"Sender: Queue size is #{@ssdpMessages.size} " 
 				if (!@discoveryRunning)
-					@log.debug "Send (in cleanup)" 
+					@log.debug "Sender: (in cleanup)" 
 				end
-				@log.debug "Send (are we going to block?)"
+				@log.debug "Sender: (about to pop)"
 				
 				m = @ssdpMessages.pop #should block here if nothing in queue, which is fine
 				
-				@log.debug "Send (popped) " 
+				@log.debug "Sender: (popped) " 
 				dip = m[0]
 				dp = m[1]
 				d = m[2]
@@ -261,8 +292,8 @@ Returns the last of these threads (the sender one) so that the main program can 
 					3.times do
 						r.each do |msg|
 							begin
-								@log.debug "multicasting "
-								ssock.send msg, 0, MULTICAST_ADDR, PORT
+								@log.debug "Sender: multicasting "
+								msock.send msg, 0, MULTICAST_ADDR, PORT
 							end
 							sleep (0.05 + (rand * 0.1))
 						end
@@ -270,13 +301,14 @@ Returns the last of these threads (the sender one) so that the main program can 
 				else
 					r.each do |msg|
 						begin
-							@log.debug "responding to #{dip}:#{ip}"
+							@log.debug "Sender: responding to #{dip}:#{dp}"
 							ssock.send msg, 0, dip, dp
+							@log.debug "Sender: response apparently sent"
 						end
 						sleep( 0.05 + (rand * 0.1))
 					end
 				end
-				@log.debug "Send (looping round again)"
+				@log.debug "Sender: (looping round again)"
 			end
 			
 			# if we've reached this point then we need to stop the other threads and clean up the sockets
