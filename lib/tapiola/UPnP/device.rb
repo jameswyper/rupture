@@ -2,13 +2,13 @@
 require 'time'
 require 'pry'
 require 'rexml/document'
+require 'rexml/xmldecl'
 require 'logger'
+require_relative 'common'
+require_relative 'icon'
 
 module UPnP
 
-
-# Constant - used to namespace the URLs that will be handled e.g. 1.2.3.4/rupture/whatever
-URLBase = "rupture"
 
 =begin rdoc
   The base class describing a UPnP device.  Implementations should derive a class from this or #UPnPRootDevice depending on how the devices are modelled.
@@ -44,11 +44,17 @@ class Device
 		@version=version
 		@properties = Hash.new
 		@icons = Array.new
+		@presentationAddr = "#{URLBase}/#{@name}/presentation"
 	end
 	
 	# trivial method to add a new service to the list of supported ones.  Expected to be called during setup only.  No support for removing services.
 	def addService(service)
 		@services << service
+		service.linkToDevice(self)
+	end
+	
+	def linkToRoot(root)
+		@rootDevice = root
 	end
 	
 	# set of services supported by the device
@@ -91,10 +97,10 @@ class Device
 	
 =begin rdoc
      For Step 2 - description.  Once a client has discovered a device it will then request more detailed information about the device and the services offered.
-     This information is constructed as an XML message.
+     This information is constructed as an XML message. This function creates the XML elements for a device
 =end
 	
-	def XMLDescription
+	def getXMLDeviceData
 		a  = Array.new
 		
 		a << REXML::Element.new("deviceType").add_text("urn:schemas-upnp-org:device:#{@type}:#{@version}").dup
@@ -127,9 +133,9 @@ class Device
 			sx = REXML::Element.new "service"
 			sx.add_element("serviceType").add_text("urn:schemas-upnp-org:service:#{s.type}:#{s.version}")
 			sx.add_element("serviceID").add_text("urn:upnp-org:serviceID:#{s.type}")
-			sx.add_element("SCPDURL").add_text("#{URLBase}/#{@name}/SCPD/#{s.type}/#{s.version}")
-			sx.add_element("controlURL").add_text("#{URLBase}/#{@name}/control/#{s.type}/#{s.version}")
-			sx.add_element("eventSubURL").add_text("#{URLBase}/#{@name}/events/#{s.type}/#{s.version}")
+			sx.add_element("SCPDURL").add_text("http://#{@rootDevice.ipPort}/#{s.descAddr}")
+			sx.add_element("controlURL").add_text("http://#{@rootDevice.ipPort}/#{s.controlAddr}")
+			sx.add_element("eventSubURL").add_text("http://#{@rootDevice.ipPort}/#{s.eventAddr}")
 			sl.add_element(sx.dup)
 		end
 		a << sl
@@ -139,13 +145,14 @@ class Device
 		#I think we have to do this really as devices cannot share service instances
 		#also means we can set up service ID properly
 		
-		# next steps - maybe move service XML into service class
-		# check usage of URLbase is legit
-		# method to assemble root device description and return it
-		
+		a << REXML::Element.new("presentationURL").add_text("http://#{@rootDevice.ipPort}/#{@presentationAddr}")
+				
 		return a
 	end
 	
+	def handlePresentation(req)
+		return 0, "Nothing to say"
+	end
 	
 end
 

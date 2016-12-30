@@ -1,4 +1,5 @@
 
+require_relative 'common'
 
 module UPnP
 
@@ -38,9 +39,13 @@ class Service
 	attr_reader :actions 
 	# list of all state variables associated with the service
 	attr_reader :stateVariables
-	
-	# the device this service is attached to
-	attr_writer :device
+	# control address (to form control URL with)
+	attr_reader :controlAddr
+	# description address (to form SCDP URL with)
+	attr_reader :descAddr
+	# eventing address (to form event subscription URL with)
+	attr_reader :eventAddr
+
 	
 	def initialize(t, v)
 		@type = t
@@ -59,6 +64,24 @@ class Service
 		a.service = self
 	end
 	
+	def linkToDevice(d)
+		@device = d
+		servAddr = "#{URLBase}/#{@device.name}/services/#{@type}/"
+		@eventAddr = servAddr + "event"
+		@controlAddr = servAddr + "control"
+		@descAddr = servAddr + "description"
+	end
+	
+	def handleEvent(req)
+	end
+	
+	def handleControl(req)
+	end
+	
+	def handleDescription(req)
+	end
+	
+		
 end
 
 class Argument

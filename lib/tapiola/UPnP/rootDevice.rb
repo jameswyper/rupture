@@ -1,7 +1,9 @@
 
-require_relative 'device.rb'
+require_relative 'device'
+
 require 'socket'
 require 'ipaddr'
+require 'webrick'
 
 module UPnP
 
@@ -23,17 +25,48 @@ class RootDevice < Device
 	
 	# Cache-Control value, default to 1800 seconds.  Again may not be needed outside the class
 	attr_reader :cacheControl
+	
+	# IP and Port part of URL
+	attr_reader :ipPort
 
 	def initialize(type,version,ip,port,product)
 		super("root",type,version)
 		@devices=Hash.new
 		addDevice(self)
-		@location= "http://#{ip}:#{port}/#{URLBase}/description"
+		
 		@product = product
 		@os = "Linux/3" #this should be dynamic but who uses it?
 		@cacheControl = 1800
-		@ip = ip
-		@port = port
+		
+		# if an ip wasn't specified, find one that isn't the loopback one
+		
+		if ip == nil
+			Socket::ip_address_list.each do |a|
+				if a.ipv4?
+					if !a.ipv4_loopback?
+						@ip = a.ip_address
+					end
+				end
+			end
+		else
+			@ip = ip
+		end
+		
+		# if a port wasn't specified, ask Webrick to find a free one by specifying port 0 and then check what it found
+		
+		if port == nil
+			@webserver = WEBrick::HTTPServer.new :Port=> 0
+			@port = @webserver.config[:Port]
+		else
+			@webserver = WEBrick::HTTPServer.new :Port=> port
+			@port = port
+		end
+		
+		@ipPort = "#{@ip}:#{@port}"
+		
+		@descriptionAddr = "#{URLBase}/description"
+		
+		@location= "http://#{ip}:#{port}/#{@descriptionAddr}"
 		
 		@log = Logger.new(STDOUT)
 		@log.level  = Logger::DEBUG
@@ -43,6 +76,58 @@ class RootDevice < Device
 # trivial method to add devices to a root device, it's just a list.  No support for removing them.  Should only be called at runtime.
 	def addDevice(device)
 		@devices.store(device.name,device)
+		device.linkToRoot(self)
+	end
+	
+	
+=begin rdoc
+
+Assembles the XML for the root device description.  
+Calls getXMLDeviceData to get individual XML elements for each device (root and any embedded)
+
+=end
+	
+	def createDescriptionXML
+		
+		rootE =  REXML::Element.new("root")
+		rootE.add_namespace("urn:schemas.upnp.org:device-1-0")
+		
+		sv = REXML::Element.new("specVersion")
+		sv.add_element("major").add_text("1")
+		sv.add_element("minor").add_text("0")
+
+		rootE.add_element(sv)
+
+		dv = REXML::Element.new("device")
+		
+		rxml = self.getXMLDeviceData
+		
+		rxml.each { |rx| dv.add_element(rx) }
+		
+		
+		if @devices.size > 1
+		
+			dvl = REXML::Element.new("devicelist")
+				
+			@devices.each_value do |d|
+				if (d.name != "root")
+					dxml = d.getXMLDeviceData
+					dxml.each { |dx| 	dvl.add_element(dx) }
+				end
+			end
+		
+			dv.add_element(dvl)
+		
+		end
+		
+		rootE.add_element(dv)
+		
+		doc = REXML::Document.new
+		doc << REXML::XMLDecl.new(1.0)
+		doc.add_element(rootE)
+		
+		return doc
+
 	end
 	
 # For Step 1 - discovery.  Helper method to create a single message that will be multicast. Called by #keepAlive, not intended to be called elsewhere	
@@ -343,6 +428,44 @@ discoveryStart as an argument
 		senderthread.join
 	end
 	
+	def handleDescription(req)
+		b = String.new
+		createDescriptionXML.write(b,2)
+		return b
+	end
+	
+	def webServerStart
+
+		
+		@webserver.mount_proc @descriptionAddr do |req,res|
+			b = handleDescription(req)
+		end
+		
+		@devices.each do |d|
+			@webserver.mount_proc d.presentationAddr do |req,res|
+				r, b = d.handlePresentation(req)
+				res.body = b
+			end
+			d.services.each do |s|
+				@webserver.mount_proc s.controlAddr do |req,res|
+					s.handleControl(req)
+				end
+				@webserver.mount_proc s.eventAddr do |req,res|
+					s.handleEvent(req)
+				end
+				@webserver.mount_proc s.descAddr do |req,res|
+					s.handleDescription(req)
+				end
+			end
+		end
+		
+		@webserver.start
+		
+	end
+	
+	def webServerStop
+		@webserver.shutdown
+	end
 	
 end 
 end
