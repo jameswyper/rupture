@@ -64,13 +64,15 @@ class RootDevice < Device
 		
 		@ipPort = "#{@ip}:#{@port}"
 		
-		@descriptionAddr = "#{URLBase}/description"
+		@descriptionAddr = "/#{URLBase}/description"
 		
-		@location= "http://#{ip}:#{port}/#{@descriptionAddr}"
+		@location= "http://#{@ip}:#{@port}#{@descriptionAddr}/description.xml"
 		
 		@log = Logger.new(STDOUT)
 		@log.level  = Logger::DEBUG
 		@log.datetime_format  = "%H:%M:%S"
+		
+		@log.info "Listening on #{@ipPort}"
 	end
 
 # trivial method to add devices to a root device, it's just a list.  No support for removing them.  Should only be called at runtime.
@@ -133,13 +135,13 @@ Calls getXMLDeviceData to get individual XML elements for each device (root and 
 # For Step 1 - discovery.  Helper method to create a single message that will be multicast. Called by #keepAlive, not intended to be called elsewhere	
 	def createAliveMessage(nt,usn) 
 		s = String.new
-		s << NOTIFY << "\n" << HOST << "\n"
-		s << "CACHE-CONTROL: max-age = " << @cacheControl.to_s << "\n"
-		s << "LOCATION: #{@location}\n"
-		s << "NT: #{nt}\n"
-		s << "NTS: ssdp:alive\n"
-		s << "SERVER: #{@os} UPnP/1.0 #{@product}\n"
-		s << "USN: #{usn}\n\n"
+		s << NOTIFY << "\r\n" << HOST << "\r\n"
+		s << "CACHE-CONTROL: max-age = " << @cacheControl.to_s << "\r\n"
+		s << "LOCATION: #{@location}\r\n"
+		s << "NT: #{nt}\r\n"
+		s << "NTS: ssdp:alive\r\n"
+		s << "SERVER: #{@os} UPnP/1.0 #{@product}\r\n"
+		s << "USN: #{usn}\r\n\r\n"
 		return s
 	end
 	
@@ -161,10 +163,10 @@ Calls getXMLDeviceData to get individual XML elements for each device (root and 
 # For Step 1 - discovery.  Helper method to create a single message that will be multicast. Called by #byeBye, not intended to be called elsewhere	
 	def createByeByeMessage(nt,usn)
 		s = String.new
-		s << NOTIFY << "\n" << HOST << "\n"
-		s << "NT: #{nt}\n"
-		s << "NTS: ssdp:byebye\n"
-		s << "USN: #{usn}\n\n"
+		s << NOTIFY << "\r\n" << HOST << "\r\n"
+		s << "NT: #{nt}\r\n"
+		s << "NTS: ssdp:byebye\r\n"
+		s << "USN: #{usn}\r\n\r\n"
 		return s
 	end
 
@@ -187,13 +189,13 @@ Calls getXMLDeviceData to get individual XML elements for each device (root and 
 # For Step 1 - discovery.  Helper method to create a single message that will be multicast. Called by #handleSearch, not intended to be called elsewhere	
 	def createSearchResponse(st,usn)
 		s = String.new
-		s <<  "HTTP/1.1 200 OK \n" 
-		s << "CACHE-CONTROL: max-age = " << @cacheControl.to_s << "\n"
-		s << "DATE: " << Time.now.rfc822 << "\n" 
-		s << "LOCATION: #{@location}\n"
-		s << "SERVER: #{@os} UPnP/1.0  product}\n"
-		s << "ST: #{st}\n"
-		s << "USN: #{usn}\n\n"
+		s <<  "HTTP/1.1 200 OK \r\n" 
+		s << "CACHE-CONTROL: max-age = " << @cacheControl.to_s << "\r\n"
+		s << "DATE: " << Time.now.rfc822 << "\r\n" 
+		s << "LOCATION: #{@location}\r\n"
+		s << "SERVER: #{@os} UPnP/1.0  product}\r\n"
+		s << "ST: #{st}\r\n"
+		s << "USN: #{usn}\r\n\r\n"
 		return s
 	end
 
@@ -208,17 +210,22 @@ Calls getXMLDeviceData to get individual XML elements for each device (root and 
 		a = Array.new
 		line = message.split("\n")
 		
-		#line.each_index {|n| @log.debug n.to_s + ":#{line[n]}" }
+		if /^M-SEARCH.*/ =~ line[0] 
+			line.each_index {|n| @log.debug n.to_s + ":#{line[n]}" }
+		else
+			@log.debug "Not a search:#{line[0]}"
+			return 0,a
+		end
 		
 		# run through the message looking for the MX and ST records - note these should be in lines 3 and 4 but not all clients respect that so we go through each line
 		delay = nil
 		target = nil
 		line.each do |l|
 			if (delay == nil)
-				/MX: (?<delay>\w+)/ =~ l
+				/^MX: (?<delay>\w+)/ =~ l
 			end
 			if (target == nil)
-				/ST: (?<target>.*)/ =~ l
+				/^ST: (?<target>.*)/ =~ l
 			end
 		end
 		
@@ -299,8 +306,8 @@ Returns the last of these threads (the sender one) so that the main program can 
 		# set up two sockets for sending (normal responses and multicast adverts)
 
 		ssock = UDPSocket.open
-		#ssock.setsockopt(:SOCKET,:REUSEADDR,1)
-		#ssock.bind(Socket::INADDR_ANY,PORT)
+		ssock.setsockopt(:SOCKET,:REUSEADDR,1)
+		ssock.bind(@ip,PORT)
 		msock = UDPSocket.open
 		msock.setsockopt(:IP, :TTL, 4)
 		
@@ -429,6 +436,7 @@ discoveryStart as an argument
 	end
 	
 	def handleDescription(req)
+		@log.debug("Description request: #{req}")
 		b = String.new
 		createDescriptionXML.write(b,2)
 		return b
@@ -436,11 +444,14 @@ discoveryStart as an argument
 	
 	def webServerStart
 
-		
+		@log.debug "Description address is #{@descriptionAddr}"
+
 		@webserver.mount_proc @descriptionAddr do |req,res|
 			b = handleDescription(req)
+			res.body = b
 		end
-		
+	
+=begin	
 		@devices.each do |d|
 			@webserver.mount_proc d.presentationAddr do |req,res|
 				r, b = d.handlePresentation(req)
@@ -458,7 +469,7 @@ discoveryStart as an argument
 				end
 			end
 		end
-		
+=end		
 		@webserver.start
 		
 	end
