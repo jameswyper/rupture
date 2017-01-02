@@ -24,7 +24,7 @@ class Device
 	"manufacturer" => "M" ,
 	"manufacturerURL" => "O",
 	"modelDescription" => "O",
-	"modelname" => "M",
+	"modelName" => "M",
 	"modelNumber" => "M",
 	"modelURL" => "O",
 	"serialNumber" => "O",
@@ -44,7 +44,7 @@ class Device
 		@version=version
 		@properties = Hash.new
 		@icons = Array.new
-		@presentationAddr = "#{URLBase}/#{@name}/presentation"
+		@presentationAddr = "#{URLBase}/presentation/#{@name}/presentation.html"
 	end
 	
 	# trivial method to add a new service to the list of supported ones.  Expected to be called during setup only.  No support for removing services.

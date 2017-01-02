@@ -1,14 +1,6 @@
-HTTP/1.1 200 OK 
-CACHE-CONTROL: max-age = 1800
-DATE: Sun, 01 Jan 2017 22:15:55 +0000
-LOCATION: http://192.168.0.10:41572/tapiola/description/description.xml
-SERVER: Linux/3 UPnP/1.0  product}
-ST: upnp:rootdevice
-USN: uuid:5a1f496d-d8f6-4cad-8c71-6e3874f8b309::upnp:rootdevice
-
 HTTP/1.1 200 OK
 CACHE-CONTROL: max-age=1800
-DATE: Sun, 01 Jan 2017 22:15:40 GMT
+DATE: Mon, 02 Jan 2017 11:59:36 GMT
 ST: uuid:4d696e69-444c-164e-9d41-001d92427e23
 USN: uuid:4d696e69-444c-164e-9d41-001d92427e23
 EXT:
@@ -18,7 +10,7 @@ Content-Length: 0
 
 HTTP/1.1 200 OK
 CACHE-CONTROL: max-age=1800
-DATE: Sun, 01 Jan 2017 22:15:40 GMT
+DATE: Mon, 02 Jan 2017 11:59:36 GMT
 ST: upnp:rootdevice
 USN: uuid:4d696e69-444c-164e-9d41-001d92427e23::upnp:rootdevice
 EXT:
@@ -28,7 +20,7 @@ Content-Length: 0
 
 HTTP/1.1 200 OK
 CACHE-CONTROL: max-age=1800
-DATE: Sun, 01 Jan 2017 22:15:40 GMT
+DATE: Mon, 02 Jan 2017 11:59:36 GMT
 ST: urn:schemas-upnp-org:device:MediaServer:1
 USN: uuid:4d696e69-444c-164e-9d41-001d92427e23::urn:schemas-upnp-org:device:MediaServer:1
 EXT:
@@ -38,7 +30,7 @@ Content-Length: 0
 
 HTTP/1.1 200 OK
 CACHE-CONTROL: max-age=1800
-DATE: Sun, 01 Jan 2017 22:15:40 GMT
+DATE: Mon, 02 Jan 2017 11:59:36 GMT
 ST: urn:schemas-upnp-org:service:ContentDirectory:1
 USN: uuid:4d696e69-444c-164e-9d41-001d92427e23::urn:schemas-upnp-org:service:ContentDirectory:1
 EXT:
@@ -48,7 +40,7 @@ Content-Length: 0
 
 HTTP/1.1 200 OK
 CACHE-CONTROL: max-age=1800
-DATE: Sun, 01 Jan 2017 22:15:40 GMT
+DATE: Mon, 02 Jan 2017 11:59:36 GMT
 ST: urn:schemas-upnp-org:service:ConnectionManager:1
 USN: uuid:4d696e69-444c-164e-9d41-001d92427e23::urn:schemas-upnp-org:service:ConnectionManager:1
 EXT:
@@ -58,21 +50,13 @@ Content-Length: 0
 
 HTTP/1.1 200 OK
 CACHE-CONTROL: max-age=1800
-DATE: Sun, 01 Jan 2017 22:15:40 GMT
+DATE: Mon, 02 Jan 2017 11:59:36 GMT
 ST: urn:microsoft.com:service:X_MS_MediaReceiverRegistrar:1
 USN: uuid:4d696e69-444c-164e-9d41-001d92427e23::urn:microsoft.com:service:X_MS_MediaReceiverRegistrar:1
 EXT:
 SERVER: 3.2.0-61-generic DLNADOC/1.50 UPnP/1.0 MiniDLNA/1.1.2
 LOCATION: http://192.168.0.99:8200/rootDesc.xml
 Content-Length: 0
-
-HTTP/1.1 200 OK 
-CACHE-CONTROL: max-age = 1800
-DATE: Sun, 01 Jan 2017 22:15:55 +0000
-LOCATION: http://192.168.0.10:41572/tapiola/description/description.xml
-SERVER: Linux/3 UPnP/1.0  product}
-ST: uuid:5a1f496d-d8f6-4cad-8c71-6e3874f8b309
-USN: uuid:5a1f496d-d8f6-4cad-8c71-6e3874f8b309
 
 HTTP/1.1 200 OK
 Cache-Control: max-age=3600
@@ -89,6 +73,17 @@ Server: UPnP/1.0 UPnP/1.0 UPnP-Device-Host/1.0
 ST:uuid:upnp-InternetGatewayDevice-1_0-20e52ad35547
 USN: uuid:upnp-InternetGatewayDevice-1_0-20e52ad35547
 EXT:
+
+HTTP/1.1 200 OK
+ST: urn:schemas-upnp-org:service:ConnectionManager:1
+USN: uuid:fb992837-4339-406c-966c-adfeeaae8d12::urn:schemas-upnp-org:service:ConnectionManager:1
+Location: http://192.168.0.12:2869/upnphost/udhisapi.dll?content=uuid:fb992837-4339-406c-966c-adfeeaae8d12
+OPT:"http://schemas.upnp.org/upnp/1/0/"; ns=01
+01-NLS: 3c9d312ce143d50d3b25c538726435c3
+Cache-Control: max-age=1800
+Server: Microsoft-Windows/10.0 UPnP/1.0 UPnP-Device-Host/1.0
+Ext: 
+Date: Mon, 02 Jan 2017 11:25:20 GMT
 
 HTTP/1.1 200 OK
 Cache-Control: max-age=3600
@@ -146,14 +141,6 @@ ST:urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1
 USN: uuid:upnp-WANDevice-1_0-20e52ad35547::urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1
 EXT:
 
-HTTP/1.1 200 OK 
-CACHE-CONTROL: max-age = 1800
-DATE: Sun, 01 Jan 2017 22:15:55 +0000
-LOCATION: http://192.168.0.10:41572/tapiola/description/description.xml
-SERVER: Linux/3 UPnP/1.0  product}
-ST: urn:schemas-upnp-org:device:test_type:2
-USN: uuid:5a1f496d-d8f6-4cad-8c71-6e3874f8b309:urn:schemas-upnp-org:device:test_type:2
-
 HTTP/1.1 200 OK
 Cache-Control: max-age=3600
 Location: http://192.168.0.1:80/RootDevice.xml
@@ -162,19 +149,102 @@ ST:urn:schemas-upnp-org:service:WANIPConnection:1
 USN: uuid:upnp-WANConnectionDevice-1_0-20e52ad35547::urn:schemas-upnp-org:service:WANIPConnection:1
 EXT:
 
-HTTP/1.1 200 OK 
-CACHE-CONTROL: max-age = 1800
-DATE: Sun, 01 Jan 2017 22:15:55 +0000
-LOCATION: http://192.168.0.10:41572/tapiola/description/description.xml
-SERVER: Linux/3 UPnP/1.0  product}
-ST: urn:schemas-upnp-org:service:test service:9
-USN: uuid:5a1f496d-d8f6-4cad-8c71-6e3874f8b309:urn:schemas-upnp-org:service:test service:9
+HTTP/1.1 200 OK
+ST: urn:dial-multiscreen-org:service:dial:1
+USN: uuid:7d1274a9-5996-4fbe-9dba-239ed9f0000e::urn:dial-multiscreen-org:service:dial:1
+Location: http://192.168.0.12:2869/upnphost/udhisapi.dll?content=uuid:7d1274a9-5996-4fbe-9dba-239ed9f0000e
+OPT:"http://schemas.upnp.org/upnp/1/0/"; ns=01
+01-NLS: 3c9d312ce143d50d3b25c538726435c3
+Cache-Control: max-age=1800
+Server: Microsoft-Windows/10.0 UPnP/1.0 UPnP-Device-Host/1.0
+Ext: 
+Date: Tue, 27 Dec 2016 16:02:47 GMT
 
-HTTP/1.1 200 OK 
-CACHE-CONTROL: max-age = 1800
-DATE: Sun, 01 Jan 2017 22:15:55 +0000
-LOCATION: http://192.168.0.10:41572/tapiola/description/description.xml
-SERVER: Linux/3 UPnP/1.0  product}
-ST: urn:schemas-upnp-org:service:test_other_service:8
-USN: uuid:5a1f496d-d8f6-4cad-8c71-6e3874f8b309:urn:schemas-upnp-org:service:test_other_service:8
+HTTP/1.1 200 OK
+ST: urn:schemas-upnp-org:service:AVTransport:1
+USN: uuid:fb992837-4339-406c-966c-adfeeaae8d12::urn:schemas-upnp-org:service:AVTransport:1
+Location: http://192.168.0.12:2869/upnphost/udhisapi.dll?content=uuid:fb992837-4339-406c-966c-adfeeaae8d12
+OPT:"http://schemas.upnp.org/upnp/1/0/"; ns=01
+01-NLS: 3c9d312ce143d50d3b25c538726435c3
+Cache-Control: max-age=1800
+Server: Microsoft-Windows/10.0 UPnP/1.0 UPnP-Device-Host/1.0
+Ext: 
+Date: Mon, 02 Jan 2017 11:25:20 GMT
+
+HTTP/1.1 200 OK
+ST: upnp:rootdevice
+USN: uuid:7d1274a9-5996-4fbe-9dba-239ed9f0000e::upnp:rootdevice
+Location: http://192.168.0.12:2869/upnphost/udhisapi.dll?content=uuid:7d1274a9-5996-4fbe-9dba-239ed9f0000e
+OPT:"http://schemas.upnp.org/upnp/1/0/"; ns=01
+01-NLS: 3c9d312ce143d50d3b25c538726435c3
+Cache-Control: max-age=1800
+Server: Microsoft-Windows/10.0 UPnP/1.0 UPnP-Device-Host/1.0
+Ext: 
+Date: Tue, 27 Dec 2016 16:02:47 GMT
+
+HTTP/1.1 200 OK
+ST: upnp:rootdevice
+USN: uuid:fb992837-4339-406c-966c-adfeeaae8d12::upnp:rootdevice
+Location: http://192.168.0.12:2869/upnphost/udhisapi.dll?content=uuid:fb992837-4339-406c-966c-adfeeaae8d12
+OPT:"http://schemas.upnp.org/upnp/1/0/"; ns=01
+01-NLS: 3c9d312ce143d50d3b25c538726435c3
+Cache-Control: max-age=1800
+Server: Microsoft-Windows/10.0 UPnP/1.0 UPnP-Device-Host/1.0
+Ext: 
+Date: Mon, 02 Jan 2017 11:25:20 GMT
+
+HTTP/1.1 200 OK
+ST: uuid:7d1274a9-5996-4fbe-9dba-239ed9f0000e
+USN: uuid:7d1274a9-5996-4fbe-9dba-239ed9f0000e
+Location: http://192.168.0.12:2869/upnphost/udhisapi.dll?content=uuid:7d1274a9-5996-4fbe-9dba-239ed9f0000e
+OPT:"http://schemas.upnp.org/upnp/1/0/"; ns=01
+01-NLS: 3c9d312ce143d50d3b25c538726435c3
+Cache-Control: max-age=1800
+Server: Microsoft-Windows/10.0 UPnP/1.0 UPnP-Device-Host/1.0
+Ext: 
+Date: Tue, 27 Dec 2016 16:02:47 GMT
+
+HTTP/1.1 200 OK
+ST: urn:dial-multiscreen-org:device:dial:1
+USN: uuid:7d1274a9-5996-4fbe-9dba-239ed9f0000e::urn:dial-multiscreen-org:device:dial:1
+Location: http://192.168.0.12:2869/upnphost/udhisapi.dll?content=uuid:7d1274a9-5996-4fbe-9dba-239ed9f0000e
+OPT:"http://schemas.upnp.org/upnp/1/0/"; ns=01
+01-NLS: 3c9d312ce143d50d3b25c538726435c3
+Cache-Control: max-age=1800
+Server: Microsoft-Windows/10.0 UPnP/1.0 UPnP-Device-Host/1.0
+Ext: 
+Date: Tue, 27 Dec 2016 16:02:47 GMT
+
+HTTP/1.1 200 OK
+ST: urn:schemas-upnp-org:device:MediaRenderer:1
+USN: uuid:fb992837-4339-406c-966c-adfeeaae8d12::urn:schemas-upnp-org:device:MediaRenderer:1
+Location: http://192.168.0.12:2869/upnphost/udhisapi.dll?content=uuid:fb992837-4339-406c-966c-adfeeaae8d12
+OPT:"http://schemas.upnp.org/upnp/1/0/"; ns=01
+01-NLS: 3c9d312ce143d50d3b25c538726435c3
+Cache-Control: max-age=1800
+Server: Microsoft-Windows/10.0 UPnP/1.0 UPnP-Device-Host/1.0
+Ext: 
+Date: Mon, 02 Jan 2017 11:25:20 GMT
+
+HTTP/1.1 200 OK
+ST: uuid:fb992837-4339-406c-966c-adfeeaae8d12
+USN: uuid:fb992837-4339-406c-966c-adfeeaae8d12
+Location: http://192.168.0.12:2869/upnphost/udhisapi.dll?content=uuid:fb992837-4339-406c-966c-adfeeaae8d12
+OPT:"http://schemas.upnp.org/upnp/1/0/"; ns=01
+01-NLS: 3c9d312ce143d50d3b25c538726435c3
+Cache-Control: max-age=1800
+Server: Microsoft-Windows/10.0 UPnP/1.0 UPnP-Device-Host/1.0
+Ext: 
+Date: Mon, 02 Jan 2017 11:25:20 GMT
+
+HTTP/1.1 200 OK
+ST: urn:schemas-upnp-org:service:RenderingControl:1
+USN: uuid:fb992837-4339-406c-966c-adfeeaae8d12::urn:schemas-upnp-org:service:RenderingControl:1
+Location: http://192.168.0.12:2869/upnphost/udhisapi.dll?content=uuid:fb992837-4339-406c-966c-adfeeaae8d12
+OPT:"http://schemas.upnp.org/upnp/1/0/"; ns=01
+01-NLS: 3c9d312ce143d50d3b25c538726435c3
+Cache-Control: max-age=1800
+Server: Microsoft-Windows/10.0 UPnP/1.0 UPnP-Device-Host/1.0
+Ext: 
+Date: Mon, 02 Jan 2017 11:25:20 GMT
 

@@ -10,7 +10,7 @@ class TestUPnPBase < Test::Unit::TestCase
 		@devip = nil
 		@devport = nil
 		@devdesc = "test UPnP server v0000"
-		@devserv1 = "test service"
+		@devserv1 = "test_service"
 		@devserv2 = "test_other_service"
 		@devservver1 = 9
 		@devservver2  = 8
@@ -18,7 +18,14 @@ class TestUPnPBase < Test::Unit::TestCase
 		@root = UPnP::RootDevice.new(@devtype,@devver,@devip,@devport,@devdesc)
 		@root.addService(UPnP::Service.new(@devserv1, @devservver1))
 		@root.addService(UPnP::Service.new(@devserv2, @devservver2))
+		@root.properties["friendlyName"] = "Tapiola Test"
+		@root.properties["manufacturer"] = "James Wyper"
+		@root.properties["modelName"] = "Tapiola model 0.1"
+		@root.properties["modelNumber"] = "0.11"
+	
+	
 	end
+	
 	
 	def teardown
 	end
@@ -142,10 +149,12 @@ class TestUPnPBase < Test::Unit::TestCase
 
 	def test_ssdp_server
 		
-		s = @root.discoveryStart
-		@root.webServerStart
-		sleep(100)
-		@root.discoveryStop(s)
+		#s = @root.discoveryStart
+		Thread.new do  
+			@root.webServerStart 
+		end
+		sleep(500)
+		#@root.discoveryStop(s)
 		@root.webServerStop
 	end
 end

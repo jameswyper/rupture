@@ -438,7 +438,7 @@ discoveryStart as an argument
 	def handleDescription(req)
 		@log.debug("Description request: #{req}")
 		b = String.new
-		createDescriptionXML.write(b,2)
+		b = createDescriptionXML.to_s
 		return b
 	end
 	
@@ -449,27 +449,20 @@ discoveryStart as an argument
 		@webserver.mount_proc @descriptionAddr do |req,res|
 			b = handleDescription(req)
 			res.body = b
+			res.content_type = "text/xml"
 		end
 	
-=begin	
-		@devices.each do |d|
-			@webserver.mount_proc d.presentationAddr do |req,res|
-				r, b = d.handlePresentation(req)
-				res.body = b
-			end
-			d.services.each do |s|
-				@webserver.mount_proc s.controlAddr do |req,res|
-					s.handleControl(req)
-				end
-				@webserver.mount_proc s.eventAddr do |req,res|
-					s.handleEvent(req)
-				end
-				@webserver.mount_proc s.descAddr do |req,res|
-					s.handleDescription(req)
-				end
-			end
-		end
-=end		
+
+		#@webserver.mount_proc d.presentationAddr do |req,res|
+		#	r, b = d.handlePresentation(req)
+		#	res.body = b
+		#end
+		
+		@log.debug "Services mounted at: /#{URLBase}/services"
+		
+		@webserver.mount "/#{URLBase}/services", HandleServices, self
+		
+
 		@webserver.start
 		
 	end
@@ -479,4 +472,29 @@ discoveryStart as an argument
 	end
 	
 end 
+end
+
+=begin rdoc
+This class has to live outside the main UPnP class hierarchy because it is derived from Webrick
+However the root UPnP object is passed to it from Webrick as options[0]
+From that we can process the request
+=end
+
+class HandleServices < WEBrick::HTTPServlet::AbstractServlet
+	
+	def do_GET (req, res)
+		root = @options[0]
+		device = nil
+		service = nil
+		what = nil
+		
+		/.*#{Regexp.quote(UPnP::URLBase)}\/services\/(?<device>.*)\/(?<service>.*)\/(?<what>.*)\.xml/ =~ req.path
+		
+		r =  "Path is #{req.path}, and from that we have derived\r\n"
+		r << "Device: #{device}  " if device
+		r << "Service: #{service}  " if service
+		r << "What: #{what}  " if what
+		
+		res.body = r
+	end
 end
