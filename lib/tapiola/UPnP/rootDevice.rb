@@ -64,7 +64,7 @@ class RootDevice < Device
 		
 		@ipPort = "#{@ip}:#{@port}"
 		
-		@descriptionAddr = "/#{URLBase}/description"
+		@descriptionAddr = "/#{@urlBase}/description"
 		
 		@location= "http://#{@ip}:#{@port}#{@descriptionAddr}/description.xml"
 		
@@ -258,7 +258,7 @@ Calls getXMLDeviceData to get individual XML elements for each device (root and 
 					end
 				elsif (serviceVersion != nil) && (serviceType != nil)
 					devices.each_value do |d|
-						d.services.each do |s|
+						d.services.each_value do |s|
 							if (s.type == serviceType) && (s.version >= serviceVersion.to_i)
 								a << createSearchResponse("urn:schemas-upnp-org:service:#{serviceType}:#{serviceVersion}","uuid:#{d.uuid}:urn:schemas-upnp-org:service:#{serviceType}:#{serviceVersion}")
 							end
@@ -446,21 +446,19 @@ discoveryStart as an argument
 
 		@log.debug "Description address is #{@descriptionAddr}"
 
+# since the Description processing is part of the root device and doesn't do anything clever we can use a simple mount_proc for it
+
 		@webserver.mount_proc @descriptionAddr do |req,res|
 			b = handleDescription(req)
 			res.body = b
 			res.content_type = "text/xml"
 		end
 	
-
-		#@webserver.mount_proc d.presentationAddr do |req,res|
-		#	r, b = d.handlePresentation(req)
-		#	res.body = b
-		#end
-		
-		@log.debug "Services mounted at: /#{URLBase}/services"
-		
-		@webserver.mount "/#{URLBase}/services", HandleServices, self
+	
+# presentation and the three service things (description, control, event subscription) need to be delegated to the relevant device / service objects
+# for this reason we can't mount a simple block of code and instead have to mount something we've subclassed from WEBrick::AbstractServlet
+		@webserver.mount "/#{urlBase}/services", HandleServices, self
+		@webserver.mount "/#{urlBase}/presentation", HandlePresentation, self
 		
 
 		@webserver.start
@@ -471,30 +469,115 @@ discoveryStart as an argument
 		@webserver.shutdown
 	end
 	
+=begin rdoc
+
+=end
+	
+	def handlePresentation(req,res,url)
+		if (url == 'presentation.html')
+			res.body = "This is #{@name}"
+			return WEBrick::HTTPStatus::OK
+		else
+			return WEBrick::HTTPStatus::NotFound
+		end
+	end
+	
 end 
 end
 
 =begin rdoc
-This class has to live outside the main UPnP class hierarchy because it is derived from Webrick
+This class has to live outside the main UPnP class hierarchy because it is derived from Webrick and ruby doesn't do multiple inheiritance
 However the root UPnP object is passed to it from Webrick as options[0]
-From that we can process the request
+From that we can process the request, parse the URL and call the appropriate service method
 =end
 
 class HandleServices < WEBrick::HTTPServlet::AbstractServlet
 	
 	def do_GET (req, res)
 		root = @options[0]
-		device = nil
-		service = nil
-		what = nil
 		
-		/.*#{Regexp.quote(UPnP::URLBase)}\/services\/(?<device>.*)\/(?<service>.*)\/(?<what>.*)\.xml/ =~ req.path
 		
-		r =  "Path is #{req.path}, and from that we have derived\r\n"
-		r << "Device: #{device}  " if device
-		r << "Service: #{service}  " if service
-		r << "What: #{what}  " if what
+		rex  = /.*#{root.urlBase}\/services\/(.*)\/(.*)\/(.*).xml/ 
+		m = rex.match(req.path)
+		devicename = m[1]
+		servicename = m[2]
+		what = m[3]
 		
-		res.body = r
+		@log.debug ("rootDevice.rb/HandleService path is #{req.path}") 
+		@log.debug ("rootDevice.rb/HandleServices device:#{devicename}, service:#{servicename}, what:#{what}")
+		
+		if (devicename && servicename && what)
+			device = root.devices(devicename)
+			if device
+				service = d.services[servicename]
+				if service
+					case what
+					when "control"
+						c = service.handleControl(req,res)
+						# some error handling needs to go here
+					when "description"
+						service.handleDescription(req,res)
+					when "event"
+						c = service.handleEvent(req,res)
+						# add error handling
+						# check this might need to go into do_post
+					else
+						@log.warn("rootDevice.rb/HandleServices control / event / description not specified, this was instead:#{what}")
+						@log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
+						raise WEBrick::HTTPStatus::NotFound
+					end
+				else
+					@log.warn ("rootDevice.rb/HandleServices attempt made to use unknown service:#{servicename} on device #{devicename}")
+					@log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
+					raise WEBrick::HTTPStatus::NotFound
+				end
+			else
+				@log.warn ("rootDevice.rb/HandleServices attempt made to use unknown device:#{devicename}")
+				@log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
+				raise WEBrick::HTTPStatus::NotFound
+			end
+		else
+			@log.warn("rootDevice.rb/HandleServices URL:#{req.path} did not parse")
+			raise WEBrick::HTTPStatus::NotFound
+		end
+		
+	end
+end
+
+=begin rdoc
+This class has to live outside the main UPnP class hierarchy because it is derived from Webrick and ruby doesn't do multiple inheiritance
+However the root UPnP object is passed to it from Webrick as options[0]
+From that we can process the request, parse the URL and call the appropriate service method
+=end
+
+class HandlePresentation < WEBrick::HTTPServlet::AbstractServlet
+	
+	def do_GET (req, res)
+		root = @options[0]
+		
+		
+		rex  = /.*#{root.urlBase}\/presentation\/(.*?)\/(.*)/ 
+		m = rex.match(req.path)
+		devicename = m[1]
+		purl = m[2]
+		
+		
+		@log.debug ("rootDevice.rb/HandlePresentation path is #{req.path}") 
+		@log.debug ("rootDevice.rb/HandlePresentation device:#{devicename}, url:#{purl}")
+		
+		if (devicename && purl)
+			device = root.devices(devicename)
+			if device
+				raise device.handlePresentation(req,res,purl)
+			else
+				@log.warn ("rootDevice.rb/HandlePresentation attempt made to use unknown device:#{devicename}")
+				@log.warn("rootDevice.rb/HandlePresentation URL was:#{req.path}")
+				raise WEBrick::HTTPStatus::NotFound
+			end
+		else
+			@log.warn("rootDevice.rb/HandlePresentation URL:#{req.path} did not parse")
+			raise WEBrick::HTTPStatus::NotFound
+		end
+		
 	end
 end

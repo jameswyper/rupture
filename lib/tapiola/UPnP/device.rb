@@ -36,20 +36,21 @@ class Device
   [type] the type (should be a UPnP standard e.g. MediaServer)
   [version] UPnP device types can have multiple versions, this specifies which one we are supporting
 =end 
-	def initialize(name,type,version)
-		@services=Array.new
+	def initialize(name,type,version,urlBase = 'tapiola')
+		@services=Hash.new
 		@uuid=SecureRandom.uuid
 		@name=name
 		@type=type
 		@version=version
 		@properties = Hash.new
 		@icons = Array.new
-		@presentationAddr = "#{URLBase}/presentation/#{@name}/presentation.html"
+		@urlBase = urlBase
+		@presentationAddr = "#{urlBase}/presentation/#{@name}/presentation.html"
 	end
 	
 	# trivial method to add a new service to the list of supported ones.  Expected to be called during setup only.  No support for removing services.
 	def addService(service)
-		@services << service
+		@services[service.type] = service
 		service.linkToDevice(self)
 	end
 	
@@ -71,6 +72,8 @@ class Device
 	attr_accessor :properties
 	# Array of icons representing the device
 	attr_accessor :icons
+	# Base URL for all service, event, presentation and discovery calls
+	attr_reader :urlBase
 	
 =begin rdoc
     The UPnP spec specifies (Step 1 - discovery) that a message is sent on startup, periodically, and in response to a search request with the essential elements of the UPnP root device,
@@ -89,7 +92,7 @@ class Device
 =end
 	def serviceMessages
 		a = Array.new
-		@services.each do |s|
+		@services.each_value do |s|
 			a << ["urn:schemas-upnp-org:service:#{s.type}:#{s.version}","uuid:#{@uuid}:urn:schemas-upnp-org:service:#{s.type}:#{s.version}"]
 		end
 		return a
@@ -129,7 +132,7 @@ class Device
 		
 		
 		sl = REXML::Element.new("serviceList")
-		@services.each do |s|
+		@services.each_value do |s|
 			sx = REXML::Element.new "service"
 			sx.add_element("serviceType").add_text("urn:schemas-upnp-org:service:#{s.type}:#{s.version}")
 			sx.add_element("serviceID").add_text("urn:upnp-org:serviceID:#{s.type}")

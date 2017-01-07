@@ -66,19 +66,19 @@ class Service
 	
 	def linkToDevice(d)
 		@device = d
-		servAddr = "#{URLBase}/services/#{@device.name}/#{@type}/"
+		servAddr = "#{d.urlBase}/services/#{d.name}/#{@type}/"
 		@eventAddr = servAddr + "event.xml"
 		@controlAddr = servAddr + "control.xml"
 		@descAddr = servAddr + "description.xml"
 	end
 	
-	def handleEvent(req)
+	def handleEvent(req, res)
 	end
 	
-	def handleControl(req)
+	def handleControl(req, res)
 	end
 	
-	def handleDescription(req)
+	def handleDescription(req, res)
 	end
 	
 		
