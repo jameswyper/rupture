@@ -81,6 +81,8 @@ class Service
 	def handleDescription(req, res)
 	end
 	
+	def validate
+	end
 		
 end
 
@@ -140,9 +142,11 @@ class StateVariable
 	attr_reader :allowedMin
 	# the smallest amount the value of this variable (if numeric) can change by
 	attr_reader :allowedIncrement
+	# service the variable is attached to
+	attr_reader :service
 	
 		
-	def initialize(n, t, dv, av, amx, amn, ai, ev)
+	def initialize(n, t, dv, av, amx, amn, ai, ev = true, moderation = nil)
 		@name = n
 		@defaultValue = dv
 		@type = t
@@ -151,6 +155,16 @@ class StateVariable
 		@allowedMin = amn
 		@allowedIncrement = ai
 		@evented = ev
+		if moderation = :Delta
+			@moderationbyDelta = true
+			@moderationbyRate = false
+		elsif moderation = :Rate
+			@moderationbyRate = true
+			@moderationbyDelta = false
+		else
+			@moderationbyRate = false
+			@moderationbyDelta = false
+		end
 	end
 	
 	# check if the state variable is evented or not
@@ -158,11 +172,19 @@ class StateVariable
 		@evented
 	end
 	
+	def moderatedByRate?
+		@moderatedByRate
+	end
+	
+	def moderatedByDelta?
+		@moderatedByDelta
+	end
+	
 	# assign a new value and trigger eventing if necessary
 	def value=(v)
 		value =  v
-		if (self.evented?)
-			
+		if ((self.evented?) && !(self.moderatedByRate || self.moderatedByDelta))
+			@service.device.rootDevice.eventTriggers.push(v)
 		end
 	end
 	

@@ -1,0 +1,28 @@
+#Progress and Next Steps
+
+January 2017
+
+Discovery works
+Device description works
+Framework has been set up for HTTP services (description, presentation, control, eventing)
+
+TODO
+
+Webrick Servlets - make existing do_method generic and call it
+Logging (debug) - add File / method / object references to each statement
+Testing
+
+Replace device properties with symbols 
+
+Write method to start / stop all servers, including validation of device / service data
+
+
+Sample application
+Copyright notices
+
+Notes to self
+
+"rdoc lib" to document everything
+run a unit test just by running the __test.rb file
+
+

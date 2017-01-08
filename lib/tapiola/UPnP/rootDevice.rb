@@ -364,7 +364,7 @@ Returns the last of these threads (the sender one) so that the main program can 
 		
 		# Thread to send the messages
 		
-		ssdpSender = Thread.new do
+		@ssdpSender = Thread.new do
 			
 			while (@discoveryRunning || !@ssdpMessages.empty?) do
 				@log.debug"Sender: Queue size is #{@ssdpMessages.size} " 
@@ -413,7 +413,6 @@ Returns the last of these threads (the sender one) so that the main program can 
 				
 		end
 			
-		return ssdpSender	
 		
 	end
 	
@@ -422,7 +421,7 @@ Signals that the Discovery threads should be shut down.  Requires the value of t
 discoveryStart as an argument
 
 =end
-	def discoveryStop(senderthread)
+	def discoveryStop
 		
 		#load queue with SSDP:ByeBye messages 
 		
@@ -432,7 +431,9 @@ discoveryStart as an argument
 		@discoveryRunning = FALSE
 		@log.debug "Stop (@dR false) " 
 		
-		senderthread.join
+		# wait for the SSDP sender code to finish sending those messages
+		
+		@ssdpSender.join
 	end
 	
 	def handleDescription(req)
@@ -469,18 +470,75 @@ discoveryStart as an argument
 		@webserver.shutdown
 	end
 	
+	def eventingStart
+		@eventingRunning = true
+		
+		@eventPublisher = Thread.new do
+			loop do
+				m = @eventTriggers.pop
+				#eventTrigger is for a state variable
+				#variable belongs to a service
+				#find which subscribers are attached to a service
+				#send an event message to each
+			end
+		end
+		
+		@eventModerator = Thread.new do
+			loop do
+				sleep 0.01
+				@devices.each do |d|
+					d.services.each do |s|
+						s.stateVariables.each_value do |v|
+							if v.moderatedByRate?
+								t = Time.now
+								if ((t - v.lastEventedTime) > v.moderationRate)
+									@eventTriggers.push(v)
+									v.lastEventedTime = t
+								end
+							else
+								if v.moderatedByDelta?
+									if ((v.lastEventedValue - v.value).abs > (v.moderationDelta * v.allowedIncrement))
+										v.lastEventedValue = v.value
+										@eventTriggers.push(v)
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+		
+		
+	end
+	
+	def eventingStop
+		@eventPublisher.kill
+		@eventModerator.kill
+	end
+	
+	def start
+		@devices.each do |d|
+			d.validate
+			d.services.each do |s|
+				s.validate
+			end
+		end
+		discoveryStart
+		webServerStart
+	end
+	
+	def stop
+		webServerStop
+		discoveryStop
+	end
+
+	
 =begin rdoc
 
 =end
 	
-	def handlePresentation(req,res,url)
-		if (url == 'presentation.html')
-			res.body = "This is #{@name}"
-			return WEBrick::HTTPStatus::OK
-		else
-			return WEBrick::HTTPStatus::NotFound
-		end
-	end
+
 	
 end 
 end
@@ -568,7 +626,7 @@ class HandlePresentation < WEBrick::HTTPServlet::AbstractServlet
 		if (devicename && purl)
 			device = root.devices(devicename)
 			if device
-				raise device.handlePresentation(req,res,purl)
+				raise device.handlePresentation(req,res,action,purl)
 			else
 				@log.warn ("rootDevice.rb/HandlePresentation attempt made to use unknown device:#{devicename}")
 				@log.warn("rootDevice.rb/HandlePresentation URL was:#{req.path}")

@@ -2,19 +2,19 @@
 
 Some of this is abstracted from v1 of the UPnP Device Architecture document which can currently be found at http://upnp.org/specs/arch/UPnP-arch-DeviceArchitecture-v1.1.pdf
 
-UPnP revolves around the concept of Devices, Services and Control Points.  Devices provide services.  Control Points use calls to services to make devices do things.  Rupture does not support control points (it doesn't need to).
+UPnP revolves around the concept of Devices, Services and Control Points.  Devices provide services.  Control Points use calls to services to make devices do things.  Tapiola does not support control points (it doesn't need to).
 
 A device may be logically partitioned - the base or "root" device may - as well as providing services - contain other devices that themselves provide services.  I don't think that more than one level of nesting is allowed (ie a device can't be contained within any other device except the root device).  Any device may provide zero, one or many services.
 
-In rupture, these things are modelled as the classes UPnPDevice, UPnPRootDevice and UPnPService.  Since a root device is a special kind of device, it's defined as a subclass of UPnPDevice.
+In tapiola, these things are modelled as the classes UPnP::Device, UPnP::RootDevice and UPnP::Service.  Since a root device is a special kind of device, it's defined as a subclass of UPnPDevice.
 
-Devices and services have two important properties: Type and Version.  The UPnP forum has created specs for standard types (e.g. MediaServer) but others can be defined.  The classes in rupture only support standard types because that's all I need.  Version numbers are straight integers (no version 1.5).  Devices that contain a service at version x are expected to support versions 1 through x, not just x itself.
+Devices and services have two important properties: Type and Version.  The UPnP forum has created specs for standard types (e.g. MediaServer) but others can be defined.  The classes in tapiola only support standard types because that's all I need.  Version numbers are straight integers (no version 1.5).  Devices that contain a service at version x are expected to support versions 1 through x, not just x itself.
 
 There are six things in UPnP that devices and/or services get involved with:
 
-1.  Addressing.  This is the act of establishing a valid IP address for a device when it joins a network.  Rupture assumes it's running in an environment where the OS has taken care of all of this, so does not support Addressing.
+1.  Addressing.  This is the act of establishing a valid IP address for a device when it joins a network.  tapiola assumes it's running in an environment where the OS has taken care of all of this, so does not support Addressing.
 
-2.  Discovery.  When a UPnP device starts up, it sends a series of "advertisment" messages using a protocol called SSDP.  These are sent as multicast UDP packets.  The number and content of the messages depends on whether the root device has any embedded devices, and which services are offered by the collection of devices.  There's a lot of boilerplate in the messages, the key things sent are the type and version for each device and each service offered by each device, as well as the uuid of the device (rupture assigns a uuid when any instance of UPnPDevice is created).  A URL that's used for stage 3 (Description) is also sent.
+2.  Discovery.  When a UPnP device starts up, it sends a series of "advertisment" messages using a protocol called SSDP.  These are sent as multicast UDP packets.  The number and content of the messages depends on whether the root device has any embedded devices, and which services are offered by the collection of devices.  There's a lot of boilerplate in the messages, the key things sent are the type and version for each device and each service offered by each device, as well as the uuid of the device (tapiola assigns a uuid when any instance of UPnPDevice is created).  A URL that's used for stage 3 (Description) is also sent.
 
   The advertisment messages are repeated at a configurable interval, anything from 15 minutes upwards.
 
@@ -48,10 +48,34 @@ There are six things in UPnP that devices and/or services get involved with:
 6.  Presentation.  This is an optional URL that a standard web browser can connect to to get information about, and potentially manipulate, the device through means other than UPnP. The specs are totally relaxed about whether and how this is used, I guess because it's not really UPnP.
 
 
-In summary, rupture needs to do the following:
+In summary, tapiola needs to do the following:
 
 Send multicast UDP messages (for advertisment and cancelling advertisments)  
 Act as a server for multicast UDP messages (for search requests)  
 Send non-multicast UDP messages (responding to search requests)  
 Act as a http server (for Discovery, Control, Presentation and handling state variable subscriptions / renewals / cancellations)  
 Act as a http client (sending event messages to control points when state variables change)  
+
+And in a bit more detail, this is how it works:
+
+Quite a lot of the code in the Device and RootDevice classes is fairly dull, either initialising the base classes with data, assembling messages to send, or parsing messages that are received.
+
+
+For SSDP Discovery, three threads are set up
+
+A sender thread whose job it is to pick up any outbound messages from a queue, and send them over UDP
+A responder thread that listens for SSDP M-SEARCH messages from the network, parses them, creates the response and adds the response message(s) to the queue
+An advertiser thread that assembles the initial NOTIFY messages and adds them to the queue, then sleeps for a bit and assembles and queues them again, and repeat..
+
+All HTTP serving is handled by WEBrick, so for example the device Description is a simple method that's attached to WEBrick via mount_proc, all it does is assemble the required XML and returns it to WEBrick to get pushed out.
+
+For device Presentation, Service Description, Service Control and Event Subscription, all this is again HTTP traffic so handled by WEBrick.  A couple of methods derived from WEBrick servlets will parse the incoming URLs and work out which action (Description / Control / Subscription / Presentation) is required on which Device / Service, then call the appropriate class method for that Device or Service to action the request and create the response.
+
+For Eventing, a further two threads are needed:
+
+When a state variable changes, it can (as already mentioned) be moderated or unmoderated.  If the variable is unmoderated a change will immediately be pushed to the event queue.  
+
+A moderator thread will periodically (every 0.01 seconds or so), check to see whether any moderated variables have changed and, if so, whether they are now eligible to be pushed to the event queue (either because the change is sufficiently large, or enough time has elapsed since the last time an Event was sent, depending on how the variable is defined).
+
+A publisher thread will pick up any events on the queue, check to see which subscriptions are still valid, and publish the event to any subscribers. 
+

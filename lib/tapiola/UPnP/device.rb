@@ -20,15 +20,15 @@ class Device
 	# Hash containing all valid device properties from the UPnP spec and whether they are mandatory or optional
 	# The properties variable will hold the actual properties used in this device
 	@@allProperties = {
-	"friendlyName" => "M" ,
-	"manufacturer" => "M" ,
-	"manufacturerURL" => "O",
-	"modelDescription" => "O",
-	"modelName" => "M",
-	"modelNumber" => "M",
-	"modelURL" => "O",
-	"serialNumber" => "O",
-	"UPC" => "O"
+	:FriendlyName => :M ,
+	:Manufacturer => :M ,
+	:ManufacturerURL => :O,
+	:ModelDescription => :O,
+	:ModelName => :M,
+	:ModelNumber => :M,
+	:ModelURL => :M,
+	:SerialNumber => :O,
+	:UPC => :O
 	} 
 	
 =begin rdoc
@@ -153,8 +153,26 @@ class Device
 		return a
 	end
 	
-	def handlePresentation(req)
-		return 0, "Nothing to say"
+	def handlePresentation(req,res,action,url)
+		if (url == 'presentation.html')
+			res.body = "This is #{@name}"
+			return WEBrick::HTTPStatus::OK
+		else
+			return WEBrick::HTTPStatus::NotFound
+		end
+	end
+	
+=begin rdoc
+Check that the device data is, so far as we can tell, correct
+For now this will just mean checking that the properties are correctly set
+=end
+	
+	def validate
+		@@allProperties.each do |k,v|
+			if (!@properties[key] && (v == :M))
+				raise MandatoryPropertyMissing, key
+			end
+		end
 	end
 	
 end
