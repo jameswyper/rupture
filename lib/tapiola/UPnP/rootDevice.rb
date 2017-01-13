@@ -24,21 +24,28 @@ class RootDevice < Device
 	attr_reader :devices
 	
 	# Cache-Control value, default to 1800 seconds.  Again may not be needed outside the class
-	attr_reader :cacheControl
+	# attr_reader :cacheControl
 	
 	# IP and Port part of URL
 	attr_reader :ipPort
 
-	def initialize(type,version,ip,port,product)
-		super("root",type,version)
+        #initialiser must be called with type, version and product name
+	# optionally it can be called with ip and port (if these are left out a sensible ip and free port will be found)
+	# optionally it can be called with os and cacheControl value, if omitted defaults will be used
+
+	def initialize(params)
+		super(params)
 		@devices=Hash.new
 		addDevice(self)
 		
-		@product = product
-		@os = "Linux/3" #this should be dynamic but who uses it?
-		@cacheControl = 1800
+		@product = params[:product]
+		if (!@os = params[:os]) then @os = "Linux/3" end
+		if (!@cacheControl = params[:cacheControl]) then @cacheControl = 1800 end
 		
 		# if an ip wasn't specified, find one that isn't the loopback one
+		
+		ip = params[:ip]
+		port = params[:port]
 		
 		if ip == nil
 			Socket::ip_address_list.each do |a|

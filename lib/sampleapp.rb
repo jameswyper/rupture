@@ -92,7 +92,7 @@ root.properties[:FriendlyName] = "Sample App Root Server"
 
 # Then we will create the embedded device.  We won't set a property
 
-emb = SampleAppEmbedded.new
+emb = SampleAppEmbedded.new(:name =>, :type => , :version => ,:urlBase =>)
 emb.properties[:FriendlyName] = "Sample App Embedded Server"
 
 # Then we create the necessary services.  Because most of the specialisation is done at the class, rather than instance, level, this is very simple

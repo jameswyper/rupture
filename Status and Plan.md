@@ -16,7 +16,13 @@ Replace device properties with symbols
 
 Write method to start / stop all servers, including validation of device / service data
 
-Check out arguments list as hash, consider using symbols for that
+Check out arguments list as hash, use symbols for that
+
+allow PresentationURL to be overridden and not mounted
+write code to serve icons
+allow logging object to be overridden
+
+URLBase needs to be a property of the root device not the device
 
 Sample application
 
@@ -39,9 +45,36 @@ state variable will be defined individually, then attached to a service, with ty
 action will be defined with name and list of arguments, (name, direction, retval, reference to state variable)
 
 
+TEST PLAN
 
+Setup:
 
+Attempt to set up invalid devices (missing info, names break rules, etc).  Check validation exceptions thrown.
 
+Discovery:
+
+Set up SampleApp device.
+Use socat to listen for (a) initial adverts, (b) periodic retries
+Use socat to send different search requests.  Validate results.
+
+Description:
+
+Send Description request and validate result
+Send malformed request (wrong url) 
+
+Repeat Description test with device set up with explicit ip and port ie localhost
+
+Presentation:
+
+Confirm overridden presentation messages returned
+
+Control
+
+Call services, check results
+
+Eventing
+
+Subscribe, get events back
 
 
 

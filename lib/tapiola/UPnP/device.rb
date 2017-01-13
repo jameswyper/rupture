@@ -36,15 +36,18 @@ class Device
   [type] the type (should be a UPnP standard e.g. MediaServer)
   [version] UPnP device types can have multiple versions, this specifies which one we are supporting
 =end 
-	def initialize(name,type,version,urlBase = 'tapiola')
+	def initialize(params)
+		@urlBase = (params[:urlBase])
+		if (!@urlBase)
+			@urlBase = 'tapiola'
+		end
 		@services=Hash.new
 		@uuid=SecureRandom.uuid
-		@name=name
-		@type=type
-		@version=version
+		@name=params[:name]
+		@type=params[:type]
+		@version=[:version]
 		@properties = Hash.new
 		@icons = Array.new
-		@urlBase = urlBase
 		@presentationAddr = "#{urlBase}/presentation/#{@name}/presentation.html"
 	end
 	
