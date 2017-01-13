@@ -8,10 +8,27 @@ module UPnP
    A real service should implement a class derived from this one, set up the state variables and actions (which are also derived from simple base classes #UPnPAction
    and #UPnPStateVariable) and use #addStateVariable and #addAction to associate them with the service
    
+  I think that we don't need to derive classes from Service, just instantiate them, as no code is specific to the service
+  However there is code that's specific to each action, so that needs to be via derived classes and instantiated (as it could be run at the same time from two clients in two threads, so it must be thread-safe)
+  
+  So.. s = service.new; sv1 = statevariable.new; s.addStateVariable(sv1), repeat.. 
+  def action1 < action
+     during initialise, create and add arguments (as instance variables)
+
+  end
+  def action2 < action
+  end
+  s.addaction(action1)
+  s.addaction(action2) (so the service linked to an action must be a CLASS variable)
+  
+  when handleControl is called
+  object of the correction action1/2 class will be created
+  arguments checked against the object and passed in  (this can, I think, be a generic method on action)
+  action.invoke -> find and run the right method, including looking up and changing arguments (so arguments need a value they aren't just metadata)
+  check return arguments and assemble returning XML
    
 	TODO
-	
-	each service needs to attach itself to WeBrick as a servlet method (do we need to define the control URL as part of the service?)
+
 	this method will 
 	- decode the XML / SOAP request
 	- validate the action requested and the parameters passed
@@ -24,7 +41,7 @@ module UPnP
 	- if any state variables should change it will find them by name (self.service.stateVariables["name"]) and change the value
 	- add any out arguments to the hash
 	
-	each service will need to attach itself to Webrick with an additional servlet method for eventing which will
+
 	- 
    
 =end
@@ -76,6 +93,16 @@ class Service
 	end
 	
 	def handleControl(req, res)
+	
+	#decode the XML
+	#find the action by name
+	#confirm that the "in" arguments have all been supplied
+	#Thread.current[:action] = object.const_get(derived_action_classname).new
+	
+	#derived action will, when it initialises, name itself and add arguments
+	
+	#Thread.current[:action] = object.const_get(derived_action_classname).new
+		
 	end
 	
 	def handleDescription(req, res)
@@ -101,6 +128,11 @@ class Argument
 		@name = n
 		@relatedStateVariable = s
 		@direction = d
+		###do we need a value as well??
+	end
+	
+	def linkToAction(a)
+		@action = a
 	end
 end
 
@@ -120,6 +152,7 @@ class Action
 	
 	def addArgument(arg)
 		@args[arg.name] = arg
+		arg.linkToAction(self)
 	end
 		
 end
@@ -181,12 +214,16 @@ class StateVariable
 	end
 	
 	# assign a new value and trigger eventing if necessary
-	def value=(v)
+	def update(v)
+		
+		#this needs to be in a Mutex
 		value =  v
 		if ((self.evented?) && !(self.moderatedByRate || self.moderatedByDelta))
 			@service.device.rootDevice.eventTriggers.push(v)
 		end
+		#end mutex
 	end
+	
 	
 	
 end
