@@ -8,33 +8,36 @@ Framework has been set up for HTTP services (description, presentation, control,
 
 TODO
 
-Webrick Servlets - make existing do_method generic and call it
-Logging (debug) - add File / method / object references to each statement
+1. Webrick Servlets - make existing do_method generic and call it
+
+2. Logging (debug) - add File / method / object references to each statement
+
+3. Replace device properties with symbols 
+
+4. Write method to start / stop all servers, including validation of device / service data
+
+5. Check out arguments list as hash, use symbols for that
+
+6.  allow PresentationURL to be overridden and not mounted
+7.  write code to serve icons
+8.  allow logging object to be overridden
+
+9.  URLBase needs to be a property of the root device not the device
 
 
-Replace device properties with symbols 
+10. Sample application
 
-Write method to start / stop all servers, including validation of device / service data
+11. Copyright notices
 
-Check out arguments list as hash, use symbols for that
+12. Test suite based on Sample application including devices / services that don't validate
 
-allow PresentationURL to be overridden and not mounted
-write code to serve icons
-allow logging object to be overridden
+13. State variable setup and attaching to services
 
-URLBase needs to be a property of the root device not the device
+14. Actions / argument setup
 
-Sample application
+15. Events - moderator and subscriber threads need to be part of the root device.
 
-Copyright notices
-
-Test suite based on Sample application including devices / services that don't validate
-
-State variable setup and attaching to services
-Actions / argument setup
-
-
-Events - moderator and subscriber threads need to be part of the root device.
+(notes)
 
 root will contain a list of Subscriptions and the event queue
 
@@ -44,6 +47,7 @@ state variable will be defined individually, then attached to a service, with ty
 
 action will be defined with name and list of arguments, (name, direction, retval, reference to state variable)
 
+16. Add option to state variable to reset after eventing takes place
 
 TEST PLAN
 

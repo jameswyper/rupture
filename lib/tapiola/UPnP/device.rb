@@ -15,9 +15,10 @@ module UPnP
   The UPnP specification allows for devices to be contained within a root device, or for there to be just a single root device.
   I can't see why anyone would want to bother set up contained devices but the code will attempt to handle it.
 =end
+
 class Device
 	
-	# Hash containing all valid device properties from the UPnP spec and whether they are mandatory or optional
+	# Hash containing all valid device properties from the UPnP spec that are used in Description, and whether they are mandatory or optional
 	# The properties variable will hold the actual properties used in this device
 	@@allProperties = {
 	:FriendlyName => :M ,
@@ -32,20 +33,54 @@ class Device
 	} 
 	
 =begin rdoc
-  [name] the name of the UPnP device
-  [type] the type (should be a UPnP standard e.g. MediaServer)
-  [version] UPnP device types can have multiple versions, this specifies which one we are supporting
-=end 
+     initialiser MUST be called with the following parameters in the hash; in descending order of importance:
+     
+       
+	:Type (e.g MediaServer)
+	:Version (e.g. 1)
+	:Name (e.g. "device1"), will be used to form URLs - really only needed when embedding devices
+	:FriendlyName (typically this is what clients display)
+
+
+	(the next four only appear to be used in device description)
+	
+	:Manufacturer
+	:ModelName
+	:ModelNumber
+	:ModelURL 
+	
+	The following parameters are optional:
+	
+	:URLBase - start of URL for all web services e.g. if set to pyjamas then the addresses all start 127.0.0.1:60000/pyjamas/..
+	
+	(the next four only appear to be used in device description, if they aren't set XML tags won't be created for them)
+
+	:ManufacturerURL 
+	:ModelDescription
+	:SerialNumber
+	:UPC 
+	
+=end	
+
 	def initialize(params)
-		@urlBase = (params[:urlBase])
+		
+		[:Type, :Version, :Name, :FriendlyName, 
+		:Manufacturer,	:ModelName, :ModelNumber, :ModelURL ].each do |p|
+			if (params[p] == nil)
+				raise "Device initialize method: required parameter :#{p} missing"
+			end
+		end
+		
+		@urlBase = (params[:URLBase])
 		if (!@urlBase)
 			@urlBase = 'tapiola'
 		end
+		
 		@services=Hash.new
 		@uuid=SecureRandom.uuid
-		@name=params[:name]
-		@type=params[:type]
-		@version=[:version]
+		@name=params[:Name]
+		@type=params[:Type]
+		@version=[:Version]
 		@properties = Hash.new
 		@icons = Array.new
 		@presentationAddr = "#{urlBase}/presentation/#{@name}/presentation.html"
@@ -53,10 +88,14 @@ class Device
 	
 	# trivial method to add a new service to the list of supported ones.  Expected to be called during setup only.  No support for removing services.
 	def addService(service)
+		if (@services[service.type] != nil)
+			raise "device addService method: service of type #{service.type} already exists"
+		end
 		@services[service.type] = service
 		service.linkToDevice(self)
 	end
 	
+	# helper method for when root adds an embedded device, this ties the link up in the other direction
 	def linkToRoot(root)
 		@rootDevice = root
 	end
@@ -81,7 +120,7 @@ class Device
 =begin rdoc
     The UPnP spec specifies (Step 1 - discovery) that a message is sent on startup, periodically, and in response to a search request with the essential elements of the UPnP root device,
     any embedded devices and services.  This method helps to construct that message for devices.  #serviceMessages does the same for services.  
-    They should only be needed by the methods in the #UPnPRootDevice class
+    They should only be called by the methods in the #UPnPRootDevice class
 =end
 	def deviceMessages
 		a = Array.new
@@ -145,17 +184,14 @@ class Device
 			sl.add_element(sx.dup)
 		end
 		a << sl
-		
-		#consider linking a device to a service, so instance of a service is one associated to a device
-		#means we can store URLS inside the service instance
-		#I think we have to do this really as devices cannot share service instances
-		#also means we can set up service ID properly
-		
+	
 		a << REXML::Element.new("presentationURL").add_text("http://#{@rootDevice.ipPort}/#{@presentationAddr}")
 				
 		return a
 	end
-	
+
+
+
 	def handlePresentation(req,res,action,url)
 		if (url == 'presentation.html')
 			res.body = "This is #{@name}"

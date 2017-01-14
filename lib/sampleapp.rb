@@ -1,6 +1,6 @@
 
 
-=begin rdoc
+=begin 
 
 This program sets up a UPnP server device using the tapiola framework.  By itself it doesn't do anything useful whatsoever. Its purpose is to show how a real UPnP server would be built from the framework and provide enough comments to get you started on your own.
 
@@ -12,13 +12,15 @@ The root device will contain two slightly more complex services and a full range
 
 require_relative 'tapiola/UPnP.rb'
 
-=begin rdoc
-We begin by deriving classes from rootDevice and Device.  The only behaviour we need to specialise is that for the Presentation part of the specification; if we didn't want to do this (ie if we weren't bothering with the Presentation part of the specification, which is optional, then we could just use the base classes
+=begin 
+We begin by creating the rootDevice.  This must be created first in order for things like the logger to work.  The only behaviour we need to specialise is that for the Presentation part of the specification.
 =end
 
-class SampleAppRoot < UPnP::RootDevice
+root = UPnP::RootDevice.new(:Type => "SampleOne", :Version => 1, :Name => "sample1", :FriendlyName => "SampleApp Root Device",
+			:Product => "Sample/1.0", :Manufacturer => "James", :ModelName => "JamesSample",	:ModelNumber => "43",	:ModelURL => "github.com/jameswyper/tapiola",
+			:SerialNumber => "12345678", :ModelDescription => "Sample App Root Device, for to illustrate use of tapiola UPnP framework")
 	
-=begin rdoc
+=begin 
 Any Presentation functionality required should be provided by this method.
 req and res are the standard WEBrick request and response objects as processed by WEBrick::AbstractServlet
 action will be a symbol, either :GET or :POST depending on the http request passed to WEBrick (most of the time I'd expect this to be :GET but if you are using the Presentation functionality to change the behaviour of the server then :POST might be useful)
@@ -28,85 +30,56 @@ The method must return (not raise) the WEBrick exception required (usually WEBri
 In the example below the URL and HTTP action are validated and a simple response returned.  Real implementations will be much more complex.
 =end
 	
-	def handlePresentation(req,res,action,url)
-		
-		if (url == "presentation.xml")
-			if (action == :GET)
-				res.body = "SampleApp root device presentation on #{@ipPort}\r\n"
-				return WEBrick::HTTPStatus::OK
-			else
-				return WEBrick::HTTPStatus::Error
-			end
+def root.handlePresentation(req,res,action,url)
+	if (url == "presentation.xml")
+		if (action == :GET)
+			res.body = "SampleApp root device presentation on #{self.ipPort}\r\n"
+			return WEBrick::HTTPStatus::OK
 		else
-			return WEBrick::HTTPStatus::NotFound
-		else
-	end
-	
+			return WEBrick::HTTPStatus::Error
+		end
+	else
+		return WEBrick::HTTPStatus::NotFound
+	else
 end
+	
 
-=begin rdoc
-This behaves in exactly the same way as the SampleAppRoot class (RootDevice is derived from Device, and the default handlePresentation method lives there)
+
+=begin 
+We will create the embedded device next, and not override the standard (even more minimal) handlePresentation method
 =end
 
-class SampleAppEmbedded < UPnP::Device
+emb = UPnP::Device.new(:Type => "SampleTwo", :Version => 3, :Name => "sample2", :FriendlyName => "SampleApp Embedded Device",
+			 :Manufacturer => "James inc", :ModelName => "JamesSample II",	:ModelNumber => "42",	:ModelURL => "github.com/jameswyper/tapiola",
+			:UPC => "987654321", :ModelDescription => "Sample App Embedded Device, to illustrate use of tapiola UPnP framework")
 	
-	def handlePresentation(req,res,action,url)
-		
-		if (url == "presentation.xml")
-			if (action == :GET)
-				res.body = "SampleApp embedded device presentation on #{@ipPort}\r\n"
-				return WEBrick::HTTPStatus::OK
-			else
-				return WEBrick::HTTPStatus::Error
-			end
-		else
-			return WEBrick::HTTPStatus::NotFound
-		else
-	end
-end
 
-=begin rdoc
+
+
+=begin
+Services are, to begin with, just containers for State Variables and Actions.  So they are very easy to set up, just provide a type and version
+=end
+
+serv1 = UPnP::Service.new("Add",1)
+serv2 = UPnP::Service.new("Find",2)
+serv3 = UPnP::Service.new("ChangeVariable",1)
+
+=begin
+
 
 =end
 
-class SampleAppServ1 < UPnP::Service
-end
+sv1 = UPnP::StateVariable.new
 
-class SampleAppServ1 < UPnP::Service
-end
-
-class SampleAppServ1 < UPnP::Service
-end
-
-
-
-
-#Now we come to the real action
-# First we create our root device
-
-root = SampleAppRoot.new
-
-# Then we add whichever properties are needed.  Some of these are optional but Friendly Name, Manufacturer, Model and Model Number are mandatory
-
-root.properties[:FriendlyName] = "Sample App Root Server"
-
-# Then we will create the embedded device.  We won't set a property
-
-emb = SampleAppEmbedded.new(:name =>, :type => , :version => ,:urlBase =>)
-emb.properties[:FriendlyName] = "Sample App Embedded Server"
-
-# Then we create the necessary services.  Because most of the specialisation is done at the class, rather than instance, level, this is very simple
-
-s1 = SampleAppServ1.new
-s2 = SampleAppServ2.new
-s3 = SampleAppServ3.new
 
 # Then we link our device and services together
 
 root.addDevice(emb)
-root.addService(s1)
-root.addService(s2)
-emb.addService(s3)
+root.addService(serv1)
+root.addService(serv2)
+emb.addService(serv3)
+
+# note that root.devices["sample2"]
 
 # finally we set a kernel trap for SIGINT to stop the server gracefully and start the WEBrick and UDP servers
 

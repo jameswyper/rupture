@@ -78,7 +78,7 @@ class Service
 	
 	def addAction(a)
 		@actions[a.name] = a
-		a.service = self
+		a.linkToService(self)
 	end
 	
 	def linkToDevice(d)
@@ -123,12 +123,21 @@ class Argument
 	attr_reader :direction
 	# the action this argument is associated with
 	attr_writer :action
+	# the argument's value
+	attr_accessor :value
 	
-	def initialize(n,d,s)
+	def initialize(n,d,r,s)
+
+		if ((d != :in) && (d != :out))  then raise "Argument initialize method: direction not :in or :out, was #{d}" end
+		
 		@name = n
 		@relatedStateVariable = s
 		@direction = d
-		###do we need a value as well??
+		@retval = r
+	end
+	
+	def returnValue?
+		@retval
 	end
 	
 	def linkToAction(a)
@@ -142,19 +151,51 @@ class Action
 	attr_reader :name
 	# Hash containing all the arguments (in and out) associated with this service
 	attr_reader :args
-	# the service this action is associated with
-	attr_writer :service
+	# Array containing the out arguments only
+	attr_reader :outArgs
+	# Array containing the in arguments only
+	attr_reader :inArgs
+	# Retval argument
+	attr_reader :returnArg
+	# Service this Action is linked to
+	attr_reader :service
 	
 	def initialize(n)
 		@name = n
 		@args = Hash.new
+		@inArgs = Array.new
+		@outArgs = Array.new
+		@retArg = nil
 	end
 	
 	def addArgument(arg)
+		if (@args[arg.name]) then raise "Action addArgument method: attempting to add duplicate argument #{arg.name}" end
+		
 		@args[arg.name] = arg
 		arg.linkToAction(self)
+		
+		if (arg.direction == :in)
+			@inArgs << arg
+		else
+			@outArgs << arg
+		end
+		
+		if (arg.returnValue?)
+			
+			if (@outArgs.size > 1) then raise "Action addArgument method: return value must be first Out argument added" end
+			
+			if (@returnArg)
+				raise "Action addArgument method: attempting to add #{arg.name} as a return value when #{@returnArg.name} already set as one"
+			else
+				@returnArg = arg
+			end
+		end
+		
 	end
 		
+	def linkToService(s)
+		@service = s
+	end
 end
 
 class StateVariable

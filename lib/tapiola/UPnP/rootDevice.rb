@@ -29,31 +29,95 @@ class RootDevice < Device
 	# IP and Port part of URL
 	attr_reader :ipPort
 
-        #initialiser must be called with type, version and product name
-	# optionally it can be called with ip and port (if these are left out a sensible ip and free port will be found)
-	# optionally it can be called with os and cacheControl value, if omitted defaults will be used
+=begin rdoc
+     initialiser MUST be called with the following parameters in the hash; in descending order of importance:
+     
+       
+	:Type (e.g MediaServer)
+	:Version (e.g. 1)
+	:Name (e.g. "tapiola"), will be used to form URLs
+	:FriendlyName (typically this is what clients display)
 
+	:Product (seems unimportant - e.g. Tapiola/1.0 - appears in SSDP messages) 
+
+	(the next four only appear to be used in device description)
+	
+	:Manufacturer
+	:ModelName
+	:ModelNumber
+	:ModelURL 
+	
+	
+	The following parameters are optional:
+	
+	:IP and :Port (if these are left out a sensible ip and free port will be found)
+	:Interface - if supplied, and IP left blank, then will attempt to get the IP for this interface (and only this one)
+	:OS and :CacheControl (defaults will be used if these are left out)
+	:URLBase - start of URL for all web services e.g. if set to pyjamas then the addresses all start 127.0.0.1:60000/pyjamas/..
+	
+	(the next four only appear to be used in device description, if they aren't set XML tags won't be created for them)
+
+	:ManufacturerURL 
+	:ModelDescription
+	:SerialNumber
+	:UPC 
+	
+=end
 	def initialize(params)
+
+		@log = Logger.new(STDOUT)
+		#TODO - allow this to be overridden
+		@log.level  = Logger::DEBUG
+		@log.datetime_format  = "%H:%M:%S"
+		@log.formatter = proc do |severity, datetime, progname, msg|
+			"#{severity} [#{datetime}] #{progname}/#{__FILE__}/#{__method__}: #{msg}\n"
+		end
+
+		
+		#check that the root-specific mandatory parameters are here (others will be checked in the super method)
+				
+		[:Friendlyname, :Product].each do |p|
+			if (params[p] == nil)
+				raise "rootDevice initialize method: required parameter :#{p} missing"
+			end
+		end
+
 		super(params)
+		
+
 		@devices=Hash.new
 		addDevice(self)
 		
-		@product = params[:product]
-		if (!@os = params[:os]) then @os = "Linux/3" end
-		if (!@cacheControl = params[:cacheControl]) then @cacheControl = 1800 end
+		@product = params[:Product]
+		if (!@os = params[:OS]) then @os = RUBY_PLATFORM end
+		if (!@cacheControl = params[:CacheControl]) then @cacheControl = 1800 end
 		
-		# if an ip wasn't specified, find one that isn't the loopback one
+		# if an ip wasn't specified, find one that isn't the loopback one and assume this is the one we should listen to
+		# if an interface name was supplied, match to that
 		
-		ip = params[:ip]
-		port = params[:port]
+		ip = params[:IP]
+		port = params[:Port]
 		
 		if ip == nil
-			Socket::ip_address_list.each do |a|
+			f = params[:Interface]
+			Socket::igetifaddrs.each do |i|
+				a = i.addr
+				n = i.name
+				@log.debug ("Looking for interfaces, found #{n} with addr #{a}, filtering on :#{f}")
 				if a.ipv4?
 					if !a.ipv4_loopback?
-						@ip = a.ip_address
+						if (f)
+							if (f == i.name)
+								@ip = a.ip_address
+							end
+						else
+							@ip = a.ip_address
+						end
 					end
 				end
+			end
+			if ip == nil
+				raise "RootDevice initialise method: could not find an interface to listen on, filtering on:#{f}"
 			end
 		else
 			@ip = ip
@@ -74,16 +138,15 @@ class RootDevice < Device
 		@descriptionAddr = "/#{@urlBase}/description"
 		
 		@location= "http://#{@ip}:#{@port}#{@descriptionAddr}/description.xml"
-		
-		@log = Logger.new(STDOUT)
-		@log.level  = Logger::DEBUG
-		@log.datetime_format  = "%H:%M:%S"
-		
+	
 		@log.info "Listening on #{@ipPort}"
 	end
 
 # trivial method to add devices to a root device, it's just a list.  No support for removing them.  Should only be called at runtime.
 	def addDevice(device)
+		if (@devices[device.name] != nil)
+			raise "RootDevice addDevice method: device with name #{device.name} already exists"
+		end
 		@devices.store(device.name,device)
 		device.linkToRoot(self)
 	end
@@ -119,7 +182,7 @@ Calls getXMLDeviceData to get individual XML elements for each device (root and 
 			dvl = REXML::Element.new("devicelist")
 				
 			@devices.each_value do |d|
-				if (d.name != "root")
+				if (d.name != @name)  # don't repeat the root device info
 					dxml = d.getXMLDeviceData
 					dxml.each { |dx| 	dvl.add_element(dx) }
 				end
