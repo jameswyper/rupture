@@ -126,7 +126,17 @@ class Argument
 	# the argument's value
 	attr_accessor :value
 	
-	def initialize(n,d,r,s)
+=begin rdoc
+
+Initialize with 
+Name
+Direction, either :in or :out
+Related State Variable - needs to be a StateVariable object
+Return Value flag - if this is the return value for the Action set to true. Defaults to false
+
+=end
+	
+	def initialize(n,d,s, r=false)
 
 		if ((d != :in) && (d != :out))  then raise "Argument initialize method: direction not :in or :out, was #{d}" end
 		
@@ -200,6 +210,13 @@ end
 
 class StateVariable
 	
+	@@SVtypes = [:ui1,:ui2,:ui4,:i1,:i2,:i4,:int,
+				:r4,:r8,:fixed14,:numbe,:float,
+				:char,:string,
+				:date,:dateTime,:dateTimetz,:time,:timetz,
+				:boolean,:binbase64,:binhex,:uri,:uuid]
+
+
 	# variable name - should be as per the Service specification
 	attr_reader :name 
 	# current value - might replace this with proper getter / setter methods
@@ -218,27 +235,100 @@ class StateVariable
 	attr_reader :allowedIncrement
 	# service the variable is attached to
 	attr_reader :service
+	# time that an event was last fired for a moderated variable
+	attr_accessor :lastEventedTime
 	
+=begin rdoc
+
+initialize takes a hash of parameter name / value pairs e.g. :type => :SV_string
+
+Required parameters are
+
+:Name
+:Type which must be one of  :ui1,:ui2,:ui4,:i1,:i2,:i4,:int,:r4,:r8,:fixed14,:numbe,:float,:char,:string,:date,:dateTime,:dateTimetz,:time,:timetz,:boolean,:binbase64,:binhex,:uri,:uuid]
+(at the moment the code doesn't actually treat these types differently ie the value of a state variable isn't type-checked)
+
+
+Optional parameters are
+
+:DefaultValue - what the variable is initialised to
+
+:AllowedValues - ensures the variable is validated against a set of allowed values which should be passed in as a hash e.g.
+
+:AllowedValues => { :ipsum => 0, :lorem => 0} (it doesn't matter what the values are, 0 is fine, so long as they are not nil or false
+
+:AllowedMin, :AllowedMax - ensures validation against a range.  Can't be combined with :AllowedValues
+:AllowedIncrement - ensures variable only changes by the given increment
+
+:Evented - true/false depending on whether events should fire for changes
+:ResetAfterEvent - although it's not part of the standard, some devices e.g MediaServer require that a variable is cleared after an event fires.  Specify the value to which a variable should be reset.  Can be "" or 0 but should not be nil.
+
+:ModerationType - should be :Rate or :Delta with :MaximumRate (number of seconds between events) or :MinimumDelta (number of :AllowedIncrement steps before an event fires) supplied as well
+
+=end
 		
-	def initialize(n, t, dv, av, amx, amn, ai, ev = true, moderation = nil)
-		@name = n
-		@defaultValue = dv
-		@type = t
-		@allowedValues = av
-		@allowedMax = amx
-		@allowedMin = amn
-		@allowedIncrement = ai
-		@evented = ev
-		if moderation = :Delta
+	def initialize(params)
+		
+		
+		#check that all required parameters are present
+		
+		[:Name,:Type].each do |p|
+			unless params[p] then raise "StateVariable initialize method: for name:#{params[:Name]} required parameter :#{p} missing" end
+		end
+		
+		@name = params[:Name]
+		@type = params[:Type]
+		@defaultValue = params [:DefaultValue]
+		@allowedValues = params[:AllowedValues]
+		@allowedMax = params[:AllowedMax]
+		@allowedMin = params[:AllowedMin]
+		@allowedIncrement = params[:AllowedIncrement]
+		
+		#A state variable may be validate by a list of allowed values, or a range, but not both
+		
+		if (@allowedMax) || @allowedMin) then @allowedRange = true else @allowedRange = false end
+		if (@allowedRange)
+			unless (@allowedMin && @allowedMax) then raise "Statevariable initialize method: for name #{@name} :AllowedMin and :AllowedMax must both be specified" end
+		end
+		
+		# Validate the default value
+		
+		if (@allowedRange && @allowedValues) then raise "Statevariable initialize method: for name #{@name} :AllowedMin/Max and :AllowedValues cannot both be specified" end
+		
+		if (@allowedRange && @defaultValue)
+			if ((@defaultValue > @allowedMax) || (@defaultValue < @allowedMin)) then raise "Statevariable initialize method: for name #{@name} :DefaultValue outside :AllowedMin/Max" end
+		elsif (@allowedValues && @defaultValue)
+			unless (@allowedValues[@defaultValue]) then raise "Statevariable initialize method: for name #{@name} :DefaultValue not in :AllowedValues list" end 
+		end
+		
+		if @defaultValue 
+			@value = @defaultValue
+			@lastEventedValue = @value
+		end
+		
+		@evented = params[:Evented]
+		@resetValue = params[:ResetAfterEvent]
+		
+		#cross-check moderation parameters
+		
+		if (params[:ModerationType] == :Delta)
 			@moderationbyDelta = true
 			@moderationbyRate = false
-		elsif moderation = :Rate
+			@minimumDelta = params[:MinimumDelta]
+			unless @minimumDelta then raise "Statevariable initialize method: for name #{@name} :MinimumDelta not specified"
+			unless @allowedIncrement then raise "Statevariable initialize method: for name #{@name} :MinimumDelta requires :AllowedIncrement to also be set"
+		elsif (params[:ModerationType] == :Rate)
 			@moderationbyRate = true
 			@moderationbyDelta = false
+			@maximumRate = params[:MaximumRate]
+			unless @maximumRate then raise "Statevariable initialize method: for name #{@name} :MaximumRate not specified"
 		else
 			@moderationbyRate = false
 			@moderationbyDelta = false
 		end
+		
+		@semaphore = Mutex.new
+		
 	end
 	
 	# check if the state variable is evented or not
@@ -254,15 +344,56 @@ class StateVariable
 		@moderatedByDelta
 	end
 	
+	def reset
+		@value = @resetValue
+		@lastEventedValue = @value
+	end
+	
 	# assign a new value and trigger eventing if necessary
 	def update(v)
 		
-		#this needs to be in a Mutex
-		value =  v
-		if ((self.evented?) && !(self.moderatedByRate || self.moderatedByDelta))
-			@service.device.rootDevice.eventTriggers.push(v)
-		end
-		#end mutex
+		
+		@semaphore.synchronize do
+			
+		# validate the changed value
+		
+			if (@allowedIncrement)
+				if  (((@value - v) % @allowedIncrement) != 0)
+					raise StateVariableError, "allowedIncrement violation, previous value #{@value} new value #{v} allowed increment #{@allowedIncrement}"
+				end
+			end
+		
+			if (@allowedRange)
+				if ((v < @allowedMin) || (v > @allowedMax))
+					raise StateVariableError, "allowedRange violation, attempt to set #{v}, min #{@allowedMin}, max #{@allowedMax}"
+				end
+			end
+
+			if (@allowedValues)
+				unless (@allowedValues[v]) then raise StateVariableError, "value #{v} not in allowed value list" end
+			end
+		
+			# assign it to the state variable
+		
+			@value =  v
+		
+			# check that eventing is enabled and fire an event unless it's moderated in some way
+		
+			if ((self.evented?) && !(self.moderatedByRate? || self.moderatedByDelta?))
+				@service.device.rootDevice.eventTriggers.push(@value)
+			end
+		
+			# if the event is moderated by delta (only fires once the variable has changed by a sufficient amount) check for the size of change
+		
+			if self.moderatedByDelta?
+				if ((@lastEventedValue - v).abs > (@minimumDelta * @allowedIncrement))
+					@lastEventedValue = v
+					@service.device.rootDevice.eventTriggers.push(@value)
+				end
+			end
+		
+		end #semaphore
+	
 	end
 	
 	

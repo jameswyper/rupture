@@ -487,8 +487,7 @@ Returns the last of these threads (the sender one) so that the main program can 
 	end
 	
 =begin rdoc
-Signals that the Discovery threads should be shut down.  Requires the value of the "sender" thread returned from
-discoveryStart as an argument
+Signals that the Discovery threads should be shut down. 
 
 =end
 	def discoveryStop
@@ -561,16 +560,9 @@ discoveryStart as an argument
 						s.stateVariables.each_value do |v|
 							if v.moderatedByRate?
 								t = Time.now
-								if ((t - v.lastEventedTime) > v.moderationRate)
+								if ((t - v.lastEventedTime) > v.maximumRate)
 									@eventTriggers.push(v)
 									v.lastEventedTime = t
-								end
-							else
-								if v.moderatedByDelta?
-									if ((v.lastEventedValue - v.value).abs > (v.moderationDelta * v.allowedIncrement))
-										v.lastEventedValue = v.value
-										@eventTriggers.push(v)
-									end
 								end
 							end
 						end
@@ -596,11 +588,13 @@ discoveryStart as an argument
 		end
 		discoveryStart
 		webServerStart
+		eventingStart
 	end
 	
 	def stop
 		webServerStop
 		discoveryStop
+		eventingStop
 	end
 
 	

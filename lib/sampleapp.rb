@@ -65,11 +65,20 @@ serv2 = UPnP::Service.new("Find",2)
 serv3 = UPnP::Service.new("ChangeVariable",1)
 
 =begin
-
+We create state variables
 
 =end
 
 sv1 = UPnP::StateVariable.new
+
+class action1 < UPnP::Action
+	def initialize(name)
+		super(name)
+		add
+	end
+end
+
+
 
 
 # Then we link our device and services together
