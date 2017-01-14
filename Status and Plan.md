@@ -10,13 +10,12 @@ TODO
 
 1. Webrick Servlets - make existing do_method generic and call it
 
-2. Logging (debug) - add File / method / object references to each statement
+2. Logging (debug) - add File / method / object references to each statement [need to test]
 
-3. Replace device properties with symbols 
 
 4. Write method to start / stop all servers, including validation of device / service data
 
-5. Check out arguments list as hash, use symbols for that
+
 
 6.  allow PresentationURL to be overridden and not mounted
 7.  write code to serve icons
@@ -49,7 +48,7 @@ action will be defined with name and list of arguments, (name, direction, retval
 
 16. Add option to state variable to reset after eventing takes place
 
-TEST PLAN
+##TEST PLAN
 
 Setup:
 
@@ -81,11 +80,18 @@ Eventing
 Subscribe, get events back
 
 
+##Testing and Validation
+
+I'm using gupnp-universal-cp (part of gupnp-tools) to test (socat has also been useful), via the command
+
+strace -e trace=network -o tapiola.strace -s 1024 gupnp-universal-cp
+
+it's possible to spy on traffic in and out of the gupnp program and from that I can confirm that the interaction between gupnp and Tapiola is working at the SSDP level (Tapiola's NOTIFY messages are being processed correctly, and it is sending the correct response to M-SEARCH messages), gupnp is also retrieving the root device description OK.  That's as far as I've got for now..
 
 
-Notes to self
+
+##Notes to self
 
 "rdoc lib" to document everything
 run a unit test just by running the __test.rb file
-
-
+use REXML for starters to create / parse XML, switch the Nokogiri and/or builder if needed

@@ -545,10 +545,21 @@ Signals that the Discovery threads should be shut down.
 		@eventPublisher = Thread.new do
 			loop do
 				m = @eventTriggers.pop
-				#eventTrigger is for a state variable
-				#variable belongs to a service
-				#find which subscribers are attached to a service
-				#send an event message to each
+				m.service.subscriptions do |s|
+					unless s.expired?
+						delivered = false
+						x = 0
+						until ((delivered ||  (x >= s.callbackURLs.size) ) do
+							msg = "NOTIFY #{s.callbackURLs[x]} HTTP/1.1\r\n"
+
+							msg << StateVariable.eventsXML([m])
+							#assemble event message (header from subscription, body from statevariables class method)
+							#send via Httpclient
+							#set delivered if sent OK
+						end
+						s.increment
+					end
+				end
 			end
 		end
 		

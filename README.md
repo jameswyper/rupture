@@ -15,25 +15,17 @@ For now I just want something that will serve mp3 files but hopefully this can b
 
 I'm going to split the logic up into (at least) two programs - something to create the virtual container hierarchy from a set of mp3 tags (reusing a lot from my failed attempt at doing the same with rygel) and store that in an SQLite database, and something to read that database and serve the hierarchy over UPnP.
 
+As the project has taken shape I've worked on isolating the UPnP stuff and putting it into a set of classes that can be used to build any UPnP server in Ruby.
 
 
 The rough plan of attack is
 
 - create some generic classes for UPnP devices and services [underway]
 - create a server that will handle SSDP discovery & advertisement (basically a simple, threaded UDP server) [done, being tested]
-- extend this to add generic handling of Description [underway], Control, Eventing and (maybe) Presentation
+- extend this to add generic handling of Description [underway], Control [underway], Eventing [underway] and (maybe) Presentation [done]
 - start specialising the classes to handle serving audio
 - create the virtual container hierarchy
 - get the specialised classes to use that..
 
-Notes to self: 
 
-use REXML for starters to create / parse XML, switch the Nokogiri and/or builder if needed
-Try Webrick as the server
-
-I'm using gupnp-universal-cp (part of gupnp-tools) to test (socat has also been useful), via the command
-
-strace -e trace=network -o tapiola.strace -s 1024 gupnp-universal-cp
-
-it's possible to spy on traffic in and out of the gupnp program and from that I can confirm that the interaction between gupnp and Tapiola is working at the SSDP level (Tapiola's NOTIFY messages are being processed correctly, and it is sending the correct response to M-SEARCH messages), gupnp is also retrieving the root device description OK.  That's as far as I've got for now..
 

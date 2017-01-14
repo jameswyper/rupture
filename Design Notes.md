@@ -116,31 +116,37 @@ end
 
 The same is true of Services, since there should be no device-specific code associated (directly) with a service, so it can just be instantiated.
 
+```ruby
 myService = Service.new(.....)
+```
 
 None of the code in the Device or Service classes (other than during initialisation), affects the data in those classes, it's effectively "read only" code.  So it should be thread-safe.
 
-Actions are more complicated and will normally need to be set up as derived classes, although the singleton method above would work in limited cirumstances (trivial actions that do almost nothing).  The reason for this is that actions will need to interact with other, non UPnP code and data.  
+Actions are more complicated and will normally need to be set up as derived classes, although the singleton method above would work in limited cirumstances (trivial actions that do almost nothing).  The reason for this is that actions will need to interact with other, non UPnP code and data.  This is the least ugly way of acheiving that that I could devise.
 
 In this example we have defined UPnP arguments called Arg1, Arg2 and Arg3.  The first two are inputs, the third an output.  The UPnP name of the action is "NameOfAction".  
 
 Assuming that this interaction all takes place via a class DoStuff.
 
 ```ruby
-
-class DoStuff
+ 
+class DoStuff  # note that this contains no UPnP code at all
+# it just models the UPnP server device, in this case a simple calculator
+ 
     def initialize(f)
         @fudge = f
     end
+    
     def sillyMath(a,b)
         a + b + @fudge
     end
+    
 end
 
 class myAction < UPnP::Action  # the name of the derived class is unimportant
 
     def initialize(bindObject)
-        super("NameOfAction") #this must be included
+        super("NameOfAction") #this must be included and IS important
         @bindObject = bindObject #this is one way of linking the UPnP action to your main code, there may be better ones.
     end
     
@@ -149,6 +155,8 @@ class myAction < UPnP::Action  # the name of the derived class is unimportant
         secondArgument = params["Arg2"] 
         
         # now do the actual work
+        # this is where the UPnP action and device representation code meet
+        
         result = @bindObject.sillyMath(firstArgument,secondArgument)
         
         return { "Arg3" => result }  # multiple return values can be provided in this hash
