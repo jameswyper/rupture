@@ -108,7 +108,7 @@ end
 but then I realised a singleton method should work just as well
 
 ```ruby
-myDevice = rootDevice.new
+myDevice = rootDevice.new(......)
 def myDevice.handlePresentation (req,res)
 #   code as before, but use self.x to access instance variable x
 end
@@ -116,6 +116,52 @@ end
 
 The same is true of Services, since there should be no device-specific code associated (directly) with a service, so it can just be instantiated.
 
+myService = Service.new(.....)
+
 None of the code in the Device or Service classes (other than during initialisation), affects the data in those classes, it's effectively "read only" code.  So it should be thread-safe.
 
-Actions will need to be set up as derived classes.
+Actions are more complicated and will normally need to be set up as derived classes, although the singleton method above would work in limited cirumstances (trivial actions that do almost nothing).  The reason for this is that actions will need to interact with other, non UPnP code and data.  
+
+In this example we have defined UPnP arguments called Arg1, Arg2 and Arg3.  The first two are inputs, the third an output.  The UPnP name of the action is "NameOfAction".  
+
+Assuming that this interaction all takes place via a class DoStuff.
+
+```ruby
+
+class DoStuff
+    def initialize(f)
+        @fudge = f
+    end
+    def sillyMath(a,b)
+        a + b + @fudge
+    end
+end
+
+class myAction < UPnP::Action  # the name of the derived class is unimportant
+
+    def initialize(bindObject)
+        super("NameOfAction") #this must be included
+        @bindObject = bindObject #this is one way of linking the UPnP action to your main code, there may be better ones.
+    end
+    
+    def invoke(params)
+        firstArgument = params["Arg1"]
+        secondArgument = params["Arg2"] 
+        
+        # now do the actual work
+        result = @bindObject.sillyMath(firstArgument,secondArgument)
+        
+        return { "Arg3" => result }  # multiple return values can be provided in this hash
+    end
+
+end
+
+
+thing = DoStuff.new(5)  #create the object that represents/controls the thing the UPnP service is managing - obviously its name is unimportant
+
+myActionInstance = myAction(thing)  # associate the action with that object
+
+myService.addAction(myActionInstance) 
+```
+
+If a client invokes "NameofAction" on whatever service type myService is, with Arg1 = 6 and Arg2 = 12, they should get a response with Arg3 = 23

@@ -113,6 +113,12 @@ class Service
 		
 end
 
+
+=begin rdoc
+The argument class defines a single parameter that is passed in or out of the server during the Control process.  Note that it contains just the "metadata" about the argument in general, not the value of any one argument during a call in particular
+
+=end
+
 class Argument
 	
 	# argument name
@@ -123,8 +129,7 @@ class Argument
 	attr_reader :direction
 	# the action this argument is associated with
 	attr_writer :action
-	# the argument's value
-	attr_accessor :value
+	
 	
 =begin rdoc
 
@@ -179,7 +184,7 @@ class Action
 	end
 	
 	def addArgument(arg)
-		if (@args[arg.name]) then raise "Action addArgument method: attempting to add duplicate argument #{arg.name}" end
+		if (@args[arg.name]) then raise SetupError, "Action addArgument method: attempting to add duplicate argument #{arg.name}" end
 		
 		@args[arg.name] = arg
 		arg.linkToAction(self)
@@ -192,10 +197,10 @@ class Action
 		
 		if (arg.returnValue?)
 			
-			if (@outArgs.size > 1) then raise "Action addArgument method: return value must be first Out argument added" end
+			if (@outArgs.size > 1) then raise SetupError, "Action addArgument method: return value must be first Out argument added" end
 			
 			if (@returnArg)
-				raise "Action addArgument method: attempting to add #{arg.name} as a return value when #{@returnArg.name} already set as one"
+				raise SetupError, "Action addArgument method: attempting to add #{arg.name} as a return value when #{@returnArg.name} already set as one"
 			else
 				@returnArg = arg
 			end
@@ -206,6 +211,12 @@ class Action
 	def linkToService(s)
 		@service = s
 	end
+	
+	def invoke(params)
+		raise ActionError, "Action invoke method: base class method called (did you supply a method in the derived class?)"
+		return Hash.new
+	end
+	
 end
 
 class StateVariable
@@ -273,7 +284,7 @@ Optional parameters are
 		#check that all required parameters are present
 		
 		[:Name,:Type].each do |p|
-			unless params[p] then raise "StateVariable initialize method: for name:#{params[:Name]} required parameter :#{p} missing" end
+			unless params[p] then raise SetupError, "StateVariable initialize method: for name:#{params[:Name]} required parameter :#{p} missing" end
 		end
 		
 		@name = params[:Name]
@@ -288,17 +299,17 @@ Optional parameters are
 		
 		if (@allowedMax) || @allowedMin) then @allowedRange = true else @allowedRange = false end
 		if (@allowedRange)
-			unless (@allowedMin && @allowedMax) then raise "Statevariable initialize method: for name #{@name} :AllowedMin and :AllowedMax must both be specified" end
+			unless (@allowedMin && @allowedMax) then raise SetupError, "Statevariable initialize method: for name #{@name} :AllowedMin and :AllowedMax must both be specified" end
 		end
 		
 		# Validate the default value
 		
-		if (@allowedRange && @allowedValues) then raise "Statevariable initialize method: for name #{@name} :AllowedMin/Max and :AllowedValues cannot both be specified" end
+		if (@allowedRange && @allowedValues) then raise SetupError, "Statevariable initialize method: for name #{@name} :AllowedMin/Max and :AllowedValues cannot both be specified" end
 		
 		if (@allowedRange && @defaultValue)
-			if ((@defaultValue > @allowedMax) || (@defaultValue < @allowedMin)) then raise "Statevariable initialize method: for name #{@name} :DefaultValue outside :AllowedMin/Max" end
+			if ((@defaultValue > @allowedMax) || (@defaultValue < @allowedMin)) then raise SetupError, "Statevariable initialize method: for name #{@name} :DefaultValue outside :AllowedMin/Max" end
 		elsif (@allowedValues && @defaultValue)
-			unless (@allowedValues[@defaultValue]) then raise "Statevariable initialize method: for name #{@name} :DefaultValue not in :AllowedValues list" end 
+			unless (@allowedValues[@defaultValue]) then raise SetupError, "Statevariable initialize method: for name #{@name} :DefaultValue not in :AllowedValues list" end 
 		end
 		
 		if @defaultValue 
@@ -315,13 +326,13 @@ Optional parameters are
 			@moderationbyDelta = true
 			@moderationbyRate = false
 			@minimumDelta = params[:MinimumDelta]
-			unless @minimumDelta then raise "Statevariable initialize method: for name #{@name} :MinimumDelta not specified"
-			unless @allowedIncrement then raise "Statevariable initialize method: for name #{@name} :MinimumDelta requires :AllowedIncrement to also be set"
+			unless @minimumDelta then raise SetupError, "Statevariable initialize method: for name #{@name} :MinimumDelta not specified"
+			unless @allowedIncrement then raise SetupError, "Statevariable initialize method: for name #{@name} :MinimumDelta requires :AllowedIncrement to also be set"
 		elsif (params[:ModerationType] == :Rate)
 			@moderationbyRate = true
 			@moderationbyDelta = false
 			@maximumRate = params[:MaximumRate]
-			unless @maximumRate then raise "Statevariable initialize method: for name #{@name} :MaximumRate not specified"
+			unless @maximumRate then raise SetupError, "Statevariable initialize method: for name #{@name} :MaximumRate not specified"
 		else
 			@moderationbyRate = false
 			@moderationbyDelta = false
