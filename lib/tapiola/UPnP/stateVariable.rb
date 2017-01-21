@@ -4,13 +4,27 @@ module UPnP
 
 class StateVariable
 	
-	@@SVtypes = [:ui1,:ui2,:ui4,:i1,:i2,:i4,:int,
-				:r4,:r8,:fixed14,:numbe,:float,
+	@@SVTypes = [:ui1,:ui2,:ui4,:i1,:i2,:i4,:int,
+				:r4,:r8,:fixed14,:number,:float,
 				:char,:string,
 				:date,:dateTime,:dateTimetz,:time,:timetz,
 				:boolean,:binbase64,:binhex,:uri,:uuid]
 
-
+	
+	@@SVValidation = {
+					:ui1 => [Fixnum, 0, 255],
+					:ui2 => [Fixnum, 0, 65535],
+					:ui4 => [Fixnum, 0, 4294967295],
+					:i1 => [Fixnum, -128, 127],
+					:i2 => [Fixnum, -32768, 32767],
+					:i4 => [Fixnum, -2147483648,-2147483647],
+					:int => [Fixnum, -9223372036854775808 , 9223372036854775807],
+					:r4 => [Float, 0,-3.40282347e+38,3.40282347e+38]
+					:r8 => [Float, 0, -1.79769313486232e308 ,1.79769313486232e308],
+					:fixed14 => [Float, -99999999999999.9999, -99999999999999.9999],
+					:number => [Float, -1.79769313486232e308 ,1.79769313486232e308]
+		}
+	
 	# variable name - should be as per the Service specification
 	attr_reader :name 
 	# current value - might replace this with proper getter / setter methods
@@ -49,7 +63,7 @@ Optional parameters are
 
 :AllowedValues - ensures the variable is validated against a set of allowed values which should be passed in as a hash e.g.
 
-:AllowedValues => { :ipsum => 0, :lorem => 0} (it doesn't matter what the values are, 0 is fine, so long as they are not nil or false
+:AllowedValues => [ "this", "that"] or, for numbers, [ 1, 2, 3 ] but be careful with floating values, specify these as e.g. [1.0, 1.5, 2.0] as in ruby 1 <> 1.0
 
 :AllowedMin, :AllowedMax - ensures validation against a range.  Can't be combined with :AllowedValues
 :AllowedIncrement - ensures variable only changes by the given increment
@@ -72,8 +86,12 @@ Optional parameters are
 		
 		@name = params[:Name]
 		@type = params[:Type]
+		
+		if (!@@SVTypes.include? (@type) ) then raise SetupError, "StateVariable initialize method: #{@name} has invalid type #{@type}" end
+			
 		@defaultValue = params [:DefaultValue]
-		@allowedValues = params[:AllowedValues]
+		@allowedValues = Hash.new
+		params[:AllowedValues].each {|k| @allowedValues[k] = true }
 		@allowedMax = params[:AllowedMax]
 		@allowedMin = params[:AllowedMin]
 		@allowedIncrement = params[:AllowedIncrement]
@@ -154,6 +172,7 @@ Optional parameters are
 			self.validate(v)
 		
 			# assign it to the state variable
+			# todo - provide string representations in format expected
 		
 			@value =  v
 		
@@ -173,61 +192,103 @@ Optional parameters are
 			end
 		
 		end #semaphore
-	
-	
-		def validate(v)
-			
-			if (@allowedIncrement)
-				if  (((@value - v) % @allowedIncrement) != 0)
-					raise StateVariableError, "allowedIncrement violation, previous value #{@value} new value #{v} allowed increment #{@allowedIncrement}"
-				end
-			end
-		
-			if (@allowedRange)
-				if ((v < @allowedMin) || (v > @allowedMax))
-					raise StateVariableError, "allowedRange violation, attempt to set #{v}, min #{@allowedMin}, max #{@allowedMax}"
-				end
-			end
 
-			if (@allowedValues)
-				unless (@allowedValues[v]) then raise StateVariableError, "value #{v} not in allowed value list" end
-			end
-			
-			case @type
-				when :ui1
-				when :ui2
-				when :ui4
-				when :i1
-				when :i2
-				when :i4
-				when :int
-				when :r4
-				when :r8
-				when :fixed144
-				when :number
-				when :float
-				when :char
-				when :string
-				when :date
-				when :dateTime
-				when :dateTimetz
-				when :time
-				when :timetz
-				when :boolean
-				when :binbase64
-				when :binhex
-				when :uri
-				when :uuid
-			end
-			
-			end
-			
-		end
 	end
 	
+	def validate(v)
+		
+				
+		if (@allowedIncrement)
+			if  (((@value - v) % @allowedIncrement) != 0)
+				raise StateVariableError, "#{@name}: allowedIncrement violation, previous value #{@value} new value #{v} allowed increment #{@allowedIncrement}"
+			end
+		end
+		
+		if (@allowedRange)
+			if ((v < @allowedMin) || (v > @allowedMax))
+				raise StateVariableError, "#{@name}: allowedRange violation, attempt to set #{v}, min #{@allowedMin}, max #{@allowedMax}"
+			end
+		end
+
+		if (@allowedValues)
+			unless (@allowedValues[v]) then raise StateVariableError, "#{@name}: value #{v} not in allowed value list" end
+		end
+		
+		
+		#check proposed value is a fixnum or float and within the allowed range for the type - all of which is held in the SVValidation class variable
+		
+		checks = @@SVValidation[@type]
+		if (v.class != checks[0]) then raise StateVariableError "#{@name}: is of type #{@type}, must be assigned #{checks[0]} not #{v.class}" end
+		if ((v < checks[1] || (v > checks[2])) then raise StateVariableError "#{name}: is of type #{@type}, value #{v} must be between #{checks[1]} and #{checks[2]}" end
+
+		
+		case @type
+			when :float 
+				if !(v =~ /^[+-]*\d\.*\d*E\d+$/) then raise StateVariableError "#{name}: is of type #{@type}, value #{v} must be of form (+/-)n.nnnEnn" end
+			when :char
+			when :string
+			when :date
+			when :dateTime
+			when :dateTimetz
+			when :time
+			when :timetz
+			when :boolean
+			when :binbase64
+			when :binhex
+			when :uri
+			when :uuid
+		end
+		
+		
+			
+	end
+		
+		
+		
+	def interpret(v)
+		
+		case @type
+			when :ui1, :ui2, :ui4, :int, :i1, :i4, :i2
+				begin
+					return Integer(v)
+				rescue ArgumentError
+					raise StateVariableError "Couldn't convert #{v} to type #{@type}"
+				end
+			when :r4. :r8, :number, :fixed144, :float
+				begin
+					return Float(v)
+				rescue ArgumentError
+					raise StateVariableError "Couldn't convert #{v} to type #{@type}"
+				end
+			when :char, :string, :uri, :uuid, :binbase64, :binhex
+				return v
+			when :date
+			when :dateTime
+			when :dateTimetz
+			when :time
+			when :timetz
+			when :boolean
+				if (["0","no","false"].include?(v)) return false
+				else
+					if (["1","yes","true"].include(v)) return true
+				else
+					raise StateVariableError "Couldn't convert #{v} to type #{@type}"
+				end
+			end
+			
+			
+				
+	end
+		
+=begin rdoc
+    returns the string representation of a StateVariable
+=end
+	def 	represent
+		
+	end
 
 	
-	def self.eventsXML(vars)
+	def self.eventsXML(vars)   #class method because multiple variables could be passed in at once
 		p = REXML::Element.new("propertyset")
 		p.add_namespace("e", "urn:schemas.upnp.org:event-1-0")
 		vars.each do |v|
@@ -245,4 +306,4 @@ Optional parameters are
 end #class StateVariable
 
 
-end
+end # module
