@@ -259,6 +259,7 @@ class Subscription
 		@sid = SecureRandom.uuid
 		@eventSeq = 0
 		#TODO #parse callback line and put into array
+		#TODO find a way of ensuring all evented variables are sent
 		
 		#if callback can't be parsedlog.warn
 	end

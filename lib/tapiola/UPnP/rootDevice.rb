@@ -505,6 +505,10 @@ Signals that the Discovery threads should be shut down.
 		@ssdpSender.join
 	end
 	
+=begin rdoc
+
+=end
+		
 	def handleDescription(req)
 		@log.debug("Description request: #{req}")
 		b = String.new
@@ -512,6 +516,10 @@ Signals that the Discovery threads should be shut down.
 		return b
 	end
 	
+=begin rdoc
+
+=end
+		
 	def webServerStart
 
 		@log.debug "Description address is #{@descriptionAddr}"
@@ -535,10 +543,18 @@ Signals that the Discovery threads should be shut down.
 		
 	end
 	
+=begin rdoc
+
+=end
+		
 	def webServerStop
 		@webserver.shutdown
 	end
 	
+=begin rdoc
+
+=end
+		
 	def eventingStart
 		@eventingRunning = true
 		
@@ -585,11 +601,19 @@ Signals that the Discovery threads should be shut down.
 		
 	end
 	
+=begin rdoc
+
+=end
+		
 	def eventingStop
 		@eventPublisher.kill
 		@eventModerator.kill
 	end
 	
+=begin rdoc
+
+=end
+		
 	def start
 		@devices.each do |d|
 			d.validate
@@ -602,17 +626,17 @@ Signals that the Discovery threads should be shut down.
 		eventingStart
 	end
 	
+=begin rdoc
+
+=end
+		
 	def stop
 		webServerStop
 		discoveryStop
 		eventingStop
 	end
 
-	
-=begin rdoc
 
-=end
-	
 
 	
 end 

@@ -53,7 +53,7 @@ initialize takes a hash of parameter name / value pairs e.g. :type => :SV_string
 Required parameters are
 
 :Name
-:Type which must be one of  :ui1,:ui2,:ui4,:i1,:i2,:i4,:int,:r4,:r8,:fixed14,:numbe,:float,:char,:string,:date,:dateTime,:dateTimetz,:time,:timetz,:boolean,:binbase64,:binhex,:uri,:uuid]
+:Type which must be one of  :ui1,:ui2,:ui4,:i1,:i2,:i4,:int,:r4,:r8,:fixed14,:number,:float,:char,:string,:date,:dateTime,:dateTimetz,:time,:timetz,:boolean,:binbase64,:binhex,:uri,:uuid]
 (at the moment the code doesn't actually treat these types differently ie the value of a state variable isn't type-checked)
 
 
@@ -142,19 +142,41 @@ Optional parameters are
 		@semaphore = Mutex.new
 		
 	end
+
+=begin rdoc
+    Check to see if the variable is evented
+=end
 	
 	# check if the state variable is evented or not
 	def evented? 
 		@evented
 	end
 	
+=begin rdoc
+     Simple check to see if the variable is moderated by rate (e.g. only produces an event at most n times a second)
+=end
 	def moderatedByRate?
 		@moderatedByRate
 	end
 	
+=begin rdoc
+     Simple check to see if the variable is moderated by delta (e.g. only produces an event if the value has changed "significantly")
+=end
+	
 	def moderatedByDelta?
 		@moderatedByDelta
 	end
+	
+	# although not part of the generic UPnP specification the ContentDirectory spec has a state variable that is reset after it has been evented (ContainerUpdateIDs)
+	# I'm not sure if the reset function is actually what we need here.  Processing should be along the lines of..
+	# 
+	#  ContentDirectory object maintains set of ContainerUpdateIDs to notify
+	#  
+	#  Update SV when state changes
+	#     --> Test to see if event has taken place since last update
+	#     --> Reset set of ContainerUpdateIDs to notify to blank if event has, upsert latest update otherwise
+	#   
+	#  so I think we can replace this with processing to check and flag if last update evented yet, will need a semaphore thing since eventing has its own thread.  Yeuch
 	
 	def reset
 		@value = @resetValue
@@ -243,7 +265,7 @@ Optional parameters are
 			
 	end
 		
-		
+	
 		
 	def interpret(v)
 		
@@ -287,12 +309,18 @@ Optional parameters are
 		
 	end
 
+=begin rdoc
+    creates the XML for one or more state variable event notifications.  Normally this would only contain one notification but when a new subscription starts up
+    all evented variables must be sent in a single message to allow the subscriber to initialise itself properly
+=end
+	
+	
 	
 	def self.eventsXML(vars)   #class method because multiple variables could be passed in at once
 		p = REXML::Element.new("propertyset")
 		p.add_namespace("e", "urn:schemas.upnp.org:event-1-0")
 		vars.each do |v|
-			p.add_element("property").add_text(v.to_s)
+			p.add_element("property").add_text(v.represent) # was v.to_s but I think that's wrong
 		end
 		
 		doc = REXML::Document.new
@@ -304,6 +332,32 @@ Optional parameters are
 	
 	
 end #class StateVariable
+
+
+class NumericStateVariable < StateVariable
+end
+
+class FloatStateVariable < NumericStateVariable
+end
+
+class IntegerStateVariable < NumericStateVariable
+end
+
+class StringStateVariable < StateVariable
+end
+
+class BooleanStateVariable < StateVariable
+	
+	def validate(v)
+	end
+	
+	def interpret(v)
+	end
+	
+	def represent
+	end
+
+end
 
 
 end # module
