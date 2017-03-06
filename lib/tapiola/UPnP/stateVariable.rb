@@ -2,14 +2,26 @@
 
 module UPnP
 
+=begin rdoc
+	State Variables are modelled by a hierarchy of classes, with StateVariable at the top.  The subclasses process different types of variable ie Strings, Numbers, Boolean and Dates / Times.  State Variables are used not only to describe the state of a UPnP service but also to validate the arguments passed to and from UPnP actions.
+	
+	There are three important methods
+	
+	represent - provide the textual representation of a variable's value, to use in the XML sent by the device (both Events and Action responses)
+	interpret - essentially to do represent in reverse, take a textual representation and create a value e.g. "1.45E2" to 145.  The interpret method will also validate the new value (is it within the allowed range / list of values?)
+	assign - update the State Variable with a new value, carry out any validation on the change in value, and trigger eventing
+	
+
+=end
+
 class StateVariable
 	
-	@@SVTypes = [:ui1,:ui2,:ui4,:i1,:i2,:i4,:int,
+/*	@@SVTypes = [:ui1,:ui2,:ui4,:i1,:i2,:i4,:int,
 				:r4,:r8,:fixed14,:number,:float,
 				:char,:string,
 				:date,:dateTime,:dateTimetz,:time,:timetz,
 				:boolean,:binbase64,:binhex,:uri,:uuid]
-
+*/
 	
 	@@SVValidation = {
 					:ui1 => [Fixnum, 0, 255],
@@ -31,8 +43,6 @@ class StateVariable
 	attr_reader :value 
 	# default value for the variable
 	attr_reader :defaultValue
-	# variable type e.g. int, char, string
-	attr_reader :type 
 	# pemitted values for strings
 	attr_reader :allowedValues
 	# maximum value for numbers
@@ -80,18 +90,18 @@ Optional parameters are
 		
 		#check that all required parameters are present
 		
-		[:Name,:Type].each do |p|
-			unless params[p] then raise SetupError, "StateVariable initialize method: for name:#{params[:Name]} required parameter :#{p} missing" end
-		end
 		
+		unless params[:Name] then raise SetupError, "StateVariable initialize method: name missing" end
 		@name = params[:Name]
-		@type = params[:Type]
-		
-		if (!@@SVTypes.include? (@type) ) then raise SetupError, "StateVariable initialize method: #{@name} has invalid type #{@type}" end
-			
+
+					
 		@defaultValue = params [:DefaultValue]
+		
+		#create hash to store allowed values, note this hash will be empty if all values are allowed
+		
 		@allowedValues = Hash.new
-		params[:AllowedValues].each {|k| @allowedValues[k] = true }
+		if (params[:AllowedValues]) then params[:AllowedValues].each {|k| @allowedValues[k] = true } end
+		
 		@allowedMax = params[:AllowedMax]
 		@allowedMin = params[:AllowedMin]
 		@allowedIncrement = params[:AllowedIncrement]
@@ -183,15 +193,33 @@ Optional parameters are
 		@lastEventedValue = @value
 	end
 	
-	# assign a new value and trigger eventing if necessary
-	def update(v)
+	
+=begin rdoc	
+	assign a new value and trigger eventing if necessary.  Must be called with the actual value not the string representation (call interpret first if necessary)
+=end
+	def assign(v)
 		
+				
+		if (@allowedIncrement)
+			if  (((@value - v) % @allowedIncrement) != 0)
+				raise StateVariableError, "#{@name}: allowedIncrement violation, previous value #{@value} new value #{v} allowed increment #{@allowedIncrement}"
+			end
+		end
+		
+		if (@allowedRange)
+			if ((v < @allowedMin) || (v > @allowedMax))
+				raise StateVariableError, "#{@name}: allowedRange violation, attempt to set #{v}, min #{@allowedMin}, max #{@allowedMax}"
+			end
+		end
+
+		if (@allowedValues)
+			unless (@allowedValues[v]) then raise StateVariableError, "#{@name}: value #{v} not in allowed value list" end
+		end
 		
 		@semaphore.synchronize do
 			
 		# validate the changed value
 		
-			self.validate(v)
 		
 			# assign it to the state variable
 			# todo - provide string representations in format expected
@@ -220,21 +248,9 @@ Optional parameters are
 	def validate(v)
 		
 				
-		if (@allowedIncrement)
-			if  (((@value - v) % @allowedIncrement) != 0)
-				raise StateVariableError, "#{@name}: allowedIncrement violation, previous value #{@value} new value #{v} allowed increment #{@allowedIncrement}"
-			end
-		end
-		
-		if (@allowedRange)
-			if ((v < @allowedMin) || (v > @allowedMax))
-				raise StateVariableError, "#{@name}: allowedRange violation, attempt to set #{v}, min #{@allowedMin}, max #{@allowedMax}"
-			end
-		end
 
-		if (@allowedValues)
-			unless (@allowedValues[v]) then raise StateVariableError, "#{@name}: value #{v} not in allowed value list" end
-		end
+		
+
 		
 		
 		#check proposed value is a fixnum or float and within the allowed range for the type - all of which is held in the SVValidation class variable
@@ -269,35 +285,8 @@ Optional parameters are
 		
 	def interpret(v)
 		
-		case @type
-			when :ui1, :ui2, :ui4, :int, :i1, :i4, :i2
-				begin
-					return Integer(v)
-				rescue ArgumentError
-					raise StateVariableError "Couldn't convert #{v} to type #{@type}"
-				end
-			when :r4. :r8, :number, :fixed144, :float
-				begin
-					return Float(v)
-				rescue ArgumentError
-					raise StateVariableError "Couldn't convert #{v} to type #{@type}"
-				end
-			when :char, :string, :uri, :uuid, :binbase64, :binhex
-				return v
-			when :date
-			when :dateTime
-			when :dateTimetz
-			when :time
-			when :timetz
-			when :boolean
-				if (["0","no","false"].include?(v)) return false
-				else
-					if (["1","yes","true"].include(v)) return true
-				else
-					raise StateVariableError "Couldn't convert #{v} to type #{@type}"
-				end
-			end
-			
+
+		v
 			
 				
 	end
@@ -306,7 +295,7 @@ Optional parameters are
     returns the string representation of a StateVariable
 =end
 	def 	represent
-		
+		v.to_s
 	end
 
 =begin rdoc
@@ -333,22 +322,105 @@ Optional parameters are
 	
 end #class StateVariable
 
+=begin
+	@@SVTypes = [:ui1,:ui2,:ui4,:i1,:i2,:i4,:int,
+				:r4,:r8,:fixed14,:number,:float,
+				:char,:string,
+				:date,:dateTime,:dateTimetz,:time,:timetz,
+				:boolean,:binbase64,:binhex,:uri,:uuid]
+=end
 
-class NumericStateVariable < StateVariable
+=begin
+   Not meant to be instantiated directly
+=end
+
+class StateVariableNumeric< StateVariable
 end
 
-class FloatStateVariable < NumericStateVariable
+class StateVariableFloat < StateVariableNumeric
 end
 
-class IntegerStateVariable < NumericStateVariable
+class StateVariableInteger < StateVariableNumeric
 end
 
-class StringStateVariable < StateVariable
+class StateVariableUI1 < StateVariableInteger
 end
 
-class BooleanStateVariable < StateVariable
+class StateVariableUI2 < StateVariableInteger
+end
+
+class StateVariableUI4 < StateVariableInteger
+end
+
+class StateVariableI1 < StateVariableInteger
+end
+
+class StateVariableI2 < StateVariableInteger
+end
+
+class StateVariableI4 < StateVariableInteger
+end
+
+class StateVariableInt < StateVariableI4
+end
+
+class StateVariableR4 < StateVariableFloat
+end
+
+class StateVariableR8 < StateVariableFloat
+end
+
+class StateVariableNumber < StateVariableR8
+end
+
+class StateVariableFixed144 < StateVariableFloat
+end
+
+
+
+
+class StateVariableString < StateVariable
+end
+
+class StateVariableChar < StateVariableString
+end
+
+class StateVariableURI < StateVariableString
+end
 	
-	def validate(v)
+class StateVariableUUID < StateVariableString
+end
+	
+class StateVariableBinBase64 < StateVariableString
+end
+
+class StateVariableBinHex < StateVariableString
+end
+
+
+
+
+class StateVariableDateTime < StateVariable
+end
+
+class StateVariableDate < StateVariableDateTime
+end
+
+class StateVariableTime < StateVariableDateTime
+end
+
+class StateVariableDateTimeTZ < StateVariable
+end
+
+class StateVariableTimeTZ < StateVariable
+end
+
+
+
+
+class StateVariableBoolean < StateVariable
+	
+	def assign(v)
 	end
 	
 	def interpret(v)
