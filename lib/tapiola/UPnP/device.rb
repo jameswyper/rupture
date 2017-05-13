@@ -82,6 +82,7 @@ class Device
 		@type=params[:Type]
 		@version=[:Version]
 		@properties = Hash.new
+		@@allProperties.each_key { |k| if (params[k]) then @properties[k] = params[k] end }
 		@icons = Array.new
 		@presentationAddr = "#{urlBase}/presentation/#{@name}/presentation.html"
 	end
@@ -208,8 +209,8 @@ For now this will just mean checking that the properties are correctly set
 	
 	def validate
 		@@allProperties.each do |k,v|
-			if (!@properties[key] && (v == :M))
-				raise MandatoryPropertyMissing, key
+			if (!@properties[k] && (v == :M))
+				raise SetupError, "Mandatory property #{k} missing"
 			end
 		end
 	end

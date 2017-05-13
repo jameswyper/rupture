@@ -76,7 +76,7 @@ class RootDevice < Device
 		
 		#check that the root-specific mandatory parameters are here (others will be checked in the super method)
 				
-		[:Friendlyname, :Product].each do |p|
+		[:FriendlyName, :Product].each do |p|
 			if (params[p] == nil)
 				raise "rootDevice initialize method: required parameter :#{p} missing"
 			end
@@ -91,7 +91,7 @@ class RootDevice < Device
 		@product = params[:Product]
 		if (!@os = params[:OS]) then @os = RUBY_PLATFORM end
 		if (!@cacheControl = params[:CacheControl]) then @cacheControl = 1800 end
-		
+		@log.debug ("Cache Control set to #{@cacheControl}")
 		# if an ip wasn't specified, find one that isn't the loopback one and assume this is the one we should listen to
 		# if an interface name was supplied, match to that
 		
@@ -100,10 +100,10 @@ class RootDevice < Device
 		
 		if ip == nil
 			f = params[:Interface]
-			Socket::igetifaddrs.each do |i|
+			Socket::getifaddrs.each do |i|
 				a = i.addr
 				n = i.name
-				@log.debug ("Looking for interfaces, found #{n} with addr #{a}, filtering on :#{f}")
+				@log.debug ("Looking for interfaces, found #{n}, filtering on :#{f}")
 				if a.ipv4?
 					if !a.ipv4_loopback?
 						if (f)
@@ -116,11 +116,11 @@ class RootDevice < Device
 					end
 				end
 			end
-			if ip == nil
+			if @ip == nil
 				raise "RootDevice initialise method: could not find an interface to listen on, filtering on:#{f}"
 			end
 		else
-			@ip = ip
+			@log.debug ("Listening on #{@ip}")
 		end
 		
 		# if a port wasn't specified, ask Webrick to find a free one by specifying port 0 and then check what it found
@@ -428,7 +428,7 @@ Returns the last of these threads (the sender one) so that the main program can 
 				@log.debug "Ad " 
 				@ssdpMessages.push([MULTICAST_ADDR, PORT, 0, keepAlive])
 				@log.debug "Ad (pushed) #{@ssdpMessages.size} " 
-				sleep (cacheControl * (0.1 + (rand * 0.4)))
+				sleep (@cacheControl * (0.1 + (rand * 0.4)))
 			end
 		end
 		
@@ -565,7 +565,7 @@ Signals that the Discovery threads should be shut down.
 					unless s.expired?
 						delivered = false
 						x = 0
-						until ((delivered ||  (x >= s.callbackURLs.size) ) do
+						until ((delivered ||  (x >= s.callbackURLs.size) ) )do
 							msg = "NOTIFY #{s.callbackURLs[x]} HTTP/1.1\r\n"
 
 							msg << StateVariable.eventsXML([m])
@@ -615,9 +615,9 @@ Signals that the Discovery threads should be shut down.
 =end
 		
 	def start
-		@devices.each do |d|
+		@devices.each_value do |d|
 			d.validate
-			d.services.each do |s|
+			d.services.each_value do |s|
 				s.validate
 			end
 		end

@@ -5,23 +5,25 @@ module UPnP
 =begin rdoc
 	State Variables are modelled by a hierarchy of classes, with StateVariable at the top.  The subclasses process different types of variable ie Strings, Numbers, Boolean and Dates / Times.  State Variables are used not only to describe the state of a UPnP service but also to validate the arguments passed to and from UPnP actions.
 	
-	There are three important methods
+	There are three important methods which are overridden by the derived classes
 	
 	represent - provide the textual representation of a variable's value, to use in the XML sent by the device (both Events and Action responses)
-	interpret - essentially to do represent in reverse, take a textual representation and create a value e.g. "1.45E2" to 145.  The interpret method will also validate the new value (is it within the allowed range / list of values?)
+	interpret - essentially to do represent in reverse, take a textual representation (e.g. from XML input) and create a value e.g. "1.45E2" to 145.  The interpret method will also validate the new value (is it within the allowed range / list of values / format?)
 	assign - update the State Variable with a new value, carry out any validation on the change in value, and trigger eventing
 	
 
 =end
 
 class StateVariable
-	
-/*	@@SVTypes = [:ui1,:ui2,:ui4,:i1,:i2,:i4,:int,
+
+=begin
+	@@SVTypes = [:ui1,:ui2,:ui4,:i1,:i2,:i4,:int,
 				:r4,:r8,:fixed14,:number,:float,
 				:char,:string,
 				:date,:dateTime,:dateTimetz,:time,:timetz,
 				:boolean,:binbase64,:binhex,:uri,:uuid]
-*/
+
+=end
 	
 	@@SVValidation = {
 					:ui1 => [Fixnum, 0, 255],
@@ -31,7 +33,7 @@ class StateVariable
 					:i2 => [Fixnum, -32768, 32767],
 					:i4 => [Fixnum, -2147483648,-2147483647],
 					:int => [Fixnum, -9223372036854775808 , 9223372036854775807],
-					:r4 => [Float, 0,-3.40282347e+38,3.40282347e+38]
+					:r4 => [Float, 0,-3.40282347e+38,3.40282347e+38],
 					:r8 => [Float, 0, -1.79769313486232e308 ,1.79769313486232e308],
 					:fixed14 => [Float, -99999999999999.9999, -99999999999999.9999],
 					:number => [Float, -1.79769313486232e308 ,1.79769313486232e308]
@@ -39,7 +41,7 @@ class StateVariable
 	
 	# variable name - should be as per the Service specification
 	attr_reader :name 
-	# current value - might replace this with proper getter / setter methods
+	# current value 
 	attr_reader :value 
 	# default value for the variable
 	attr_reader :defaultValue
@@ -91,7 +93,9 @@ Optional parameters are
 		#check that all required parameters are present
 		
 		
-		unless params[:Name] then raise SetupError, "StateVariable initialize method: name missing" end
+		unless params[:Name] 
+			raise SetupError, "StateVariable initialize method: name missing" 
+		end
 		@name = params[:Name]
 
 					
@@ -100,7 +104,9 @@ Optional parameters are
 		#create hash to store allowed values, note this hash will be empty if all values are allowed
 		
 		@allowedValues = Hash.new
-		if (params[:AllowedValues]) then params[:AllowedValues].each {|k| @allowedValues[k] = true } end
+		if (params[:AllowedValues]) 
+			params[:AllowedValues].each {|k| @allowedValues[k] = true } 
+		end
 		
 		@allowedMax = params[:AllowedMax]
 		@allowedMin = params[:AllowedMin]
@@ -108,7 +114,12 @@ Optional parameters are
 		
 		#A state variable may be validate by a list of allowed values, or a range, but not both
 		
-		if (@allowedMax) || @allowedMin) then @allowedRange = true else @allowedRange = false end
+		if  ((@allowedMax) || (@allowedMin) )
+			@allowedRange = true 
+		else 
+			@allowedRange = false 
+		end
+		
 		if (@allowedRange)
 			unless (@allowedMin && @allowedMax) then raise SetupError, "Statevariable initialize method: for name #{@name} :AllowedMin and :AllowedMax must both be specified" end
 		end
@@ -137,13 +148,13 @@ Optional parameters are
 			@moderationbyDelta = true
 			@moderationbyRate = false
 			@minimumDelta = params[:MinimumDelta]
-			unless @minimumDelta then raise SetupError, "Statevariable initialize method: for name #{@name} :MinimumDelta not specified"
-			unless @allowedIncrement then raise SetupError, "Statevariable initialize method: for name #{@name} :MinimumDelta requires :AllowedIncrement to also be set"
+			unless @minimumDelta then raise SetupError, "Statevariable initialize method: for name #{@name} :MinimumDelta not specified" end
+			unless @allowedIncrement then raise SetupError, "Statevariable initialize method: for name #{@name} :MinimumDelta requires :AllowedIncrement to also be set" end
 		elsif (params[:ModerationType] == :Rate)
 			@moderationbyRate = true
 			@moderationbyDelta = false
 			@maximumRate = params[:MaximumRate]
-			unless @maximumRate then raise SetupError, "Statevariable initialize method: for name #{@name} :MaximumRate not specified"
+			unless @maximumRate then raise SetupError, "Statevariable initialize method: for name #{@name} :MaximumRate not specified" end
 		else
 			@moderationbyRate = false
 			@moderationbyDelta = false
@@ -245,7 +256,9 @@ Optional parameters are
 
 	end
 	
-	def validate(v)
+
+=begin
+def validate(v)
 		
 				
 
@@ -290,7 +303,8 @@ Optional parameters are
 			
 				
 	end
-		
+=end
+
 =begin rdoc
     returns the string representation of a StateVariable
 =end
@@ -335,54 +349,122 @@ end #class StateVariable
 =end
 
 class StateVariableNumeric< StateVariable
+	
+	def initialize
+		@varMax = 0
+		@varMin = 0
+		super
+	end
+	
+	def represent(v)
+		v.to_s
+	end
+
 end
 
 class StateVariableFloat < StateVariableNumeric
+	
+	def interpret(v)
+		begin
+			f = Float(v)
+		rescue ArgumentError
+			raise StateVariableError "Attempt to interpret #{v} as Integer State Variable #{@name}"
+		end
+		if ((f < varMax) || (f > varMin))
+			raise StateVariableError "Value #{v} outside allowed range (#{@varMax},#{@varMin}) for State Variable #{@name}"
+		end
+		return f
+	end
 end
 
 class StateVariableInteger < StateVariableNumeric
+
+	def interpret(v)
+		begin
+			i = Integer(v)
+		rescue ArgumentError
+			raise StateVariableError "Attempt to interpret #{v} as Integer State Variable #{@name}"
+		end
+		if ((i < varMax) || (i > varMin))
+			raise StateVariableError "Value #{v} outside allowed range (#{@varMax},#{@varMin}) for State Variable #{@name}"
+		end
+		return i
+	end
 end
 
 class StateVariableUI1 < StateVariableInteger
+	def initialize; super; @varMax = 255; @varMin = 0; end
 end
 
 class StateVariableUI2 < StateVariableInteger
+	def initialize; super; @varMax = 65535; @varMin = 0; end
 end
 
 class StateVariableUI4 < StateVariableInteger
+	def initialize; super; @varMax = 4294967295; @varMin = 0; end
 end
 
 class StateVariableI1 < StateVariableInteger
+	def initialize; super; @varMax = 127; @varMin = -128; end
 end
 
 class StateVariableI2 < StateVariableInteger
+	def initialize; super; @varMax = 32767; @varMin = -32768; end
 end
 
 class StateVariableI4 < StateVariableInteger
+	def initialize; super; @varMax = 2147483647; @varMin = -2147483647; end
 end
 
 class StateVariableInt < StateVariableI4
 end
 
 class StateVariableR4 < StateVariableFloat
+	def initialize; super; @varMax = 3.402823437e38; @varMin = -3.402823437e38; end
 end
 
 class StateVariableR8 < StateVariableFloat
+	def initialize; super; @varMax = 1.79769313486232E308; @varMin = -1.79769313486232E308; end
 end
 
 class StateVariableNumber < StateVariableR8
 end
 
 class StateVariableFixed144 < StateVariableFloat
+	def initialize; super; @varMax=9999999999999.9999;@varMin=-99999999999999.9999;end
+	def interpret(v)
+		begin
+			f = Float(v)
+		rescue ArgumentError
+			raise StateVariableError "Attempt to interpret #{v} as Integer State Variable #{@name}"
+		end
+		if ((f < varMax) || (f > varMin))
+			raise StateVariableError "Value #{v} outside allowed range (#{@varMax},#{@varMin}) for State Variable #{@name}"
+		end
+		return f
+	end
+	def represent(v)
+		return v.round(4).to_s
+	end
 end
 
 
 
 
 class StateVariableString < StateVariable
+	def interpret(v)
+		v
+	end
+	def represent(v)
+		v.to_s
+	end
 end
 
 class StateVariableChar < StateVariableString
+	def interpret(v)
+		if v.length > 1 then raise StateVariableError "value #{v} not one character for State Variable #{@name}" end
+		v
+	end
 end
 
 class StateVariableURI < StateVariableString
@@ -420,13 +502,20 @@ end
 
 class StateVariableBoolean < StateVariable
 	
-	def assign(v)
-	end
-	
+
 	def interpret(v)
+		case v
+		when "0", "false", "no"
+			return false
+		when "1", "true", "yes"
+			return true
+		else
+			raise StateVariableError "Attempt to assign value #{v} to boolean variable #{@name}"
+		end
 	end
 	
 	def represent
+		if (value) then return "1" else return "0" end
 	end
 
 end
