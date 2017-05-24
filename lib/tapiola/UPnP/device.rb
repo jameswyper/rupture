@@ -80,7 +80,7 @@ class Device
 		@uuid=SecureRandom.uuid
 		@name=params[:Name]
 		@type=params[:Type]
-		@version=[:Version]
+		@version=params[:Version]
 		@properties = Hash.new
 		@@allProperties.each_key { |k| if (params[k]) then @properties[k] = params[k] end }
 		@icons = Array.new
@@ -126,7 +126,7 @@ class Device
 	def deviceMessages
 		a = Array.new
 		a << ["uuid:#{@uuid}","uuid:#{@uuid}"]
-		a << ["urn:schemas-upnp-org:device:#{@type}:#{@version}","uuid:#{@uuid}:urn:schemas-upnp-org:device:#{@type}:#{@version}"]
+		a << ["urn:schemas-upnp-org:device:#{@type}:#{@version}","uuid:#{@uuid}::urn:schemas-upnp-org:device:#{@type}:#{@version}"]
 		return a
 	end
 	
@@ -136,7 +136,7 @@ class Device
 	def serviceMessages
 		a = Array.new
 		@services.each_value do |s|
-			a << ["urn:schemas-upnp-org:service:#{s.type}:#{s.version}","uuid:#{@uuid}:urn:schemas-upnp-org:service:#{s.type}:#{s.version}"]
+			a << ["urn:schemas-upnp-org:service:#{s.type}:#{s.version}","uuid:#{@uuid}::urn:schemas-upnp-org:service:#{s.type}:#{s.version}"]
 		end
 		return a
 	end

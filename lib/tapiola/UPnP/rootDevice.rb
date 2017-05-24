@@ -62,12 +62,19 @@ class RootDevice < Device
 	:SerialNumber
 	:UPC 
 	
+	Finally the logging level, can be set to Logger::DEBUG if needs be
+	
+	:LogLevel
+	
 =end
 	def initialize(params)
 
 		@log = Logger.new(STDOUT)
-		#TODO - allow this to be overridden
-		@log.level  = Logger::DEBUG
+		if params[:LogLevel]
+			@log.level = params[:LogLevel]
+		else
+			@log.level  = Logger::INFO
+		end
 		@log.datetime_format  = "%H:%M:%S"
 		@log.formatter = proc do |severity, datetime, progname, msg|
 			"#{severity} [#{datetime}] #{progname}/#{__FILE__}/#{__method__}: #{msg}\n"
@@ -120,6 +127,7 @@ class RootDevice < Device
 				raise "RootDevice initialise method: could not find an interface to listen on, filtering on:#{f}"
 			end
 		else
+			@ip = ip
 			@log.debug ("Listening on #{@ip}")
 		end
 		
@@ -259,9 +267,10 @@ Calls getXMLDeviceData to get individual XML elements for each device (root and 
 # For Step 1 - discovery.  Helper method to create a single message that will be multicast. Called by #handleSearch, not intended to be called elsewhere	
 	def createSearchResponse(st,usn)
 		s = String.new
-		s <<  "HTTP/1.1 200 OK \r\n" 
+		s <<  "HTTP/1.1 200 OK\r\n" 
 		s << "CACHE-CONTROL: max-age = " << @cacheControl.to_s << "\r\n"
 		s << "DATE: " << Time.now.rfc822 << "\r\n" 
+		s << "EXT:\r\n"
 		s << "LOCATION: #{@location}\r\n"
 		s << "SERVER: #{@os} UPnP/1.0  product}\r\n"
 		s << "ST: #{st}\r\n"
@@ -330,14 +339,14 @@ Calls getXMLDeviceData to get individual XML elements for each device (root and 
 					devices.each_value do |d|
 						d.services.each_value do |s|
 							if (s.type == serviceType) && (s.version >= serviceVersion.to_i)
-								a << createSearchResponse("urn:schemas-upnp-org:service:#{serviceType}:#{serviceVersion}","uuid:#{d.uuid}:urn:schemas-upnp-org:service:#{serviceType}:#{serviceVersion}")
+								a << createSearchResponse("urn:schemas-upnp-org:service:#{serviceType}:#{serviceVersion}","uuid:#{d.uuid}::urn:schemas-upnp-org:service:#{serviceType}:#{serviceVersion}")
 							end
 						end
 					end
 				elsif (deviceVersion != nil) && (deviceType != nil)
 					devices.each_value do |d|
 						if (d.type == deviceType) && (d.version >= deviceVersion.to_i)
-							a << createSearchResponse("urn:schemas-upnp-org:device:#{deviceType}:#{deviceVersion}","uuid:#{d.uuid}:urn:schemas-upnp-org:device:#{deviceType}:#{deviceVersion}")
+							a << createSearchResponse("urn:schemas-upnp-org:device:#{deviceType}:#{deviceVersion}","uuid:#{d.uuid}::urn:schemas-upnp-org:device:#{deviceType}:#{deviceVersion}")
 						end
 					end
 				end
@@ -375,10 +384,10 @@ Returns the last of these threads (the sender one) so that the main program can 
 
 		# set up two sockets for sending (normal responses and multicast adverts)
 
-		ssock = UDPSocket.open
-		ssock.setsockopt(:SOCKET,:REUSEADDR,1)
-		ssock.bind(@ip,PORT)
-		msock = UDPSocket.open
+		ssock = UDPSocket.new
+		#ssock.setsockopt(:SOCKET,:REUSEADDR,1)
+		#ssock.bind(@ip,PORT)
+		msock = UDPSocket.new
 		msock.setsockopt(:IP, :TTL, 4)
 		
 		# Thread to listen for SSDP search requests and send response
@@ -463,7 +472,7 @@ Returns the last of these threads (the sender one) so that the main program can 
 				else
 					r.each do |msg|
 						begin
-							@log.debug "Sender: responding to #{dip}:#{dp}"
+							@log.debug "Sender: responding to #{dip}:#{dp} with #{msg}"
 							ssock.send msg, 0, dip, dp
 							@log.debug "Sender: response apparently sent"
 						end
@@ -725,7 +734,7 @@ class HandlePresentation < WEBrick::HTTPServlet::AbstractServlet
 		if (devicename && purl)
 			device = root.devices(devicename)
 			if device
-				raise device.handlePresentation(req,res,action,purl)
+				device.handlePresentation(req,res,action,purl)
 			else
 				@log.warn ("rootDevice.rb/HandlePresentation attempt made to use unknown device:#{devicename}")
 				@log.warn("rootDevice.rb/HandlePresentation URL was:#{req.path}")
