@@ -481,13 +481,66 @@ class TestComplexSSDPDiscovery < Minitest::Test
 		@srch.send  srqm ,0, "239.255.255.250", 1900
 		sleep (2)
 		@srchdevtype2 = @respq.collect
-		puts "waiting a little longer to collect any repeat SSDP advertisments"
-		sleep(2)
 
-# todo - add service search messages
+
 #todo - add messages which are going to fail
 
+		puts "sending search for service/version message (embedded 1)"
+		srqm = srq + "urn:schemas-upnp-org:service:Add:1" + "\r\n\r\n"
+		@srch.send  srqm ,0, "239.255.255.250", 1900
+		sleep (2)
+		@srchservtype1 = @respq.collect
+		
+		puts "sending search for service/version message (embedded 2)"
+		srqm = srq + "urn:schemas-upnp-org:service:Change:2" + "\r\n\r\n"
+		@srch.send  srqm ,0, "239.255.255.250", 1900
+		sleep (2)
+		@srchservtype2 = @respq.collect
+		
+		puts "sending search for service/version message (embedded 3)"
+		srqm = srq + "urn:schemas-upnp-org:service:Find:3" + "\r\n\r\n"
+		@srch.send  srqm ,0, "239.255.255.250", 1900
+		sleep (2)
+		@srchservtype3 = @respq.collect
+		
+		puts "sending bogus search messages 1"
+		srqm = srq + "urn:schemas-upnp-org:service:Search:3" + "\r\n\r\n"
+		@srch.send  srqm ,0, "239.255.255.250", 1900
+		sleep (2)
+		@srchbogus1 = @respq.collect	
+		
+		puts "sending bogus search messages 2"
+		srqm = srq + "urn:schemas-upnp-org:service:Add:5" + "\r\n\r\n"
+		@srch.send  srqm ,0, "239.255.255.250", 1900
+		sleep (2)
+		@srchbogus2 = @respq.collect	
+		
+		puts "sending bogus search messages 3"
+		srqm = srq + "urn:schemas-upnp-org:device:Add:5" + "\r\n\r\n"
+		@srch.send  srqm ,0, "239.255.255.250", 1900
+		sleep (2)
+		@srchbogus3 = @respq.collect	
+				
+		puts "sending bogus search messages 4"
+		srqm = srq + "uuid:00000000-1111-2222-1111-2222-121212121212" + "\r\n\r\n"
+		@srch.send  srqm ,0, "239.255.255.250", 1900
+		sleep (2)
+		@srchbogus4 = @respq.collect	
+		
+		puts "sending bogus search messages 5"
+		srqm = srq + "upnp:blootdevie" + "\r\n\r\n"
+		@srch.send  srqm ,0, "239.255.255.250", 1900
+		sleep (2)
+		@srchbogus5 = @respq.collect	
 
+		puts "sending bogus search messages 6"
+		srqm = srq + "ssdp:owl" + "\r\n\r\n"
+		@srch.send  srqm ,0, "239.255.255.250", 1900
+		sleep (2)
+		@srchbogus6 = @respq.collect	
+
+		puts "waiting a little longer to collect any repeat SSDP advertisments"
+		sleep(2)
 
 		@rebcast = @bcastq.collect
 
@@ -625,14 +678,25 @@ class TestComplexSSDPDiscovery < Minitest::Test
 
 
 		stc,usnc = check_boilerplate_ST(split_ST_into_lines(@srchall))
-		assert_equal 3,stc.size
+		assert_equal 8,stc.size
 		assert_equal "ST: upnp:rootdevice", stc[0]
- 		assert_equal "ST: urn:schemas-upnp-org:device:SampleOne:1", stc[1]
- 		assert_match Regexp.new("ST: uuid:#{UUIDREGEXP}","i"), stc[2]
-		assert_equal 3, usnc.size
- 		assert_match Regexp.new("USN: uuid:#{UUIDREGEXP}","i"), usnc[0]
-		assert_match Regexp.new("USN: uuid:#{UUIDREGEXP}::upnp:rootdevice","i"), usnc[1]		
-		assert_match Regexp.new("USN: uuid:#{UUIDREGEXP}::urn:schemas-upnp-org:device:SampleOne:1","i"), usnc[2]		
+ 		assert_equal "ST: urn:schemas-upnp-org:device:SampleThree:3", stc[1]
+		assert_equal "ST: urn:schemas-upnp-org:device:SampleTwo:2", stc[2]
+		assert_equal "ST: urn:schemas-upnp-org:service:Add:1", stc[3]
+		assert_equal "ST: urn:schemas-upnp-org:service:Change:2", stc[4]
+		assert_equal "ST: urn:schemas-upnp-org:service:Find:3", stc[5] 
+		assert_includes stc[6..7],"ST: uuid:#{@root.uuid}"
+		assert_includes stc[6..7],"ST: uuid:#{@emb.uuid}"
+		
+		assert_equal 8, usnc.size
+ 		assert_includes usnc,"USN: uuid:#{@root.uuid}"
+		assert_includes usnc,"USN: uuid:#{@emb.uuid}"
+		assert_includes usnc,"USN: uuid:#{@root.uuid}::upnp:rootdevice"
+		assert_includes usnc,"USN: uuid:#{@emb.uuid}::urn:schemas-upnp-org:device:SampleThree:3"
+		assert_includes usnc,"USN: uuid:#{@root.uuid}::urn:schemas-upnp-org:device:SampleTwo:2"
+		assert_includes usnc,"USN: uuid:#{@root.uuid}::urn:schemas-upnp-org:service:Add:1"
+		assert_includes usnc,"USN: uuid:#{@emb.uuid}::urn:schemas-upnp-org:service:Change:2"
+		assert_includes usnc,"USN: uuid:#{@root.uuid}::urn:schemas-upnp-org:service:Find:3"	
 	
 
 		stc,usnc = check_boilerplate_ST(split_ST_into_lines(@srchroot))
@@ -666,6 +730,33 @@ class TestComplexSSDPDiscovery < Minitest::Test
  		assert_equal 1, usnc.size
 		assert_match Regexp.new("USN: uuid:#{UUIDREGEXP}::urn:schemas-upnp-org:device:SampleThree:3","i"), usnc[0]		
 	
+		
+		
+		stc,usnc = check_boilerplate_ST(split_ST_into_lines(@srchservtype1))
+		assert_equal 1,stc.size
+		assert_equal "ST: urn:schemas-upnp-org:service:Add:1", stc[0]
+		assert_equal 1, usnc.size
+		assert_equal "USN: uuid:#{@root.uuid}::urn:schemas-upnp-org:service:Add:1",usnc[0]
+
+		stc,usnc = check_boilerplate_ST(split_ST_into_lines(@srchservtype2))
+		assert_equal 1,stc.size
+		assert_equal "ST: urn:schemas-upnp-org:service:Change:2", stc[0]
+		assert_equal 1, usnc.size
+		assert_equal "USN: uuid:#{@emb.uuid}::urn:schemas-upnp-org:service:Change:2",usnc[0]
+
+		stc,usnc = check_boilerplate_ST(split_ST_into_lines(@srchservtype3))
+		assert_equal 1,stc.size
+		assert_equal "ST: urn:schemas-upnp-org:service:Find:3", stc[0]
+		assert_equal 1, usnc.size
+		assert_equal "USN: uuid:#{@root.uuid}::urn:schemas-upnp-org:service:Find:3",usnc[0]
+
+		assert_equal 0,@srchbogus1.size
+		assert_equal 0,@srchbogus2.size		
+		assert_equal 0,@srchbogus3.size	
+		assert_equal 0,@srchbogus4.size
+		assert_equal 0,@srchbogus5.size		
+		assert_equal 0,@srchbogus6.size	
+		
 	end	
 	
 	

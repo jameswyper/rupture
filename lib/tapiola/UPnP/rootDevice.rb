@@ -332,7 +332,7 @@ Calls getXMLDeviceData to get individual XML elements for each device (root and 
 				if uniqueDevice != nil
 					devices.each_value do |d|
 						if uniqueDevice == d.uuid
-							a << createSearchResponse("uuid:#{@uuid}","uuid:#{@uuid}")
+							a << createSearchResponse("uuid:#{d.uuid}","uuid:#{d.uuid}")
 						end
 					end
 				elsif (serviceVersion != nil) && (serviceType != nil)
