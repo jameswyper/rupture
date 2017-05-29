@@ -1,0 +1,80 @@
+ <?xml version="1.0"?>
+ <Schema name="device-1-0"
+ xmlns="urn:schemas-microsoft-com:xml-data"
+ xmlns:dt="urn:schemas-microsoft-com:datatypes">
+ <ElementType name="root" content="eltOnly">
+ <element type="specVersion" />
+ <element type="URLBase" minOccurs="0" maxOccurs="1" />
+ <element type="device" />
+ </ElementType>
+ <ElementType name="specVersion" content="eltOnly">
+ <element type="major" />
+ <element type="minor" />
+ </ElementType>
+ <ElementType name="major" dt:type="int" content="textOnly" />
+ <ElementType name="minor" dt:type="int" content="textOnly" />
+ <ElementType name="URLBase" dt:type="uri" content="textOnly" />
+ <ElementType name="device" content="eltOnly">
+ <element type="deviceType" />
+ <element type="friendlyName" />
+ <element type="manufacturer" />
+ <element type="manufacturerURL" minOccurs="0" maxOccurs="1" />
+ <element type="modelDescription" minOccurs="0" maxOccurs="1" />
+ <element type="modelName" />
+ <element type="modelNumber" minOccurs="0" maxOccurs="1" />
+ <element type="modelURL" minOccurs="0" maxOccurs="1" />
+ <element type="serialNumber" minOccurs="0" maxOccurs="1" />
+ <element type="UDN" />
+ <element type="UPC" minOccurs="0" maxOccurs="1" />
+ <element type="iconList" minOccurs="0" maxOccurs="1" />
+ <element type="serviceList" minOccurs="0" maxOccurs="1"/>
+ <element type="deviceList" minOccurs="0" maxOccurs="1" />
+ <element type="presentationURL" minOccurs="0" maxOccurs="1" />
+ </ElementType>
+ <ElementType name="deviceType" dt:type="uri" content="textOnly" />
+ <ElementType name="friendlyName" dt:type="string" content="textOnly" />
+ <ElementType name="manufacturer" dt:type="string" content="textOnly" />
+ <ElementType name="manufacturerURL" dt:type="uri" content="textOnly" />
+ <ElementType name="modelDescription" dt:type="string" content="textOnly" />
+ <ElementType name="modelName" dt:type="string" content="textOnly" />
+ <ElementType name="modelNumber" dt:type="string" content="textOnly" />
+ <ElementType name="modelURL" dt:type="uri" content="textOnly" />
+ <ElementType name="serialNumber" dt:type="string" content="textOnly" />
+ <ElementType name="UDN" dt:type="uri" content="textOnly" />
+ <ElementType name="UPC" dt:type="string" content="textOnly" />
+ <ElementType name="iconList" content="eltOnly">
+ <element type="icon" minOccurs="1" maxOccurs="*" />
+ </ElementType>
+ <ElementType name="icon" content="eltOnly">
+ <element type="mimetype" />
+ <element type="width" />
+ <element type="height" />
+ <element type="depth" />
+ <element type="url" />
+ </ElementType>
+ <ElementType name="mimetype" dt:type="string" content="textOnly" />
+ <ElementType name="width" dt:type="int" content="textOnly" />
+ <ElementType name="height" dt:type="int" content="textOnly" />
+ <ElementType name="depth" dt:type="int" content="textOnly" />
+ <ElementType name="url" dt:type="uri" content="textOnly" />
+ <ElementType name="serviceList" content="eltOnly">
+ <element type="service" minOccurs="0" maxOccurs="*" />
+ </ElementType>
+ <ElementType name="service" content="eltOnly">
+ <element type="serviceType" />
+ <element type="serviceId" />
+ <element type="SCPDURL" />
+ <element type="controlURL" />
+ <element type="eventSubURL" />
+39
+ </ElementType>
+ <ElementType name="serviceType" dt:type="uri" content="textOnly" />
+ <ElementType name="serviceId" dt:type="uri" content="textOnly" />
+ <ElementType name="SCPDURL" dt:type="uri" content="textOnly" />
+ <ElementType name="controlURL" dt:type="uri" content="textOnly" />
+ <ElementType name="eventSubURL" dt:type="uri" content="textOnly" />
+ <ElementType name="deviceList" content="eltOnly">
+ <element type="device" minOccurs="1" maxOccurs="*" />
+ </ElementType>
+ <ElementType name="presentationURL" dt:type="uri" content="textOnly" />
+ </Schema> 

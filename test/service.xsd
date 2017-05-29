@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+ <Schema name="service-1-0"
+ xmlns="urn:schemas-microsoft-com:xml-data"
+ xmlns:dt="urn:schemas-microsoft-com:datatypes">
+ <ElementType name="scpd" content="eltOnly">
+ <element type="specVersion" />
+ <element type="actionList" minOccurs="0" maxOccurs="1" />
+ <element type="serviceStateTable" />
+ </ElementType>
+ <ElementType name="specVersion" content="eltOnly">
+ <element type="major" />
+ <element type="minor" />
+ </ElementType>
+ <ElementType name="major" dt:type="int" content="textOnly" />
+ <ElementType name="minor" dt:type="int" content="textOnly" />
+ <ElementType name="actionList" content="eltOnly">
+ <element type="action" minOccurs="1" maxOccurs="*" />
+ </ElementType>
+ <ElementType name="action" content="eltOnly">
+ <element type="name" />
+ <element type="argumentList" minOccurs="0" maxOccurs="1" />
+ </ElementType>
+40
+ <ElementType name="name" dt:type="string" content="textOnly" />
+ <ElementType name="argumentList" content="eltOnly">
+ <element type="argument" minOccurs="1" maxOccurs="*" />
+ </ElementType>
+ <ElementType name="argument" content="eltOnly">
+ <element type="name" />
+ <element type="direction" />
+ <element type="retval" minOccurs="0" maxOccurs="1" />
+ <element type="relatedStateVariable" />
+ </ElementType>
+ <ElementType name="direction" dt:type="string" content="textOnly" />
+ <ElementType name="retval" content="empty" />
+ <ElementType name="relatedStateVariable" dt:type="string" content="textOnly" />
+ <ElementType name="serviceStateTable" content="eltOnly">
+ <element type="stateVariable" minOccurs="1" maxOccurs="*" />
+ </ElementType>
+ <ElementType name="stateVariable" content="eltOnly">
+ <element type="name" />
+ <element type="dataType" />
+ <element type="defaultValue" minOccurs="0" maxOccurs="1" />
+ <group minOccurs="0" maxOccurs="1" order="one">
+ <element type="allowedValueList" />
+ <element type="allowedValueRange" />
+ </group>
+ <AttributeType name="sendEvents" />
+ <attribute default="yes" type="sendEvents" required="no" />
+ </ElementType>
+ <ElementType name="dataType" dt:type="string" content="textOnly" />
+ <ElementType name="defaultValue" dt:type="string" content="textOnly" />
+ <ElementType name="allowedValueList" content="eltOnly">
+ <element type="allowedValue" minOccurs="1" maxOccurs="*" />
+ </ElementType>
+ <ElementType name="allowedValue" content="textOnly" />
+ <ElementType name="allowedValueRange" content="eltOnly">
+ <element type="minimum" />
+ <element type="maximum" />
+ <element type="step" minOccurs="0" maxOccurs="1" />
+ </ElementType>
+ <ElementType name="minimum" dt:type="number" content="textOnly" />
+ <ElementType name="maximum" dt:type="number" content="textOnly" />
+ <ElementType name="step" dt:type="number" content="textOnly" />
+ </Schema>
