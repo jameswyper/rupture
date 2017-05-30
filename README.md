@@ -21,7 +21,7 @@ As the project has taken shape I've worked on isolating the UPnP stuff and putti
 The rough plan of attack is
 
 - create some generic classes for UPnP devices and services [underway]
-- create a server that will handle SSDP discovery & advertisement (basically a simple, threaded UDP server) [done, being tested]
+- create a server that will handle SSDP discovery & advertisement (basically a simple, threaded UDP server) [done and tested]
 - extend this to add generic handling of Description [underway], Control [underway], Eventing [underway] and (maybe) Presentation [done]
 - start specialising the classes to handle serving audio
 - create the virtual container hierarchy

@@ -21,14 +21,14 @@ class Device
 	# Hash containing all valid device properties from the UPnP spec that are used in Description, and whether they are mandatory or optional
 	# The properties variable will hold the actual properties used in this device
 	@@allProperties = {
-	:FriendlyName => :M ,
-	:Manufacturer => :M ,
-	:ManufacturerURL => :O,
-	:ModelDescription => :O,
-	:ModelName => :M,
-	:ModelNumber => :M,
-	:ModelURL => :M,
-	:SerialNumber => :O,
+	:friendlyName => :M ,
+	:manufacturer => :M ,
+	:manufacturerURL => :O,
+	:modelDescription => :O,
+	:modelName => :M,
+	:modelNumber => :M,
+	:modelURL => :M,
+	:serialNumber => :O,
 	:UPC => :O
 	} 
 	
@@ -62,10 +62,13 @@ class Device
 	
 =end	
 
+
+	attr_accessor :services
+
 	def initialize(params)
 		
-		[:Type, :Version, :Name, :FriendlyName, 
-		:Manufacturer,	:ModelName, :ModelNumber, :ModelURL ].each do |p|
+		[:type, :version, :name, :friendlyName, 
+		:manufacturer,	:modelName, :modelNumber, :modelURL ].each do |p|
 			if (params[p] == nil)
 				raise "Device initialize method: required parameter :#{p} missing"
 			end
@@ -78,9 +81,9 @@ class Device
 		
 		@services=Hash.new
 		@uuid=SecureRandom.uuid
-		@name=params[:Name]
-		@type=params[:Type]
-		@version=params[:Version]
+		@name=params[:name]
+		@type=params[:type]
+		@version=params[:version]
 		@properties = Hash.new
 		@@allProperties.each_key { |k| if (params[k]) then @properties[k] = params[k] end }
 		@icons = Array.new
@@ -155,7 +158,7 @@ class Device
 		@@allProperties.each_key do |k|
 			v = @properties[k] 
 			if v != nil
-				a << REXML::Element.new(k).add_text(v).dup
+				a << REXML::Element.new(k.to_s).add_text(v).dup
 			end
 		end
 		
@@ -178,7 +181,7 @@ class Device
 		@services.each_value do |s|
 			sx = REXML::Element.new "service"
 			sx.add_element("serviceType").add_text("urn:schemas-upnp-org:service:#{s.type}:#{s.version}")
-			sx.add_element("serviceID").add_text("urn:upnp-org:serviceID:#{s.type}")
+			sx.add_element("serviceId").add_text("urn:upnp-org:serviceId:#{s.type}")
 			sx.add_element("SCPDURL").add_text("http://#{@rootDevice.ipPort}/#{s.descAddr}")
 			sx.add_element("controlURL").add_text("http://#{@rootDevice.ipPort}/#{s.controlAddr}")
 			sx.add_element("eventSubURL").add_text("http://#{@rootDevice.ipPort}/#{s.eventAddr}")

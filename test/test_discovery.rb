@@ -195,15 +195,19 @@ class TestSimpleSSDPDiscovery < Minitest::Test
 
 		@srch = @respq.sock
 		
-		@root = UPnP::RootDevice.new(:Type => "SampleOne", :Version => 1, :Name => "sample1", :FriendlyName => "SampleApp Root Device",
-			:Product => "Sample/1.0", :Manufacturer => "James", :ModelName => "JamesSample",	:ModelNumber => "43",
-			:ModelURL => "github.com/jameswyper/tapiola", :CacheControl => 15,
-			:SerialNumber => "12345678", :ModelDescription => "Sample App Root Device, to illustrate use of tapiola UPnP framework", 
-			:URLBase => "test", :IP => "127.0.0.1", :port => 54321, :LogLevel => Logger::INFO)
+		@root = UPnP::RootDevice.new(:type => "SampleOne", :version => 1, :name => "sample1", :friendlyName => "SampleApp Root Device",
+			:product => "Sample/1.0", :manufacturer => "James", :modelName => "JamesSample",	:modelNumber => "43",
+			:modelURL => "github.com/jameswyper/tapiola", :cacheControl => 15,
+			:serialNumber => "12345678", :modelDescription => "Sample App Root Device, to illustrate use of tapiola UPnP framework", 
+			:URLBase => "test", :ip => "127.0.0.1", :port => 54321, :logLevel => Logger::INFO)
 		
 		
 		
-		Thread.new {@root.start}
+		Thread.new do
+			puts "before @root.start"
+			@root.start
+			puts "after @root.start"
+		end
 		@initbcast = Array.new
 		@rebcast = Array.new
 		@endbcast = Array.new
@@ -410,16 +414,16 @@ class TestComplexSSDPDiscovery < Minitest::Test
 
 		@srch = @respq.sock
 		
-		@root = UPnP::RootDevice.new(:Type => "SampleTwo", :Version => 2, :Name => "sample2", :FriendlyName => "SampleApp Root Device v2",
-			:Product => "Sample/1.0", :Manufacturer => "James", :ModelName => "JamesSample",	:ModelNumber => "43",
-			:ModelURL => "github.com/jameswyper/tapiola", :CacheControl => 15,
-			:SerialNumber => "12345678", :ModelDescription => "Sample App Root Device, to illustrate use of tapiola UPnP framework", 
-			:URLBase => "test", :IP => "127.0.0.1", :port => 54322, :LogLevel => Logger::INFO)
+		@root = UPnP::RootDevice.new(:type => "SampleTwo", :version => 2, :name => "sample2", :friendlyName => "SampleApp Root Device v2",
+			:product => "Sample/1.0", :manufacturer => "James", :modelName => "JamesSample",	:modelNumber => "43",
+			:modelURL => "github.com/jameswyper/tapiola", :cacheControl => 15,
+			:serialNumber => "12345678", :modelDescription => "Sample App Root Device, to illustrate use of tapiola UPnP framework", 
+			:URLBase => "test", :ip => "127.0.0.1", :port => 54322, :logLevel => Logger::INFO)
 		
 		
-		@emb = UPnP::Device.new(:Type => "SampleThree", :Version => 3, :Name => "sample3", :FriendlyName => "SampleApp Embedded Device",
-			 :Manufacturer => "James inc", :ModelName => "JamesSample III",	:ModelNumber => "42",	:ModelURL => "github.com/jameswyper/tapiola",
-			:UPC => "987654321", :ModelDescription => "Sample App Embedded Device, to illustrate use of tapiola UPnP framework")
+		@emb = UPnP::Device.new(:type => "SampleThree", :version => 3, :name => "sample3", :friendlyName => "SampleApp Embedded Device",
+			 :manufacturer => "James inc", :modelName => "JamesSample III",	:modelNumber => "42",	:modelURL => "github.com/jameswyper/tapiola",
+			:UPC => "987654321", :modelDescription => "Sample App Embedded Device, to illustrate use of tapiola UPnP framework")
 	
 		@serv1 = UPnP::Service.new("Add",1)
 		@serv2 = UPnP::Service.new("Find",3)

@@ -27,6 +27,8 @@ class RootDevice < Device
 	# attr_reader :cacheControl
 	
 	# IP and Port part of URL
+	attr_reader :ip
+	attr_reader :port
 	attr_reader :ipPort
 
 =begin rdoc
@@ -70,8 +72,8 @@ class RootDevice < Device
 	def initialize(params)
 
 		@log = Logger.new(STDOUT)
-		if params[:LogLevel]
-			@log.level = params[:LogLevel]
+		if params[:logLevel]
+			@log.level = params[:logLevel]
 		else
 			@log.level  = Logger::INFO
 		end
@@ -83,7 +85,7 @@ class RootDevice < Device
 		
 		#check that the root-specific mandatory parameters are here (others will be checked in the super method)
 				
-		[:FriendlyName, :Product].each do |p|
+		[:friendlyName, :product].each do |p|
 			if (params[p] == nil)
 				raise "rootDevice initialize method: required parameter :#{p} missing"
 			end
@@ -95,18 +97,18 @@ class RootDevice < Device
 		@devices=Hash.new
 		addDevice(self)
 		
-		@product = params[:Product]
-		if (!@os = params[:OS]) then @os = RUBY_PLATFORM end
-		if (!@cacheControl = params[:CacheControl]) then @cacheControl = 1800 end
+		@product = params[:product]
+		if (!@os = params[:os]) then @os = RUBY_PLATFORM end
+		if (!@cacheControl = params[:cacheControl]) then @cacheControl = 1800 end
 		@log.debug ("Cache Control set to #{@cacheControl}")
 		# if an ip wasn't specified, find one that isn't the loopback one and assume this is the one we should listen to
 		# if an interface name was supplied, match to that
 		
-		ip = params[:IP]
-		port = params[:Port]
+		ip = params[:ip]
+		port = params[:port]
 		
 		if ip == nil
-			f = params[:Interface]
+			f = params[:interface]
 			Socket::getifaddrs.each do |i|
 				a = i.addr
 				n = i.name
@@ -170,7 +172,7 @@ Calls getXMLDeviceData to get individual XML elements for each device (root and 
 	def createDescriptionXML
 		
 		rootE =  REXML::Element.new("root")
-		rootE.add_namespace("urn:schemas.upnp.org:device-1-0")
+		rootE.add_namespace("urn:schemas-upnp-org:device-1-0")
 		
 		sv = REXML::Element.new("specVersion")
 		sv.add_element("major").add_text("1")
@@ -369,6 +371,8 @@ Returns the last of these threads (the sender one) so that the main program can 
 =end
 
 	def discoveryStart
+		
+		@log.debug "discoveryStart entry point"
 		@discoveryRunning = TRUE
 		@ssdpMessages = Queue.new
 		
@@ -566,6 +570,7 @@ Signals that the Discovery threads should be shut down.
 		
 	def eventingStart
 		@eventingRunning = true
+		@eventTriggers = Queue.new
 		
 		@eventPublisher = Thread.new do
 			loop do
@@ -591,8 +596,8 @@ Signals that the Discovery threads should be shut down.
 		@eventModerator = Thread.new do
 			loop do
 				sleep 0.01
-				@devices.each do |d|
-					d.services.each do |s|
+				@devices.each_value do |d|
+					d.services.each_value do |s|
 						s.stateVariables.each_value do |v|
 							if v.moderatedByRate?
 								t = Time.now
@@ -624,12 +629,14 @@ Signals that the Discovery threads should be shut down.
 =end
 		
 	def start
+		@log.debug "Validating devices/services..."
 		@devices.each_value do |d|
 			d.validate
 			d.services.each_value do |s|
 				s.validate
 			end
 		end
+		@log.debug "Starting everything up..."
 		discoveryStart
 		webServerStart
 		eventingStart

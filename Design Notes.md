@@ -173,3 +173,12 @@ myService.addAction(myActionInstance)
 ```
 
 If a client invokes "NameofAction" on whatever service type myService is, with Arg1 = 6 and Arg2 = 12, they should get a response with Arg3 = 23
+
+## known limitations and bugs
+
+These are things that I'm unlikely to bother to fix
+
+- The code doesn't check that every device has at least one service
+- No testing has been done on pathological cases where a root and embedded device offer the same service
+- The code doesn't check that if a service is provided at version 2 (or later), earlier version(s) of the service are also provided
+- The code assumes (but doesn't check) that only standard UPnP device and service types are being used - handling of deviceType and serviceId tags in the description XML would need to improve to fix this
