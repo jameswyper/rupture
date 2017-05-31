@@ -64,6 +64,7 @@ class Device
 
 
 	attr_accessor :services
+	attr_reader :rootDevice
 
 	def initialize(params)
 		

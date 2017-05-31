@@ -80,6 +80,10 @@ class Service
 		s.service = self
 	end
 	
+	def addStateVariables(*a)
+		a.each { |s| addStateVariable(s) }
+	end
+	
 	def addAction(a)
 		@actions[a.name] = a
 		a.linkToService(self)
@@ -91,7 +95,77 @@ class Service
 		@eventAddr = servAddr + "event.xml"
 		@controlAddr = servAddr + "control.xml"
 		@descAddr = servAddr + "description.xml"
+		@log = @device.rootDevice.log
 	end
+	
+	
+	def createDescriptionXML
+		
+		rootE =  REXML::Element.new("scpd")
+		rootE.add_namespace("urn:schemas-upnp-org:device-1-0")
+		
+		spv = REXML::Element.new("specVersion")
+		spv.add_element("major").add_text("1")
+		spv.add_element("minor").add_text("0")
+		rootE.add_element(spv)
+
+		al = REXML::Element.new("actionList")
+		@actions.each_value do |a|
+			ae = REXML::Element.new("action")
+			ae.add_element("name").add_text(a.name)
+			gle = REXML::Element.new("argumentList")
+			ae.add_element(gle)
+			a.args.each_value do |g|
+				ge = REXML::Element.new("argument")
+				ge.add_element("name").add_text(g.name)
+				ge.add_element("direction").add_text(g.direction.to_s)
+				if (g.returnValue?)
+					ge.add_element("retval")
+				end
+				ge.add_element("relatedStateVariable").add_text(g.relatedStateVariable.name)
+				gle.add_element(ge)
+			end
+			al.add_element(ae)
+		end
+		
+		svl = REXML::Element.new("serviceStateTable")
+		@stateVariables.each_value do |sv|
+			sve = REXML::Element.new("stateVariable")
+			if sv.evented?
+				sve.add_attribute("sendEvents","yes")
+			else
+				sve.add_attribute("sendEvents","no")
+			end
+			sve.add_element("name").add_text(sv.name)
+			sve.add_element("dataType").add_text(sv.type)
+			sve.add_element("defaultValue").add_text(sv.defaultValue) if (sv.defaultValue)
+			if sv.allowedValueList?
+				avle = REXML::Element.new("allowedValueList")
+				sv.allowedValues.each_value do |v|
+					avle.add_element("allowedValue").add_text(v.to_s)
+				end
+				sve.add_element(avle)
+			elsif	sv.allowedValueRange?
+				avre = REXML::Element.new("allowedValueRange")
+				avre.add_element("minimum").add_text(sv.allowedMin)
+				avre.add_element("maximum").add_text(sv.allowedMax)				
+				avre.add_element("step").add_text(sv.allowedIncrement)
+				sve.add_element(avre)
+			end
+			svl.add_element(sve)
+		end
+		
+		rootE.add_element(al)
+		rootE.add_element(svl)
+		
+		doc = REXML::Document.new
+		doc << REXML::XMLDecl.new(1.0)
+		doc.add_element(rootE)
+		
+		return doc
+
+	end
+	
 	
 	def handleEvent(req, res)
 	
@@ -132,6 +206,9 @@ class Service
 	end
 	
 	def handleDescription(req, res)
+		@log.debug("Description (service) request: #{req}")
+		res.body = createDescriptionXML.to_s
+		res.content_type = "text/xml"
 	end
 	
 	def validate

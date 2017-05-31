@@ -115,6 +115,9 @@ DEVICEXSD = <<ENDXML
 </xs:schema>
 ENDXML
 
+SERVICEXSD = <<ENDXML
+
+ENDXML
 
 class TestSimpleDescription < Minitest::Test
 	
@@ -126,7 +129,20 @@ class TestSimpleDescription < Minitest::Test
 			:modelURL => "github.com/jameswyper/tapiola", :cacheControl => 15,
 			:serialNumber => "12345678", :modelDescription => "Sample App Root Device, to illustrate use of tapiola UPnP framework", 
 			:URLBase => "test", :ip => "127.0.0.1", :port => 54321, :logLevel => Logger::INFO)
-		@serv1 = UPnP::Service.new("Add",1)
+		
+		@serv1 = UPnP::Service.new("Math",1)
+		
+		@sv1 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_FIRST")
+		@sv2 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_SECOND")		
+		@sv3 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_OUT")		
+		
+		@act1 = UPnP::Action.new("Add")
+		@act1.addArgument(UPnP::Argument.new("First",:in,@sv1))
+		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv2))
+		@act1.addArgument(UPnP::Argument.new("Result",:out,@sv3))
+		
+		@serv1.addStateVariables(@sv1, @sv2, @sv3)
+		@serv1.addAction(@act1)
 		
 		@root.addService(@serv1)		
 		Thread.new {@root.start}
@@ -143,9 +159,15 @@ class TestSimpleDescription < Minitest::Test
 
 		#s = File.read('device.xsd')
 		begin
-		schema = Nokogiri::XML::Schema(DEVICEXSD)
+		schema1 = Nokogiri::XML::Schema(DEVICEXSD)
 		rescue => e
-			puts "Schema didn't validate - message and line number follows"
+			puts "Device Schema didn't validate - message and line number follows"
+			puts e, e.line
+		end
+		begin
+		schema1 = Nokogiri::XML::Schema(SERVICEXSD)
+		rescue => e
+			puts "Service Schema didn't validate - message and line number follows"
 			puts e, e.line
 		end
 	
@@ -155,7 +177,7 @@ class TestSimpleDescription < Minitest::Test
 
 		
 		document = Nokogiri::XML(desc)
-		errs = schema.validate(document)
+		errs = schema1.validate(document)
 		assert_equal 0, errs.size, "xml didn't validate against device.xsd"
 		
 		document = REXML::Document.new desc
@@ -173,11 +195,11 @@ class TestSimpleDescription < Minitest::Test
 		["device/modelNumber",1,"43"],
 		["device/UDN",1,"uuid:#{@root.uuid}"],
 		["device/iconList",0,""],
-		["device/serviceList/service/serviceType",1,"urn:schemas-upnp-org:service:Add:1"],
-		["device/serviceList/service/serviceId",1,"urn:upnp-org:serviceId:Add"],
-		["device/serviceList/service/SCPDURL",1,"http://127.0.0.1:54321/test/services/sample1/Add/description.xml"],
-		["device/serviceList/service/controlURL",1,"http://127.0.0.1:54321/test/services/sample1/Add/control.xml"],
-		["device/serviceList/service/eventSubURL",1,"http://127.0.0.1:54321/test/services/sample1/Add/event.xml"],
+		["device/serviceList/service/serviceType",1,"urn:schemas-upnp-org:service:Math:1"],
+		["device/serviceList/service/serviceId",1,"urn:upnp-org:serviceId:Math"],
+		["device/serviceList/service/SCPDURL",1,"http://127.0.0.1:54321/test/services/sample1/Math/description.xml"],
+		["device/serviceList/service/controlURL",1,"http://127.0.0.1:54321/test/services/sample1/Math/control.xml"],
+		["device/serviceList/service/eventSubURL",1,"http://127.0.0.1:54321/test/services/sample1/Math/event.xml"],
 		["device/presentationURL",1,"http://127.0.0.1:54321/test/presentation/sample1/presentation.html"]
 		]
 		
@@ -192,7 +214,17 @@ class TestSimpleDescription < Minitest::Test
 			end
 		end
 		
+		
+		
+		desc = Net::HTTP.get(URI("http://127.0.0.1:54321/test/services/sample1/Math/description.xml"))
 
+		puts desc
+		
+		#document = Nokogiri::XML(desc)
+		#errs = schema2.validate(document)
+		#assert_equal 0, errs.size, "xml didn't validate against device.xsd"
+		
+		document = REXML::Document.new desc
 		
 end	
 	

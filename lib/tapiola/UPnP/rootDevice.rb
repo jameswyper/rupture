@@ -30,6 +30,8 @@ class RootDevice < Device
 	attr_reader :ip
 	attr_reader :port
 	attr_reader :ipPort
+	
+	attr_accessor :log
 
 =begin rdoc
      initialiser MUST be called with the following parameters in the hash; in descending order of importance:
@@ -523,7 +525,7 @@ Signals that the Discovery threads should be shut down.
 =end
 		
 	def handleDescription(req)
-		@log.debug("Description request: #{req}")
+		@log.debug("Description (root) request: #{req}")
 		b = String.new
 		b = createDescriptionXML.to_s
 		return b
@@ -676,13 +678,13 @@ class HandleServices < WEBrick::HTTPServlet::AbstractServlet
 		servicename = m[2]
 		what = m[3]
 		
-		@log.debug ("rootDevice.rb/HandleService path is #{req.path}") 
-		@log.debug ("rootDevice.rb/HandleServices device:#{devicename}, service:#{servicename}, what:#{what}")
+		root.log.debug ("rootDevice.rb/HandleService path is #{req.path}") 
+		root.log.debug ("rootDevice.rb/HandleServices device:#{devicename}, service:#{servicename}, what:#{what}")
 		
 		if (devicename && servicename && what)
-			device = root.devices(devicename)
+			device = root.devices[devicename]
 			if device
-				service = d.services[servicename]
+				service = device.services[servicename]
 				if service
 					case what
 					when "control"
@@ -695,22 +697,22 @@ class HandleServices < WEBrick::HTTPServlet::AbstractServlet
 						# add error handling
 						# check this might need to go into do_post
 					else
-						@log.warn("rootDevice.rb/HandleServices control / event / description not specified, this was instead:#{what}")
-						@log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
+						root.log.warn("rootDevice.rb/HandleServices control / event / description not specified, this was instead:#{what}")
+						root.log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
 						raise WEBrick::HTTPStatus::NotFound
 					end
 				else
-					@log.warn ("rootDevice.rb/HandleServices attempt made to use unknown service:#{servicename} on device #{devicename}")
-					@log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
+					root.log.warn ("rootDevice.rb/HandleServices attempt made to use unknown service:#{servicename} on device #{devicename}")
+					root.log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
 					raise WEBrick::HTTPStatus::NotFound
 				end
 			else
-				@log.warn ("rootDevice.rb/HandleServices attempt made to use unknown device:#{devicename}")
-				@log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
+				root.log.warn ("rootDevice.rb/HandleServices attempt made to use unknown device:#{devicename}")
+				root.log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
 				raise WEBrick::HTTPStatus::NotFound
 			end
 		else
-			@log.warn("rootDevice.rb/HandleServices URL:#{req.path} did not parse")
+			root.log.warn("rootDevice.rb/HandleServices URL:#{req.path} did not parse")
 			raise WEBrick::HTTPStatus::NotFound
 		end
 		
@@ -735,20 +737,20 @@ class HandlePresentation < WEBrick::HTTPServlet::AbstractServlet
 		purl = m[2]
 		
 		
-		@log.debug ("rootDevice.rb/HandlePresentation path is #{req.path}") 
-		@log.debug ("rootDevice.rb/HandlePresentation device:#{devicename}, url:#{purl}")
+		root.log.debug ("rootDevice.rb/HandlePresentation path is #{req.path}") 
+		root.log.debug ("rootDevice.rb/HandlePresentation device:#{devicename}, url:#{purl}")
 		
 		if (devicename && purl)
-			device = root.devices(devicename)
+			device = root.devices[devicename]
 			if device
 				device.handlePresentation(req,res,action,purl)
 			else
-				@log.warn ("rootDevice.rb/HandlePresentation attempt made to use unknown device:#{devicename}")
-				@log.warn("rootDevice.rb/HandlePresentation URL was:#{req.path}")
+				root.log.warn ("rootDevice.rb/HandlePresentation attempt made to use unknown device:#{devicename}")
+				root.log.warn("rootDevice.rb/HandlePresentation URL was:#{req.path}")
 				raise WEBrick::HTTPStatus::NotFound
 			end
 		else
-			@log.warn("rootDevice.rb/HandlePresentation URL:#{req.path} did not parse")
+			root.log.warn("rootDevice.rb/HandlePresentation URL:#{req.path} did not parse")
 			raise WEBrick::HTTPStatus::NotFound
 		end
 		

@@ -20,7 +20,6 @@
  <element type="name" />
  <element type="argumentList" minOccurs="0" maxOccurs="1" />
  </ElementType>
-40
  <ElementType name="name" dt:type="string" content="textOnly" />
  <ElementType name="argumentList" content="eltOnly">
  <element type="argument" minOccurs="1" maxOccurs="*" />

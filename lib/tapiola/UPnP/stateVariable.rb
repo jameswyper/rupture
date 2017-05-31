@@ -54,9 +54,11 @@ class StateVariable
 	# the smallest amount the value of this variable (if numeric) can change by
 	attr_reader :allowedIncrement
 	# service the variable is attached to
-	attr_reader :service
+	attr_accessor :service
 	# time that an event was last fired for a moderated variable
 	attr_accessor :lastEventedTime
+	# state variable type
+	attr_reader :type
 	
 =begin rdoc
 
@@ -93,24 +95,24 @@ Optional parameters are
 		#check that all required parameters are present
 		
 		
-		unless params[:Name] 
+		unless params[:name] 
 			raise SetupError, "StateVariable initialize method: name missing" 
 		end
-		@name = params[:Name]
+		@name = params[:name]
 
 					
-		@defaultValue = params [:DefaultValue]
+		@defaultValue = params [:defaultValue]
 		
 		#create hash to store allowed values, note this hash will be empty if all values are allowed
 		
 		@allowedValues = Hash.new
-		if (params[:AllowedValues]) 
-			params[:AllowedValues].each {|k| @allowedValues[k] = true } 
+		if (params[:allowedValues]) 
+			params[:allowedValues].each {|k| @allowedValues[k] = true } 
 		end
 		
-		@allowedMax = params[:AllowedMax]
-		@allowedMin = params[:AllowedMin]
-		@allowedIncrement = params[:AllowedIncrement]
+		@allowedMax = params[:allowedMax]
+		@allowedMin = params[:allowedMin]
+		@allowedIncrement = params[:allowedIncrement]
 		
 		#A state variable may be validate by a list of allowed values, or a range, but not both
 		
@@ -139,21 +141,21 @@ Optional parameters are
 			@lastEventedValue = @value
 		end
 		
-		@evented = params[:Evented]
-		@resetValue = params[:ResetAfterEvent]
+		@evented = params[:evented]
+		@resetValue = params[:resetAfterEvent]
 		
 		#cross-check moderation parameters
 		
-		if (params[:ModerationType] == :Delta)
+		if (params[:moderationType] == :delta)
 			@moderationbyDelta = true
 			@moderationbyRate = false
-			@minimumDelta = params[:MinimumDelta]
+			@minimumDelta = params[:minimumDelta]
 			unless @minimumDelta then raise SetupError, "Statevariable initialize method: for name #{@name} :MinimumDelta not specified" end
 			unless @allowedIncrement then raise SetupError, "Statevariable initialize method: for name #{@name} :MinimumDelta requires :AllowedIncrement to also be set" end
-		elsif (params[:ModerationType] == :Rate)
+		elsif (params[:moderationType] == :rate)
 			@moderationbyRate = true
 			@moderationbyDelta = false
-			@maximumRate = params[:MaximumRate]
+			@maximumRate = params[:maximumRate]
 			unless @maximumRate then raise SetupError, "Statevariable initialize method: for name #{@name} :MaximumRate not specified" end
 		else
 			@moderationbyRate = false
@@ -183,6 +185,14 @@ Optional parameters are
 =begin rdoc
      Simple check to see if the variable is moderated by delta (e.g. only produces an event if the value has changed "significantly")
 =end
+	
+	def allowedValueRange?
+		@allowedRange
+	end
+	
+	def allowedValueList?
+		@allowedList
+	end
 	
 	def moderatedByDelta?
 		@moderatedByDelta
@@ -350,7 +360,7 @@ end #class StateVariable
 
 class StateVariableNumeric< StateVariable
 	
-	def initialize
+	def initialize(p)
 		@varMax = 0
 		@varMin = 0
 		super
@@ -413,10 +423,11 @@ class StateVariableI2 < StateVariableInteger
 end
 
 class StateVariableI4 < StateVariableInteger
-	def initialize; super; @varMax = 2147483647; @varMin = -2147483647; end
+	def initialize(p); super; @varMax = 2147483647; @varMin = -2147483647; @type = "i4"; end
 end
 
 class StateVariableInt < StateVariableI4
+	def initialize(p); super; @type = "int"; end
 end
 
 class StateVariableR4 < StateVariableFloat
