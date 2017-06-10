@@ -10,6 +10,7 @@ require_relative '../lib/tapiola/UPnP.rb'
 require 'nokogiri'
 require 'net/http'
 require  'rexml/document'
+require 'pry'
 
 UUIDREGEXP = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 
@@ -115,8 +116,110 @@ DEVICEXSD = <<ENDXML
 </xs:schema>
 ENDXML
 
-SERVICEXSD = <<ENDXML
+=begin
+<xs:element name="service-1-0" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+      <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+(before xs:element name=scpd)
 
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+  
+=end
+
+SERVICEXSD = <<ENDXML
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema id="service-1-0" 
+
+  targetNamespace="urn:schemas-upnp-org:device-1-0"
+  xmlns:tns="urn:schemas-upnp-org:device-1-0"
+  xmlns="urn:schemas-upnp-org:device-1-0"
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+   elementFormDefault="qualified">
+        <xs:element name="scpd">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="specVersion" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="major" type="xs:int" minOccurs="0" />
+                    <xs:element name="minor" type="xs:int" minOccurs="0" />
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="actionList" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="action" minOccurs="0" maxOccurs="unbounded">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="name" type="xs:string" minOccurs="0" />
+                          <xs:element name="argumentList" minOccurs="0" maxOccurs="unbounded">
+                            <xs:complexType>
+                              <xs:sequence>
+                                <xs:element name="argument" minOccurs="0" maxOccurs="unbounded">
+                                  <xs:complexType>
+                                    <xs:sequence>
+                                      <xs:element name="name" type="xs:string" minOccurs="0" />
+                                      <xs:element name="direction" type="xs:string" minOccurs="0" />
+                                      <xs:element name="relatedStateVariable" type="xs:string" minOccurs="0" />
+                                      <xs:element name="retval" minOccurs="0" maxOccurs="unbounded">
+                                        <xs:complexType>
+                                        </xs:complexType>
+                                      </xs:element>
+                                    </xs:sequence>
+                                  </xs:complexType>
+                                </xs:element>
+                              </xs:sequence>
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+              <xs:element name="serviceStateTable" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element name="stateVariable" minOccurs="0" maxOccurs="unbounded">
+                      <xs:complexType >
+                        <xs:sequence>
+                          <xs:element name="name" type="xs:string" minOccurs="0"  />
+                          <xs:element name="dataType" type="xs:string" minOccurs="0"/>
+                          <xs:element name="defaultValue" type="xs:string" minOccurs="0"  />
+                        </xs:sequence>
+                        <xs:attribute name="sendEvents" type="xs:string" default="yes"  />
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="allowedValueList">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="allowedValue" minOccurs="0" maxOccurs="unbounded">
+                <xs:complexType>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="allowedValueRange">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="minimum" type="xs:decimal" minOccurs="0" />
+              <xs:element name="maximum" type="xs:decimal" minOccurs="0" />
+              <xs:element name="step" type="xs:decimal" minOccurs="0" />
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+
+</xs:schema>
 ENDXML
 
 class TestSimpleDescription < Minitest::Test
@@ -157,7 +260,6 @@ class TestSimpleDescription < Minitest::Test
 		
 		
 
-		#s = File.read('device.xsd')
 		begin
 		schema1 = Nokogiri::XML::Schema(DEVICEXSD)
 		rescue => e
@@ -165,7 +267,7 @@ class TestSimpleDescription < Minitest::Test
 			puts e, e.line
 		end
 		begin
-		schema1 = Nokogiri::XML::Schema(SERVICEXSD)
+		schema2 = Nokogiri::XML::Schema(SERVICEXSD)
 		rescue => e
 			puts "Service Schema didn't validate - message and line number follows"
 			puts e, e.line
@@ -220,11 +322,39 @@ class TestSimpleDescription < Minitest::Test
 
 		puts desc
 		
-		#document = Nokogiri::XML(desc)
-		#errs = schema2.validate(document)
-		#assert_equal 0, errs.size, "xml didn't validate against device.xsd"
+		document = Nokogiri::XML(desc)
+		errs = schema2.validate(document)
+		errs.each do |e|
+			puts e.to_s
+		end
+		assert_equal 0, errs.size, "xml didn't validate against service.xsd"
 		
 		document = REXML::Document.new desc
+		
+		list = [
+		["specVersion/major",1,"1"],
+		["specVersion/minor",1,"0"],
+		["actionList/action/name",1,"Add"],
+		["actionList/action/argumentList/argument/name",3,["First","Second","Result"]],
+		]
+		
+
+		
+		list.each do |l|
+			min = Array.new
+			document.elements.each("*/" + l[0]) {|m|  min << m.text}
+			if l[1] == 0
+				assert_nil min, "#{l[0]} element found, wasn't expected"
+			else
+				refute_nil min, "#{l[0]} not found in XML: #{desc}"
+				assert_equal l[1],min.size
+				if  l[2].kind_of?(Array) 
+					min.each  { |m| assert_includes l[2],m.to_s }
+				else
+					assert_equal l[2],min[0].to_s
+				end
+			end
+		end
 		
 end	
 	
