@@ -138,87 +138,89 @@ SERVICEXSD = <<ENDXML
   xmlns:xs="http://www.w3.org/2001/XMLSchema"
    elementFormDefault="qualified">
         <xs:element name="scpd">
-          <xs:complexType>
-            <xs:sequence>
-              <xs:element name="specVersion" minOccurs="0" maxOccurs="unbounded">
-                <xs:complexType>
-                  <xs:sequence>
-                    <xs:element name="major" type="xs:int" minOccurs="0" />
-                    <xs:element name="minor" type="xs:int" minOccurs="0" />
-                  </xs:sequence>
-                </xs:complexType>
-              </xs:element>
-              <xs:element name="actionList" minOccurs="0" maxOccurs="unbounded">
-                <xs:complexType>
-                  <xs:sequence>
-                    <xs:element name="action" minOccurs="0" maxOccurs="unbounded">
-                      <xs:complexType>
-                        <xs:sequence>
-                          <xs:element name="name" type="xs:string" minOccurs="0" />
-                          <xs:element name="argumentList" minOccurs="0" maxOccurs="unbounded">
-                            <xs:complexType>
-                              <xs:sequence>
-                                <xs:element name="argument" minOccurs="0" maxOccurs="unbounded">
-                                  <xs:complexType>
-                                    <xs:sequence>
-                                      <xs:element name="name" type="xs:string" minOccurs="0" />
-                                      <xs:element name="direction" type="xs:string" minOccurs="0" />
-                                      <xs:element name="relatedStateVariable" type="xs:string" minOccurs="0" />
-                                      <xs:element name="retval" minOccurs="0" maxOccurs="unbounded">
-                                        <xs:complexType>
-                                        </xs:complexType>
-                                      </xs:element>
-                                    </xs:sequence>
-                                  </xs:complexType>
-                                </xs:element>
-                              </xs:sequence>
-                            </xs:complexType>
-                          </xs:element>
-                        </xs:sequence>
-                      </xs:complexType>
-                    </xs:element>
-                  </xs:sequence>
-                </xs:complexType>
-              </xs:element>
-              <xs:element name="serviceStateTable" minOccurs="0" maxOccurs="unbounded">
-                <xs:complexType>
-                  <xs:sequence>
-                    <xs:element name="stateVariable" minOccurs="0" maxOccurs="unbounded">
-                      <xs:complexType >
-                        <xs:sequence>
-                          <xs:element name="name" type="xs:string" minOccurs="0"  />
-                          <xs:element name="dataType" type="xs:string" minOccurs="0"/>
-                          <xs:element name="defaultValue" type="xs:string" minOccurs="0"  />
-                        </xs:sequence>
-                        <xs:attribute name="sendEvents" type="xs:string" default="yes"  />
-                      </xs:complexType>
-                    </xs:element>
-                  </xs:sequence>
-                </xs:complexType>
-              </xs:element>
-            </xs:sequence>
-          </xs:complexType>
-        </xs:element>
-        <xs:element name="allowedValueList">
-          <xs:complexType>
-            <xs:sequence>
-              <xs:element name="allowedValue" minOccurs="0" maxOccurs="unbounded">
-                <xs:complexType>
-                </xs:complexType>
-              </xs:element>
-            </xs:sequence>
-          </xs:complexType>
-        </xs:element>
-        <xs:element name="allowedValueRange">
-          <xs:complexType>
-            <xs:sequence>
-              <xs:element name="minimum" type="xs:decimal" minOccurs="0" />
-              <xs:element name="maximum" type="xs:decimal" minOccurs="0" />
-              <xs:element name="step" type="xs:decimal" minOccurs="0" />
-            </xs:sequence>
-          </xs:complexType>
-        </xs:element>
+		<xs:complexType>
+			<xs:sequence>
+              
+				<xs:element name="specVersion" minOccurs="0" maxOccurs="unbounded">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="major" type="xs:int" minOccurs="0" />
+							<xs:element name="minor" type="xs:int" minOccurs="0" />
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+	      
+	      
+				<xs:element name="actionList" minOccurs="0" maxOccurs="unbounded">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="action" minOccurs="0" maxOccurs="unbounded">
+								<xs:complexType>
+									<xs:sequence>
+										<xs:element name="name" type="xs:string" minOccurs="0" />
+										<xs:element name="argumentList" minOccurs="0" maxOccurs="unbounded" />
+										<xs:element name="argument" minOccurs="0" maxOccurs="unbounded">
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="name" type="xs:string" minOccurs="1" />
+													<xs:element name="direction" type="xs:string" minOccurs="1" />
+													<xs:element name="retval" minOccurs="0" maxOccurs="1">
+														<xs:complexType>
+														</xs:complexType>
+													</xs:element>
+													<xs:element name="relatedStateVariable" type="xs:string" minOccurs="1" />
+												</xs:sequence>
+											</xs:complexType>
+										</xs:element>
+									</xs:sequence>
+								</xs:complexType>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+              
+	      
+				<xs:element name="serviceStateTable" minOccurs="0" maxOccurs="unbounded">
+					<xs:complexType>
+						<xs:sequence>
+							<xs:element name="stateVariable" minOccurs="0" maxOccurs="unbounded">
+								<xs:complexType >
+									<xs:sequence>
+										<xs:element name="name" type="xs:string" minOccurs="0"  />
+										<xs:element name="dataType" type="xs:string" minOccurs="0"/>
+										<xs:element name="defaultValue" type="xs:string" minOccurs="0"  />
+	
+										<xs:element name="allowedValueList" minOccurs="0">
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="allowedValue" minOccurs="0" maxOccurs="unbounded" />
+												</xs:sequence>
+											</xs:complexType>
+										</xs:element>
+	
+										<xs:element name="allowedValueRange"  minOccurs="0">
+											<xs:complexType>
+												<xs:sequence>
+													<xs:element name="minimum" type="xs:decimal" minOccurs="0" />
+													<xs:element name="maximum" type="xs:decimal" minOccurs="0" />
+													<xs:element name="step" type="xs:decimal" minOccurs="0" />
+												</xs:sequence>
+											</xs:complexType>
+										</xs:element>
 
+									</xs:sequence>
+									<xs:attribute name="sendEvents" type="xs:string" default="yes"  />
+								</xs:complexType>
+							</xs:element>
+						</xs:sequence>
+					</xs:complexType>
+				</xs:element>
+            
+	    
+			</xs:sequence>
+		</xs:complexType>
+        </xs:element>
+        
 </xs:schema>
 ENDXML
 
@@ -242,7 +244,7 @@ class TestSimpleDescription < Minitest::Test
 		@act1 = UPnP::Action.new("Add")
 		@act1.addArgument(UPnP::Argument.new("First",:in,@sv1))
 		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv2))
-		@act1.addArgument(UPnP::Argument.new("Result",:out,@sv3))
+		@act1.addArgument(UPnP::Argument.new("Result",:out,@sv3,true))
 		
 		@serv1.addStateVariables(@sv1, @sv2, @sv3)
 		@serv1.addAction(@act1)
@@ -328,6 +330,7 @@ class TestSimpleDescription < Minitest::Test
 			puts e.to_s
 		end
 		assert_equal 0, errs.size, "xml didn't validate against service.xsd"
+
 		
 		document = REXML::Document.new desc
 		
@@ -336,6 +339,12 @@ class TestSimpleDescription < Minitest::Test
 		["specVersion/minor",1,"0"],
 		["actionList/action/name",1,"Add"],
 		["actionList/action/argumentList/argument/name",3,["First","Second","Result"]],
+		["actionList/action/argumentList/argument/direction",3,["in","in","out"]],
+		["actionList/action/argumentList/argument/relatedStateVariable",3,["A_ARG_TYPE_FIRST","A_ARG_TYPE_SECOND","A_ARG_TYPE_OUT"]],
+		["actionList/action/argumentList/argument[name='First']/retval",0,nil],
+		["actionList/action/argumentList/argument[name='Second']/retval",0,nil],
+		["actionList/action/argumentList/argument[name='Result']/retval",1,""],
+		["serviceStateTable/stateVariable/name",3,["A_ARG_TYPE_FIRST","A_ARG_TYPE_SECOND","A_ARG_TYPE_OUT"]],
 		]
 		
 
@@ -344,10 +353,10 @@ class TestSimpleDescription < Minitest::Test
 			min = Array.new
 			document.elements.each("*/" + l[0]) {|m|  min << m.text}
 			if l[1] == 0
-				assert_nil min, "#{l[0]} element found, wasn't expected"
+				assert_empty min, "#{l[0]} element found, wasn't expected"
 			else
 				refute_nil min, "#{l[0]} not found in XML: #{desc}"
-				assert_equal l[1],min.size
+				assert_equal l[1],min.size, "#{l[0]} expected / actual number of elements don't match"
 				if  l[2].kind_of?(Array) 
 					min.each  { |m| assert_includes l[2],m.to_s }
 				else
