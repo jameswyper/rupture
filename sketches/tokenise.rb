@@ -2,6 +2,63 @@
 require 'minitest/autorun'
 
 
+=begin rdoc
+This code parses a search request and evaluates it against an object - the object is assumed to contain a properties
+hash with values for each property.
+
+The search request can be arbitrarily complex (in practice I hope it won't be) with nested brackets and the need to 
+treat AND and OR with the correct precedence.  I can't claim to have tested the code exhaustively.  Here's how it works:
+
+1.  An instance of the Evaluator class is created from a string.  The string is split into tokens separated by whitespace.
+Note that values can be quoted and therefore contain spaces -> "hello world!" - this also means that double quote (") 
+characters can be escaped inside such strings -> "hello \"new\" world!" and that in turn means backslashes have to be escaped
+as \\
+
+2.  The tokens are then parsed for brackets.  Each token inside brackets (including the enclosing brackets) is given an ID and
+a level - this allows conditions grouped inside brackets to be identified.  An example
+
+	a = b or (x = y and (p = q or m = n) or (1 = 2)) will be broken into tokens with IDs and levels
+ID	0 0 0 0  11 1 1 1   22 2 2 2  2 2 22 1  33 3 331
+Lvl	0 0 0 0  11 1 1 1   22 2 2 2  2 2 22 1  22 2 221
+
+3.  The tokens are then broken down into Conditions.  Conditions can be simple of complex.
+Simple conditions are of the for property-comparator-value e.g.  a = "b" or x exists true.
+Complex conditions are collections of simple and other complex conditions, grouped by brackets
+So in the example above the complex conditions are
+(a) the entire string
+(b) x = y and (ref to complex condition) or (ref to another complex condition)
+(c) p = q or m = n
+(d) 1 = 2 (this is a complex condition by virtue of being bracketed, even though it only contains a single simple condition)
+
+4.  Complex conditions have clauses (simple or other complex conditions) and connectors - the ands and ors
+
+5.  In order to evaluate the ands and or with the correct precedence all the complex conditions need to be rearranged.
+I call this "reduce" as the aim is to reduce all the complex conditions to one where the connectors are either
+all ands or all ors. I do this by grouping sequences of ands into new complex conditions, so
+
+a = b or x = y and p = q or c = d and e = f and g = h
+
+effectively becomes
+
+a = b or (x = y and p = q) or (c = d and e = f and g = h)
+
+6.  Conditions are evaluated recursively, so in the example above the code evaluates
+a = b
+then 
+(x = y and p = q)
+then (c = d and e = f and g = h)
+
+7.  The only attempt I've made to optimise this is not to evaluate redundant conditions so (again, same example)
+the code will 
+- return true if a = b  (no point checking the ors)
+- when evaluating (x = y and p = q) it will return false for that sub-condition (not the whole thing), without 
+evaluating p = q, if (x = y) is false
+
+=end
+
+
+
+
 class EvaluatorError < RuntimeError
 end
 
@@ -185,7 +242,43 @@ class SimpleCondition < Condition
 	end
 	
 	def evaluate(obj)
+	
+#		puts "Evaluating #{@property} #{@comparator} #{@value}"
+#		puts "against #{obj}"
+		
+		case @comparator
+		when :exists
+			if obj.properties[@property]
+				return @value
+			else
+				return !@value
+			end
+		when "contains"
+			return (obj.properties[@property].include?(@value))
+		when "doesNotContain"
+			return !(obj.properties[@property].include?(@value))
+		when "derivedfrom"
+			return (@property.include?(@value))
+		when "="
+			return (obj.properties[@property] == @value)
+		when "<="
+			return (obj.properties[@property] <= @value)
+		when "<"
+			return (obj.properties[@property] < @value)
+		when ">="
+			return (obj.properties[@property] >= @value)
+		when ">"
+			return (obj.properties[@property] > @value)
+		when "!="
+			return (obj.properties[@property] != @value)
+		else
+			return false
+		end
+#  ideally the "derivedFrom" check could be smarter as @property needs to begin with the text in @value not just include it
+#  and the <,<=,>,>= checks should convert numbers - but who's going to use numbers in searches anyway?
+
 	end
+
 end
 
 class ComplexCondition < Condition
@@ -195,11 +288,15 @@ class ComplexCondition < Condition
 	attr_reader :text
 	attr_reader :level
 		
-	def initialize(t,parent = nil)
-		p = 0
+	def initialize
 		@clauses = Array.new
 		@connectors = Array.new
-		@parent = parent
+		@parent = nil
+		@level = 0
+	end
+		
+	def fillFromTokens(t,parent = nil)
+		p = 0
 		@level = t[p].level
 #		puts "starting loop for #{Token.dump(t)}"
 		while p < t.size do
@@ -209,7 +306,7 @@ class ComplexCondition < Condition
 				q = p
 				while (q < t.size) && (t[q].level >= t[p].level)  do q += 1 end
 #				puts "p,q = #{p},#{q} and tokens are #{Token.dump(t)}"
-				@clauses << ComplexCondition.new(t[p+1..q-1],self)
+				@clauses << ComplexCondition.new.fillFromTokens(t[p+1..q-1],self)
 				p = q
 #				puts "open bracket completely processed, p now #{p}"
 			else
@@ -241,8 +338,17 @@ class ComplexCondition < Condition
 			end
 		end
 #		puts "finished loop"
+		return self
 	end
-	
+
+	def fillFromComplex(c,rs,re)
+		@level = c.level + 1
+		@parent = c
+		@connectors = c.connectors[rs..re]
+		@clauses = c.clauses[rs..re+1]
+		return self
+	end
+
 	def dump
 		s = "Complex:\n"
 		s << "Level #{@level}\n"
@@ -253,14 +359,108 @@ class ComplexCondition < Condition
 		s << @clauses.last.dump
 	end
 
-
+	def reduce
+		# take a complex clause with ands and ors and simplify it to one with ors only (put all the ands into another ComplexClause object)
+		andCount = 0
+		orCount = 0
+#		puts "in reduce, connectors are #{@connectors.join(" ")}"
+		@connectors.each do |c|
+			if c == :and
+				andCount += 1
+			else
+				orCount += 1
+			end
+		end
+		andRanges = Array.new
+		if (andCount > 0) && (orCount  > 0)  #ie only if we have a mix of ands and ors
+			firstAnd = 0
+			lastAnd = 0
+			@connectors.each_index do |i|
+#				puts "processing index #{i}"
+				if @connectors[i] == :and
+#					puts "it's an and"
+					if (i == 0) 
+						firstAnd = 0
+#						puts " i==0 "
+					else 
+						if (@connectors[i-1] == :or)
+#							puts "prev index was an or"
+							firstAnd = i
+#							puts "firstAnd is now #{firstAnd}"
+						end
+					end
+					if (i == (@connectors.size - 1))
+						lastAnd = i
+#						puts "i is now at max, range is #{firstAnd}..#{lastAnd}"
+						andRanges << [firstAnd,lastAnd]
+					else
+						if @connectors[i+1] == :or
+							lastAnd = i
+							andRanges << [firstAnd,lastAnd]
+#							puts "about to hit an or, range is #{firstAnd}..#{lastAnd}"
+						end
+					end
+				end
+			end
+		end
+		andRanges.reverse.each do |range|
+#			puts "in reduce, tackling range #{range[0]}..#{range[1]}"
+			c = ComplexCondition.new.fillFromComplex(self,range[0],range[1])
+#			puts "currently have #{@connectors.size} connectors and #{@clauses.size} clauses"
+			@connectors.slice!(range[0]..range[1])
+			@clauses.slice!(range[0]..(range[1]+1))
+			@clauses.insert(range[0],c)
+#			puts "now have #{@connectors.size} connectors and #{@clauses.size} clauses"
+		end
+	end
+	
+	def getChildren
+		
+#	puts "in getChildren"	
+		l = Array.new
+		@clauses.each do |d|
+#			puts d.class
+			if d.kind_of? (Evaluator::ComplexCondition)
+#				puts "going recursive"
+				l.concat(d.getChildren)
+				l << d
+			end
+		end
+#		puts "done #{l.size}"
+#		l.each {|m| puts m.to_s}
+		return l
+	end
+	
+	def reduceAll
+		# like reduce, but recursive
+		self.getChildren.each {|c| c.reduce }
+		self.reduce
+	end
+	
+	def evaluate(obj)
+		if @connectors[0] == :and
+			@clauses.each do |c|
+				if (c.evaluate(obj) == false)
+					return false
+				end
+			end
+			return true
+		else
+			@clauses.each do |c|
+				if (c.evaluate(obj) == true)
+					return true
+				end
+			end
+			return false
+		end
+	end
+	
 end
 
 
 
 
-
-end # class
+end # Evaluator class
 
 
 class TestTokenise < Minitest::Test
@@ -418,7 +618,8 @@ def test_ComplexCondition
 	
 	u = 'x = "y"'
 	
-	c = Evaluator::ComplexCondition.new(Evaluator.new(u).firstPass_Brackets.tokens)
+	c = Evaluator::ComplexCondition.new
+	c.fillFromTokens(Evaluator.new(u).firstPass_Brackets.tokens)
 	assert_equal 0,c.connectors.size
 	assert_equal 1,c.clauses.size
 	assert_kind_of Evaluator::SimpleCondition,c.clauses[0]
@@ -428,7 +629,8 @@ def test_ComplexCondition
 	
 	u = 'x = "y" and (a > "b" or c < "d")'
 
-	c = Evaluator::ComplexCondition.new(Evaluator.new(u).firstPass_Brackets.tokens)
+	c = Evaluator::ComplexCondition.new
+	c.fillFromTokens(Evaluator.new(u).firstPass_Brackets.tokens)
 	assert_equal 1, c.connectors.size
 	assert_equal 2, c.clauses.size	
 	assert_equal :and, c.connectors[0]
@@ -462,7 +664,8 @@ def test_ComplexCondition
 	
 	u = '(x contains "y") and (a = "b" or c < "d" and e > "f" and (g != "h" or i exists false)) or p = "q"'
 
-	c = Evaluator::ComplexCondition.new(Evaluator.new(u).firstPass_Brackets.tokens)
+	c = Evaluator::ComplexCondition.new
+	c.fillFromTokens(Evaluator.new(u).firstPass_Brackets.tokens)
 	assert_equal 2, c.connectors.size
 	assert_equal 3, c.clauses.size	
 	assert_equal :and, c.connectors[0]
@@ -487,19 +690,15 @@ def test_ComplexCondition
 	assert_equal "contains", c4.comparator
 	assert_equal "y", c4.value
 
-	assert_equal 0, c2.connectors.size
-	assert_equal 1, c2.clauses.size	
-	c5 = c2.clauses[0]
-	assert_kind_of Evaluator::ComplexCondition, c5
-	assert_equal 3, c5.connectors.size
-	assert_equal 4, c5.clauses.size	
-	assert_equal :or, c.connectors[0]
-	assert_equal :and, c.connectors[1]
-	assert_equal :and, c.connectors[2]
-	c6 = c5.clauses[0]
-	c7 = c5.clauses[1]
-	c8 = c5.clauses[2]
-	c9 = c5.clauses[3]
+	assert_equal 3, c2.connectors.size
+	assert_equal 4, c2.clauses.size	
+	assert_equal :or, c2.connectors[0]
+	assert_equal :and, c2.connectors[1]
+	assert_equal :and, c2.connectors[2]
+	c6 = c2.clauses[0]
+	c7 = c2.clauses[1]
+	c8 = c2.clauses[2]
+	c9 = c2.clauses[3]
 	assert_kind_of Evaluator::ComplexCondition, c9
 	assert_kind_of Evaluator::SimpleCondition, c6
 	assert_kind_of Evaluator::SimpleCondition, c7
@@ -524,7 +723,7 @@ def test_ComplexCondition
 	assert_equal "!=", c10.comparator
 	assert_equal "h", c10.value
 	assert_equal "i", c11.property
-	assert_equal "exists", c11.comparator
+	assert_equal :exists, c11.comparator
 	assert_equal false, c11.value
 	
 #	assert_equal 0, c.level
@@ -532,7 +731,7 @@ def test_ComplexCondition
 	assert_equal 1, c2.level
 	assert_equal 0, c3.level
 	assert_equal 1, c4.level
-	assert_equal 1, c5.level
+
 	assert_equal 1, c6.level
 	assert_equal 1, c7.level
 	assert_equal 1, c8.level
@@ -542,6 +741,293 @@ def test_ComplexCondition
 
 end
 
+def test_reductions
+
+	u = 'x = "y"'
+	c = Evaluator::ComplexCondition.new.fillFromTokens(Evaluator.new(u).firstPass_Brackets.tokens)
+	c.reduceAll
+
+	assert_equal 0,c.connectors.size
+	assert_equal 1,c.clauses.size
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[0]
+	assert_equal "x", c.clauses[0].property
+	assert_equal "=", c.clauses[0].comparator
+	assert_equal "y", c.clauses[0].value
+	
+	u = 'x = "y" and (a > "b" or c < "d")'
+
+	c = Evaluator::ComplexCondition.new.fillFromTokens(Evaluator.new(u).firstPass_Brackets.tokens)
+	c.reduceAll
+	
+	assert_equal 1, c.connectors.size
+	assert_equal 2, c.clauses.size	
+	assert_equal :and, c.connectors[0]
+	
+	c1 = c.clauses[0]
+	c2 = c.clauses[1]
+	assert_kind_of Evaluator::SimpleCondition, c1
+	assert_equal "x", c1.property
+	assert_equal "=", c1.comparator
+	assert_equal "y", c1.value
+
+	assert_kind_of Evaluator::ComplexCondition, c2
+	assert_equal 1, c2.connectors.size
+	assert_equal 2, c2.clauses.size
+	assert_equal :or, c2.connectors[0]
+	
+	c3 = c2.clauses[0]
+	c4 = c2.clauses[1]
+	assert_kind_of Evaluator::SimpleCondition, c3
+	assert_kind_of Evaluator::SimpleCondition, c4
+	assert_equal "a", c3.property
+	assert_equal ">", c3.comparator
+	assert_equal "b", c3.value
+	assert_equal "c", c4.property
+	assert_equal "<", c4.comparator
+	assert_equal "d", c4.value
+	assert_equal 0, c1.level
+	assert_equal 1, c2.level
+	assert_equal 1, c3.level
+	assert_equal 1, c4.level
+
+	u = 	'x = "y" and a = "b" or c = "d"'
+	c = Evaluator::ComplexCondition.new.fillFromTokens(Evaluator.new(u).firstPass_Brackets.tokens)
+	assert_equal 2,c.connectors.size
+	assert_equal 3,c.clauses.size
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[0]
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[1]
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[2]
+		
+	
+	c.reduceAll
+
+	assert_equal 1, c.connectors.size
+	assert_equal :or, c.connectors[0]
+	assert_equal 2, c.clauses.size
+	assert_kind_of Evaluator::ComplexCondition,c.clauses[0]
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[1]
+
+	c1 = c.clauses[0]
+	c2 = c.clauses[1]
+	assert_equal "c", c2.property
+	
+
+	assert_equal 1, c1.connectors.size
+	assert_equal :and, c1.connectors[0]
+	assert_equal 2, c1.clauses.size
+	assert_kind_of Evaluator::SimpleCondition,c1.clauses[0]
+	assert_kind_of Evaluator::SimpleCondition,c1.clauses[1]
+	
+	c3 = c1.clauses[0]
+	c4 = c1.clauses[1]
+	
+	assert_equal "x", c3.property
+	assert_equal "a", c4.property
+
+	u = 	'x = "y" or a = "b" and c = "d"'
+	c = Evaluator::ComplexCondition.new.fillFromTokens(Evaluator.new(u).firstPass_Brackets.tokens)
+	assert_equal 2,c.connectors.size
+	assert_equal 3,c.clauses.size
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[0]
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[1]
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[2]
+		
+	
+	c.reduceAll
+
+	assert_equal 1, c.connectors.size
+	assert_equal :or, c.connectors[0]
+	assert_equal 2, c.clauses.size
+	assert_kind_of Evaluator::ComplexCondition,c.clauses[1]
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[0]
+
+	c1 = c.clauses[0]
+	c2 = c.clauses[1]
+	assert_equal "x", c1.property
+	
+
+	assert_equal 1, c2.connectors.size
+	assert_equal :and, c2.connectors[0]
+	assert_equal 2, c2.clauses.size
+	assert_kind_of Evaluator::SimpleCondition,c2.clauses[0]
+	assert_kind_of Evaluator::SimpleCondition,c2.clauses[1]
+	
+	c3 = c2.clauses[0]
+	c4 = c2.clauses[1]
+	
+	assert_equal "a", c3.property
+	assert_equal "c", c4.property
+
+	u = 	'x = "y" or a = "b" or c = "d"'
+	c = Evaluator::ComplexCondition.new.fillFromTokens(Evaluator.new(u).firstPass_Brackets.tokens)
+	assert_equal 2,c.connectors.size
+	assert_equal 3,c.clauses.size
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[0]
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[1]
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[2]
+		
+	
+	c.reduceAll
+
+	assert_equal 2,c.connectors.size
+	assert_equal 3,c.clauses.size
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[0]
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[1]
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[2]
+		
+	u = 	'x = "y" and a = "b" and c = "d"'
+	c = Evaluator::ComplexCondition.new.fillFromTokens(Evaluator.new(u).firstPass_Brackets.tokens)
+	assert_equal 2,c.connectors.size
+	assert_equal 3,c.clauses.size
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[0]
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[1]
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[2]
+		
+	
+	c.reduceAll
+
+	assert_equal 2,c.connectors.size
+	assert_equal 3,c.clauses.size
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[0]
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[1]
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[2]
+		
+		
+	u = 	'x = "y" and a = "b" or (c = "d" or e = "f" and g = "h" and i = "j" or k = "l" and m = "n")'
+	c = Evaluator::ComplexCondition.new.fillFromTokens(Evaluator.new(u).firstPass_Brackets.tokens)
+	assert_equal 2,c.connectors.size
+	assert_equal 3,c.clauses.size
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[0]
+	assert_kind_of Evaluator::SimpleCondition,c.clauses[1]
+	assert_kind_of Evaluator::ComplexCondition,c.clauses[2]
+		
+	
+	c.reduceAll
+
+	assert_equal 1,c.connectors.size
+	assert_equal 2,c.clauses.size
+	assert_kind_of Evaluator::ComplexCondition,c.clauses[0]
+	assert_kind_of Evaluator::ComplexCondition,c.clauses[1]
+	
+	assert_equal :or, c.connectors[0]
+	
+	c0 = c.clauses[0]
+	c1 = c.clauses[1]
+	
+	assert_equal 1,c0.connectors.size
+	assert_equal 2,c0.clauses.size
+	assert_kind_of Evaluator::SimpleCondition,c0.clauses[0]
+	assert_kind_of Evaluator::SimpleCondition,c0.clauses[1]
+	assert_equal :and, c0.connectors[0]
+	c00 = c0.clauses[0]
+	c01 = c0.clauses[1]
+	assert_equal "x", c00.property
+	assert_equal "a", c01.property
+	
+	assert_equal 2,c1.connectors.size	
+	assert_equal 3,c1.clauses.size
+	assert_equal :or, c1.connectors[0]
+	assert_equal :or, c1.connectors[1]
+	
+	c10 = c1.clauses[0]
+	c11 = c1.clauses[1]
+	c12 = c1.clauses[2]
+	
+	assert_kind_of Evaluator::SimpleCondition,c10
+	assert_kind_of Evaluator::ComplexCondition,c11
+	assert_kind_of Evaluator::ComplexCondition,c12
+	assert_equal "c", c10.property
+	
+	assert_equal 2, c11.connectors.size
+	assert_equal 3, c11.clauses.size
+	assert_equal :and, c11.connectors[0]
+	assert_equal :and, c11.connectors[1]
+
+	c110 = c11.clauses[0]
+	c111 = c11.clauses[1]	
+	c112 = c11.clauses[2]
+	assert_kind_of Evaluator::SimpleCondition,c110
+	assert_kind_of Evaluator::SimpleCondition,c111
+	assert_kind_of Evaluator::SimpleCondition,c112
+	
+	assert_equal "e", c110.property
+	assert_equal "g", c111.property
+	assert_equal "i", c112.property
+	
+	
+	assert_equal 1, c12.connectors.size
+	assert_equal 2, c12.clauses.size
+	assert_equal :and, c12.connectors[0]
+	
+	c120 = c12.clauses[0]
+	c121 = c12.clauses[1]	
+	assert_kind_of Evaluator::SimpleCondition,c120
+	assert_kind_of Evaluator::SimpleCondition,c121
+	
+	assert_equal "k", c120.property
+	assert_equal "m", c121.property
+
+	end
+
 
 end
 
+class TestEvaluate < MiniTest::Test
+
+class Obj
+	attr_accessor :properties
+	def initialize
+		@properties = Hash.new
+	end
+end
+
+
+def test_eval
+
+	obj = Obj.new
+	obj.properties["name"] = "Fred Bloggs"
+	obj.properties["name.first"] = "Fred"
+	obj.properties["name.last"] = "Bloggs"
+
+	tests = [
+	['name = "Fred Blaggs"',false],
+	['name = "Fred Bloggs"',true],
+	['name != "Fred Blaggs"',true],
+	['name != "Fred Bloggs"',false],
+	['name <= "Fred Blaggs"',false],
+	['name <= "Fred Bloggs"',true],
+	['name <= "Fred Blzggs"',true],
+	['name >= "Fred Blaggs"',true],
+	['name >= "Fred Bloggs"',true],
+	['name >= "Fred Blzggs"',false],
+	['name > "Fred Bloggs"',false],
+	['name > "Fred Blzggs"',false],
+	['name > "Fred Blaggs"',true],
+	['name < "Fred Bloggs"',false],
+	['name < "Fred Blaggs"',false],
+	['name < "Fred Blzggs"',true],
+	['name exists true', true],
+	['name exists false', false],
+	['nome exists true', false],
+	['nome exists false', true],
+	['name contains "red Bl"',true],
+	['name contains "r3d Bl"',false],
+	['name doesNotContain "r3d Bl"',true],
+	['name doesNotContain  "red Bl"',false],
+	['name.last derivedfrom "name"', true],
+	['name.last derivedfrom "name.first"', false],
+	['name.first = "Fred" or name.last = "Fred"',true],
+	['name.first = "Fred" and name.last = "Fred"',false],
+	['name.first = "Fred" and (name.last = "Fred" or name.last = "Bloggs")',true],
+	['(name.first = "Fred" and name.last = "Blegges") or (name.last = "Fred" or (name = "Fred Bloggs" and (name.last != "Bleggs")))',true],
+
+	]
+	tests.each do |test|
+		c = Evaluator::ComplexCondition.new.fillFromTokens(Evaluator.new(test[0]).firstPass_Brackets.tokens)
+		c.reduceAll
+		assert_equal test[1], c.evaluate(obj), test[0]
+	end
+
+end
+
+end
