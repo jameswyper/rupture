@@ -192,6 +192,16 @@ class Service
 	
 	end
 	
+	def processActionXML(x)
+		
+	end
+	
+	def createActionResponse
+	end
+	
+	def createActionError
+	end
+	
 	def handleControl(req, res)
 	
 	#decode the XML
