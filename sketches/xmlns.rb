@@ -19,9 +19,26 @@ ENDXML
 
 doc = REXML::Document.new TX
 
-x = REXML::XPath.each(doc, "//m:Envelope", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+x = REXML::XPath.first(doc, "//m:Envelope/m:Body", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+puts x.name, x.expanded_name
+y =  REXML::XPath.first(x,"//p:SetAVTransportURI",{"p" => "urn:schemas-upnp-org:service:AVTransport:1"})
+action = y.name
+puts action
+y.elements.each {|z| puts "name = #{z.name}, value = \"#{z.text}\""}
 
-binding.pry
+s = '"aaaaa#bbb"'
+s = nil
+re = /^"(.*)#(.*)"$/
+md = re.match(s)
+if (md[1] != nil) && (md[2] != nil)
+	puts md[1], md[2]
+end
+
+
+#x = doc.elements("//m:Envelope", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+#x.each {|y| puts ">> #{y}"}
+
+#binding.pry
 
 
 =begin

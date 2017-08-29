@@ -66,6 +66,9 @@ class Service
 	# subscriptions attached to the service
 	attr_reader :subscriptions
 
+	class ActionError< RunTimeError
+	end
+	
 	
 	def initialize(t, v)
 		@type = t
@@ -192,8 +195,46 @@ class Service
 	
 	end
 	
-	def processActionXML(x)
+	def processActionXML(xml,soapaction)
+
 		
+		re = /^"(.*)#(.*)"$/
+		md = re.match(soapaction)
+		
+		if (md != nil) && (md[1] != nil) && (md[2] != nil)
+			namespace = md[1]
+			action = md[2]
+		else
+			@log.warn("SOAPACTION header invalid - was :#{soapaction}:")
+			raise ActionError, 401
+		end
+
+
+		doc = REXML::Document.new xml
+
+		soapbody = REXML::XPath.first(doc, "//m:Envelope/m:Body", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+		unless soapbody
+			@log.warn("Couldn't get SOAP body out of #{xml}")
+			raise ActionError, 401
+		end
+		
+		argsxml =  REXML::XPath.first(soapbody,"//p:#{action}",{"p" => "#{namespace}"})
+		unless argsxml
+			@log.warn("Couldn't get action name out of #{xml} with SOAPACTION header :#{soapaction}:")
+			raise ActionError, 401
+		end
+
+		if (action != argsxml.name)
+			@log.warn("SOAPACTION header :#{soapaction}: didn't match XML name #{xml}")
+			raise ActionError,401
+		end
+
+		args = Hash.new
+		
+		argsxml.elements.each {|e| args[e.name] = e.text}
+		
+		return action, args
+
 	end
 	
 	def createActionResponse
@@ -203,6 +244,18 @@ class Service
 	end
 	
 	def handleControl(req, res)
+	
+		begin
+			actionname, args = processActionXML(req.body,req.header["SOAPACTION"])
+			action = @actions[actionname]
+			if action == nil
+				@log.warn("Action #{actionname} doesn't exist in service #{@name}")
+				raise ActionError, 401
+			else
+				outargs = action.invoke
+			end
+		rescue ActionError, code
+		end
 	
 	#decode the XML
 	#find the action by name
