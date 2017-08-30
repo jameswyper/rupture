@@ -229,7 +229,7 @@ Optional parameters are
 		
 		if (@allowedRange)
 			if ((v < @allowedMin) || (v > @allowedMax))
-				raise StateVariableError, "#{@name}: allowedRange violation, attempt to set #{v}, min #{@allowedMin}, max #{@allowedMax}"
+				raise StateVariableRangeError, "#{@name}: allowedRange violation, attempt to set #{v}, min #{@allowedMin}, max #{@allowedMax}"
 			end
 		end
 

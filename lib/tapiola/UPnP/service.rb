@@ -66,9 +66,7 @@ class Service
 	# subscriptions attached to the service
 	attr_reader :subscriptions
 
-	class ActionError< RunTimeError
-	end
-	
+
 	
 	def initialize(t, v)
 		@type = t
@@ -237,12 +235,6 @@ class Service
 
 	end
 	
-	def createActionResponse
-	end
-	
-	def createActionError
-	end
-	
 	def handleControl(req, res)
 	
 		begin
@@ -252,9 +244,12 @@ class Service
 				@log.warn("Action #{actionname} doesn't exist in service #{@name}")
 				raise ActionError, 401
 			else
-				outargs = action.invoke
+				action.validateinArgs(args)
+				outArgs = action.invoke
+				res = action.responseOK(args)
 			end
 		rescue ActionError, code
+			res = action.responseError(code)
 		end
 	
 	#decode the XML
@@ -344,32 +339,31 @@ class Action
 	def initialize(n)
 		@name = n
 		@args = Hash.new
-		@inArgs = Array.new
-		@outArgs = Array.new
+		@inArgs = Hash.new
+		@outArgs = Hash.new
 		@retArg = nil
 	end
 	
 	def addArgument(arg)
+
+# this needs looking at as @inargs @outargs should be ordered but it's also good if they are hashes
+
 		if (@args[arg.name]) then raise SetupError, "Action addArgument method: attempting to add duplicate argument #{arg.name}" end
 		
 		@args[arg.name] = arg
 		arg.linkToAction(self)
 		
 		if (arg.direction == :in)
-			@inArgs << arg
+			@inArgs[arg.name] = arg
 		else
-			@outArgs << arg
+			@outArgs[arg.name] = arg
 		end
 		
 		if (arg.returnValue?)
 			
 			if (@outArgs.size > 1) then raise SetupError, "Action addArgument method: return value must be first Out argument added" end
-			
-			if (@returnArg)
-				raise SetupError, "Action addArgument method: attempting to add #{arg.name} as a return value when #{@returnArg.name} already set as one"
-			else
-				@returnArg = arg
-			end
+			@retArg = arg
+
 		end
 		
 	end
@@ -379,10 +373,59 @@ class Action
 	end
 	
 	def invoke(params)
-		raise ActionError, "Action invoke method: base class method called (did you supply a method in the derived class?)"
+		raise SetupError, "Action invoke method: base class method called (did you supply a method in the derived class?)"
 		return Hash.new
 	end
 	
+	def validateArgs(args, expArgs)
+		
+		# check that the number of arguments passed in is what's expected
+		
+		if args.size != expArgs.size
+			@log.warn("Argument size mismatch for #{@service.name} - #{@name}, expected #{expArgs.each_key.join('/')} but got #{args.each_key.join('/')}")
+			raise ActionError, 402
+		end
+		
+		# check that the names of the arguments passed in are what's expected
+		#  I love the next line of code, it's amazing how Ruby lets you do so much writing so little
+		
+		args.each_key.sort.zip(expArgs.each_key.sort).each do |argpair| 			
+			if argpair[0] != argpair[1]
+				@log.warn("Argument name mismatch for #{@service.name} - #{@name}, expected #{expArgs.each_key.join('/')} but got #{args.each_key.join('/')}")
+				raise ActionError,402
+			end
+		end
+		
+		args.each_pair do |name,value|
+			sv = expArgs[name].relatedStateVariable
+			begin
+				sv.validate(value)
+			rescue StateVariableError
+				raise ActionError, 600
+			rescue StateVariableRangeError
+				raise ActionError, 601
+			end
+			
+		end
+		
+	end
+	
+	def validateinArgs(args)
+		validateArgs(args,@inArgs)
+	end
+	
+	def validateoutArgs(args)
+		validateArgs(args,@outArgs)
+
+	end
+	
+	def responseOK(args)
+		#create response body (xml) and headers
+	end
+	
+	def responseError(args)
+		#create response body (xml) and headers
+	end
 end
 
 

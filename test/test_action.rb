@@ -1,7 +1,26 @@
 
 
 =begin
+Tests to do
 
+Set up an action badly
+ - arguments not in or out
+ - retval in wrong place
+ - duplicate argument
+ 
+ Set up a good action
+  - call it
+  - call a different action
+  - call an unimplemented optional action
+  - call with missing arguments
+  - call with extra arguments
+  - call with both missing and extra
+  - call with values that don't match SV for type
+  - call with values that don't match SV for range
+  - call with args that make the service fail
+  - have the service return the wrong number of arguments
+  
+  NB for fun we should have the service increment an state variable as a counter of number of times called, and event this
 	
 =end
 
@@ -13,7 +32,12 @@ require  'rexml/document'
 require 'pry'
 
 
+
+
+
 class TestSimpleDescription < Minitest::Test
+	
+	
 	
 		
 	def setup
