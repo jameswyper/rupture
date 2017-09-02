@@ -1,6 +1,6 @@
 #Progress and Next Steps
 
-January 2017
+August 2017
 
 Discovery works
 Device description works
@@ -47,6 +47,8 @@ state variable will be defined individually, then attached to a service, with ty
 action will be defined with name and list of arguments, (name, direction, retval, reference to state variable)
 
 16. Add option to state variable to reset after eventing takes place
+
+17.  If an optional Action is called that hasn't been coded we should return error code 602 (optional not implemented) not 401 (invalid action) - this requires us to allow Service to maintain a list of optional, unimplemented actions
 
 ##TEST PLAN
 
