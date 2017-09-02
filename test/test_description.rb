@@ -241,10 +241,10 @@ class TestSimpleDescription < Minitest::Test
 		@sv2 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_SECOND")		
 		@sv3 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_OUT")		
 		
-		@act1 = UPnP::Action.new("Add")
-		@act1.addArgument(UPnP::Argument.new("First",:in,@sv1))
-		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv2))
-		@act1.addArgument(UPnP::Argument.new("Result",:out,@sv3,true))
+		@act1 = UPnP::Action.new("Add",nil,nil)
+		@act1.addArgument(UPnP::Argument.new("First",:in,@sv1),1)
+		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv2),2)
+		@act1.addArgument(UPnP::Argument.new("Result",:out,@sv3,true),1)
 		
 		@serv1.addStateVariables(@sv1, @sv2, @sv3)
 		@serv1.addAction(@act1)

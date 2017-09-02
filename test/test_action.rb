@@ -38,6 +38,18 @@ require 'pry'
 class TestSimpleDescription < Minitest::Test
 	
 	
+	class Adder
+		def initialize
+			@count = 0
+		end
+		def add(inargs,service)
+			outargs = Hash.new
+			@count += 1
+			outargs["Result"] = inargs["First"] + inargs["Second"]
+			return outargs
+		end
+	end
+	
 	
 		
 	def setup
@@ -46,20 +58,21 @@ class TestSimpleDescription < Minitest::Test
 			:product => "Sample/1.0", :manufacturer => "James", :modelName => "JamesSample",	:modelNumber => "43",
 			:modelURL => "github.com/jameswyper/tapiola", :cacheControl => 15,
 			:serialNumber => "12345678", :modelDescription => "Sample App Root Device, to illustrate use of tapiola UPnP framework", 
-			:URLBase => "test", :ip => "127.0.0.1", :port => 54321, :logLevel => Logger::INFO)
+			:URLBase => "test", :ip => "127.0.0.1", :port => 54321, :logLevel => Logger::DEBUG)
 		
 		@serv1 = UPnP::Service.new("Math",1)
 		
 		@sv1 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_FIRST")
 		@sv2 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_SECOND")		
 		@sv3 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_OUT")		
+		@sv4 = UPnP::StateVariableInt.new( :name => "COUNT", :evented => true)		
 		
-		@act1 = UPnP::Action.new("Add")
-		@act1.addArgument(UPnP::Argument.new("First",:in,@sv1))
-		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv2))
-		@act1.addArgument(UPnP::Argument.new("Result",:out,@sv3,true))
+		@act1 = UPnP::Action.new("Add",Adder,:add)
+		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv2),2)
+		@act1.addArgument(UPnP::Argument.new("First",:in,@sv1),1)
+		@act1.addArgument(UPnP::Argument.new("Result",:out,@sv3,true),1)
 		
-		@serv1.addStateVariables(@sv1, @sv2, @sv3)
+		@serv1.addStateVariables(@sv1, @sv2, @sv3, @sv4)
 		@serv1.addAction(@act1)
 		
 		@root.addService(@serv1)		
@@ -119,13 +132,6 @@ class TestSimpleDescription < Minitest::Test
 
 		puts desc
 		
-		document = Nokogiri::XML(desc)
-		errs = schema2.validate(document)
-		errs.each do |e|
-			puts e.to_s
-		end
-		assert_equal 0, errs.size, "xml didn't validate against service.xsd"
-
 		
 		document = REXML::Document.new desc
 		
@@ -139,7 +145,7 @@ class TestSimpleDescription < Minitest::Test
 		["actionList/action/argumentList/argument[name='First']/retval",0,nil],
 		["actionList/action/argumentList/argument[name='Second']/retval",0,nil],
 		["actionList/action/argumentList/argument[name='Result']/retval",1,""],
-		["serviceStateTable/stateVariable/name",3,["A_ARG_TYPE_FIRST","A_ARG_TYPE_SECOND","A_ARG_TYPE_OUT"]],
+		["serviceStateTable/stateVariable/name",4,["A_ARG_TYPE_FIRST","A_ARG_TYPE_SECOND","A_ARG_TYPE_OUT","COUNT"]],
 		]
 		
 
@@ -160,7 +166,30 @@ class TestSimpleDescription < Minitest::Test
 			end
 		end
 		
-end	
+		uri = URI('http://127.0.0.1:54321/test/services/sample1/Math/control.xml')
+
+
+		req = Net::HTTP::Post.new(uri)
+		req['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Add"'
+		req.body='<?xml version="1.0"?> 
+			<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Body>
+			<u:Add xmlns:u="urn:schemas-upnp-org:service:Math:1">
+			<First>2</First>
+			<Second>2</Second>
+			</u:Add>
+			</s:Body>
+			</s:Envelope>'
+
+		res = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
+
+		assert(res.is_a?(Net::HTTPSuccess))
+
+		
+		
+	end
 	
 	
 	def teardown

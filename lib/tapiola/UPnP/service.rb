@@ -116,7 +116,11 @@ class Service
 			ae.add_element("name").add_text(a.name)
 			gle = REXML::Element.new("argumentList")
 			ae.add_element(gle)
-			a.args.each_value do |g|
+			x = Array.new
+			a.args.each_value { |ag| x << ag }
+			x.sort! {|a,b| [a.arg.direction, a.seq] <=> [b.arg.direction, b.seq]}
+			x.each do |ag|
+				g = ag.arg
 				ge = REXML::Element.new("argument")
 				ge.add_element("name").add_text(g.name)
 				ge.add_element("direction").add_text(g.direction.to_s)
@@ -195,6 +199,8 @@ class Service
 	
 	def processActionXML(xml,soapaction)
 
+		@log.debug("XML: #{xml}")
+		@log.debug("soapaction field: #{soapaction}")
 		
 		re = /^"(.*)#(.*)"$/
 		md = re.match(soapaction)
@@ -204,22 +210,28 @@ class Service
 			action = md[2]
 		else
 			@log.warn("SOAPACTION header invalid - was :#{soapaction}:")
-			raise ActionError, 401
+			raise ActionError.new(401)
 		end
+		@log.debug ("Namespace #{namespace} and Action #{action} obtained from header")
 
 
-		doc = REXML::Document.new xml
+		begin
+			doc = REXML::Document.new xml
+		rescue REXML::ParseException => e
+			@log.warn("XML didn't parse #{e}")
+			raise ActionError.new(401)
+		end
 
 		soapbody = REXML::XPath.first(doc, "//m:Envelope/m:Body", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
 		unless soapbody
 			@log.warn("Couldn't get SOAP body out of #{xml}")
-			raise ActionError, 401
+			raise ActionError.new(401)
 		end
 		
 		argsxml =  REXML::XPath.first(soapbody,"//p:#{action}",{"p" => "#{namespace}"})
 		unless argsxml
 			@log.warn("Couldn't get action name out of #{xml} with SOAPACTION header :#{soapaction}:")
-			raise ActionError, 401
+			raise ActionError.new(401)
 		end
 
 		if (action != argsxml.name)
@@ -237,30 +249,32 @@ class Service
 	
 	def handleControl(req, res)
 	
+		@log.debug("in handleControl for service #{@name}")
+	
 		begin
-			actionname, args = processActionXML(req.body,req.header["SOAPACTION"])
+			actionname, args = processActionXML(req.body,req.header["soapaction"].join)
 			action = @actions[actionname]
 			if action == nil
 				@log.warn("Action #{actionname} doesn't exist in service #{@name}")
-				raise ActionError, 401
+				raise ActionError.new(401)
 			else
-				action.validateinArgs(args)
+				action.validateInArgs(args)
 				outArgs = action.invoke
-				res = action.responseOK(args)
+				res = responseOK(args)
+				action.validateOutArgs(outArgs)
 			end
-		rescue ActionError, code
-			res = action.responseError(code)
+		rescue ActionError => e
+			res = responseError(e.code)
 		end
 	
-	#decode the XML
-	#find the action by name
-	#confirm that the "in" arguments have all been supplied
-	#validate all "in" arguements against state variables
-	#set up params hash
-	#invoke action
-	#validate "out" arguments against state variables
+	end
+
+	def responseOK(args)
+		#create response body (xml) and headers
+	end
 	
-	#assemble SOAP response	
+	def responseError(args)
+		#create response body (xml) and headers
 	end
 	
 	def handleDescription(req, res)
@@ -361,7 +375,13 @@ class Action
 
 
 		if (@args[arg.name]) then raise SetupError, "Action addArgument method: attempting to add duplicate argument #{arg.name}" end
-		
+
+		@args.each_value do |checkArg|
+			if (checkArg.arg.direction == arg.direction) && (checkArg.seq == seq)
+				raise SetupError, "Attempting to add duplicate sequence for #{arg.direction}, #{seq}"
+			end
+		end
+
 		@args[arg.name] = ArgSeq[arg, seq]
 		arg.linkToAction(self)
 		
@@ -378,11 +398,7 @@ class Action
 
 		end
 		
-		@args.each do |checkArg|
-			if (checkArg.arg.direction == arg.direction) && (checkArg.seq == seq)
-				raise SetupError, "Attempting to add duplicate sequence for #{arg.direction}, #{seq}"
-			end
-		end
+
 		
 	end
 		
@@ -414,8 +430,8 @@ class Action
 	def invoke(params)
 
 		if !(object.understand?(@method))
-			raise ActionError, 402
-			@log.error("Can't invoke #{@method} on #{@object}"
+			raise ActionError.new(402)
+			@log.error("Can't invoke #{@method} on #{@object}")
 		end
 
 	end
@@ -430,14 +446,14 @@ class Action
 		
 		if args.size != expArgs.size
 			@log.warn("Argument size mismatch for #{@service.name} - #{@name}, expected #{expArgs.each_key.join('/')} but got #{args.each_key.join('/')}")
-			raise ActionError, 402
+			raise ActionError.new(402)
 		end
 		
 		# check that the names of the arguments passed in are what's expected
 		#  I love the next line of code, it's amazing how Ruby lets you do so much writing so little
 		
 		args.each_key.sort.zip(expArgs.each_key.sort).each do |argpair| 			
-			if argpair[0].arg.name != argpair[1].name
+			if argpair[0].name != argpair[1].arg.name
 				@log.warn("Argument name mismatch for #{@service.name} - #{@name}, expected #{expArgs.each_key.join('/')} but got #{args.each_key.join('/')}")
 				raise ActionError,402
 			end
@@ -448,31 +464,24 @@ class Action
 			begin
 				sv.validate(value)
 			rescue StateVariableError
-				raise ActionError, 600
+				raise ActionError.new(600)
 			rescue StateVariableRangeError
-				raise ActionError, 601
+				raise ActionError.new(601)
 			end
 			
 		end
 		
 	end
 	
-	def validateinArgs(args)
+	def validateInArgs(args)
 		validateArgs(args,@inArgs)
 	end
 	
-	def validateoutArgs(args)
+	def validateOutArgs(args)
 		validateArgs(args,@outArgs)
 
 	end
 	
-	def responseOK(args)
-		#create response body (xml) and headers
-	end
-	
-	def responseError(args)
-		#create response body (xml) and headers
-	end
 end
 
 

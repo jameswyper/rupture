@@ -687,9 +687,6 @@ class HandleServices < WEBrick::HTTPServlet::AbstractServlet
 				service = device.services[servicename]
 				if service
 					case what
-					when "control"
-						c = service.handleControl(req,res)
-						# some error handling needs to go here
 					when "description"
 						service.handleDescription(req,res)
 					when "event"
@@ -717,6 +714,52 @@ class HandleServices < WEBrick::HTTPServlet::AbstractServlet
 		end
 		
 	end
+	
+	def do_POST (req, res)
+		root = @options[0]
+		
+		
+		rex  = /.*#{root.urlBase}\/services\/(.*)\/(.*)\/(.*).xml/ 
+		m = rex.match(req.path)
+		devicename = m[1]
+		servicename = m[2]
+		what = m[3]
+		
+		root.log.debug ("rootDevice.rb/HandleService path is #{req.path}") 
+		root.log.debug ("rootDevice.rb/HandleServices device:#{devicename}, service:#{servicename}, what:#{what}")
+		
+		if (devicename && servicename && what)
+			device = root.devices[devicename]
+			if device
+				service = device.services[servicename]
+				if service
+					case what
+					when "control"
+						c = service.handleControl(req,res)
+						# some error handling needs to go here
+					else
+						root.log.warn("rootDevice.rb/HandleServices control / event / description not specified, this was instead:#{what}")
+						root.log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
+						raise WEBrick::HTTPStatus::NotFound
+					end
+				else
+					root.log.warn ("rootDevice.rb/HandleServices attempt made to use unknown service:#{servicename} on device #{devicename}")
+					root.log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
+					raise WEBrick::HTTPStatus::NotFound
+				end
+			else
+				root.log.warn ("rootDevice.rb/HandleServices attempt made to use unknown device:#{devicename}")
+				root.log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
+				raise WEBrick::HTTPStatus::NotFound
+			end
+		else
+			root.log.warn("rootDevice.rb/HandleServices URL:#{req.path} did not parse")
+			raise WEBrick::HTTPStatus::NotFound
+		end
+		
+	end
+
+
 end
 
 =begin rdoc
