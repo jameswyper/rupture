@@ -321,6 +321,8 @@ Return Value flag - if this is the return value for the Action set to true. Defa
 	end
 end
 
+ArgSeq = Struct.new(:arg, :seq)
+
 class Action
 	
 	# the name of the action
@@ -336,46 +338,91 @@ class Action
 	# Service this Action is linked to
 	attr_reader :service
 	
-	def initialize(n)
+=begin rdoc
+	Called with the name of the action and a (non-UPnP) object / method that will be invoked to do the actual work
+=end
+	
+	def initialize(n, obj, method)
 		@name = n
 		@args = Hash.new
 		@inArgs = Hash.new
 		@outArgs = Hash.new
 		@retArg = nil
+		@object = obj
+		@method = method
 	end
 	
-	def addArgument(arg)
+=begin rdoc
+	Adds an existing argument to the Action.  The spec says that arguments must have a defined sequence, so a sequence
+	number (starting from 1) must be passed as well as the argument object to be added
+=end
+	
+	def addArgument(arg, seq)
 
-# this needs looking at as @inargs @outargs should be ordered but it's also good if they are hashes
 
 		if (@args[arg.name]) then raise SetupError, "Action addArgument method: attempting to add duplicate argument #{arg.name}" end
 		
-		@args[arg.name] = arg
+		@args[arg.name] = ArgSeq[arg, seq]
 		arg.linkToAction(self)
 		
 		if (arg.direction == :in)
-			@inArgs[arg.name] = arg
+			@inArgs[arg.name] = ArgSeq[arg, seq]
 		else
-			@outArgs[arg.name] = arg
+			@outArgs[arg.name] = ArgSeq[arg, seq]
 		end
 		
 		if (arg.returnValue?)
 			
-			if (@outArgs.size > 1) then raise SetupError, "Action addArgument method: return value must be first Out argument added" end
+			if (seq != 1) then raise SetupError, "Action addArgument method: return value must be first Out argument added" end
 			@retArg = arg
 
 		end
 		
+		@args.each do |checkArg|
+			if (checkArg.arg.direction == arg.direction) && (checkArg.seq == seq)
+				raise SetupError, "Attempting to add duplicate sequence for #{arg.direction}, #{seq}"
+			end
+		end
+		
 	end
+		
+=begin rdoc
+	Associates the Action with a Service object
+=end
 		
 	def linkToService(s)
 		@service = s
 	end
 	
+=begin rdoc
+
+	The object / method passed to the Action and initialisation is called.  The method MUST accept the following, in order:
+	
+	Hash containing all the parameters (in arguments) the action was invoked with (name/value pairs)
+	Service object
+	
+	The method should (via the service object) change any State Variables that it needs to
+	The method may be called concurrently, if this is a problem then use a Mutex or similar approach inside the 
+	thread-critical code to ensure it's single threaded (it will be necessary to do this when appending to a State Variable or
+	incrementing a count held in one, for example)
+	
+	The method MUST return a Hash containing name/value pairs of all out arguements
+	If it encounters an error it must raise an ActionError exception
+
+=end
+	
 	def invoke(params)
-		raise SetupError, "Action invoke method: base class method called (did you supply a method in the derived class?)"
-		return Hash.new
+
+		if !(object.understand?(@method))
+			raise ActionError, 402
+			@log.error("Can't invoke #{@method} on #{@object}"
+		end
+
 	end
+	
+	
+=begin rdoc
+=end
 	
 	def validateArgs(args, expArgs)
 		
@@ -390,14 +437,14 @@ class Action
 		#  I love the next line of code, it's amazing how Ruby lets you do so much writing so little
 		
 		args.each_key.sort.zip(expArgs.each_key.sort).each do |argpair| 			
-			if argpair[0] != argpair[1]
+			if argpair[0].arg.name != argpair[1].name
 				@log.warn("Argument name mismatch for #{@service.name} - #{@name}, expected #{expArgs.each_key.join('/')} but got #{args.each_key.join('/')}")
 				raise ActionError,402
 			end
 		end
 		
 		args.each_pair do |name,value|
-			sv = expArgs[name].relatedStateVariable
+			sv = expArgs[name].arg.relatedStateVariable
 			begin
 				sv.validate(value)
 			rescue StateVariableError
