@@ -1,4 +1,4 @@
-
+require_relative 'common'
 
 module UPnP
 
@@ -378,10 +378,10 @@ class StateVariableFloat < StateVariableNumeric
 		begin
 			f = Float(v)
 		rescue ArgumentError
-			raise StateVariableError "Attempt to interpret #{v} as Integer State Variable #{@name}"
+			raise StateVariableError ,"Attempt to interpret #{v} as Integer State Variable #{@name}"
 		end
-		if ((f < varMax) || (f > varMin))
-			raise StateVariableError "Value #{v} outside allowed range (#{@varMax},#{@varMin}) for State Variable #{@name}"
+		if ((f < @varMax) || (f > @varMin))
+			raise StateVariableError ,"Value #{v} outside allowed range (#{@varMax},#{@varMin}) for State Variable #{@name}"
 		end
 		return f
 	end
@@ -390,14 +390,17 @@ end
 class StateVariableInteger < StateVariableNumeric
 
 	def interpret(v)
+		
 		begin
 			i = Integer(v)
 		rescue ArgumentError
-			raise StateVariableError "Attempt to interpret #{v} as Integer State Variable #{@name}"
+			raise StateVariableError ,"Attempt to interpret #{v} as Integer State Variable #{@name}"
 		end
-		if ((i < varMax) || (i > varMin))
-			raise StateVariableError "Value #{v} outside allowed range (#{@varMax},#{@varMin}) for State Variable #{@name}"
+		
+		if ((i > @varMax) || (i < @varMin))
+			raise StateVariableError ,"Value #{v} outside allowed range (#{@varMin},#{@varMax}) for State Variable #{@name}"
 		end
+		
 		return i
 	end
 end

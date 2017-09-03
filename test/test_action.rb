@@ -58,7 +58,7 @@ class TestSimpleDescription < Minitest::Test
 			:product => "Sample/1.0", :manufacturer => "James", :modelName => "JamesSample",	:modelNumber => "43",
 			:modelURL => "github.com/jameswyper/tapiola", :cacheControl => 15,
 			:serialNumber => "12345678", :modelDescription => "Sample App Root Device, to illustrate use of tapiola UPnP framework", 
-			:URLBase => "test", :ip => "127.0.0.1", :port => 54321, :logLevel => Logger::DEBUG)
+			:URLBase => "test", :ip => "127.0.0.1", :port => 54321, :logLevel => Logger::INFO)
 		
 		@serv1 = UPnP::Service.new("Math",1)
 		

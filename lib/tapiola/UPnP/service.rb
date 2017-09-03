@@ -259,11 +259,12 @@ class Service
 				raise ActionError.new(401)
 			else
 				action.validateInArgs(args)
-				outArgs = action.invoke
+				outArgs = action.invoke(args)
 				res = responseOK(args)
 				action.validateOutArgs(outArgs)
 			end
 		rescue ActionError => e
+			@log.warn("Service #{@name}, Exception message #{e.message}")
 			res = responseError(e.code)
 		end
 	
@@ -453,7 +454,7 @@ class Action
 		#  I love the next line of code, it's amazing how Ruby lets you do so much writing so little
 		
 		args.each_key.sort.zip(expArgs.each_key.sort).each do |argpair| 			
-			if argpair[0].name != argpair[1].arg.name
+			if argpair[0] != argpair[1]
 				@log.warn("Argument name mismatch for #{@service.name} - #{@name}, expected #{expArgs.each_key.join('/')} but got #{args.each_key.join('/')}")
 				raise ActionError,402
 			end
@@ -462,11 +463,11 @@ class Action
 		args.each_pair do |name,value|
 			sv = expArgs[name].arg.relatedStateVariable
 			begin
-				sv.validate(value)
-			rescue StateVariableError
-				raise ActionError.new(600)
+				args[name] = sv.interpret(value)
+			rescue StateVariableError => e
+				raise ActionError.new(600), e.message
 			rescue StateVariableRangeError
-				raise ActionError.new(601)
+				raise ActionError.new(601), e.message
 			end
 			
 		end
