@@ -67,12 +67,15 @@ class TestSimpleDescription < Minitest::Test
 		@sv3 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_OUT")		
 		@sv4 = UPnP::StateVariableInt.new( :name => "COUNT", :evented => true)		
 		
-		@act1 = UPnP::Action.new("Add",Adder,:add)
+		@adder = Adder.new
+
+		@act1 = UPnP::Action.new("Add",@adder,:add)
 		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv2),2)
 		@act1.addArgument(UPnP::Argument.new("First",:in,@sv1),1)
 		@act1.addArgument(UPnP::Argument.new("Result",:out,@sv3,true),1)
 		
 		@serv1.addStateVariables(@sv1, @sv2, @sv3, @sv4)
+
 		@serv1.addAction(@act1)
 		
 		@root.addService(@serv1)		
@@ -186,6 +189,8 @@ class TestSimpleDescription < Minitest::Test
 		res = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
 
 		assert(res.is_a?(Net::HTTPSuccess))
+		
+		puts res.body
 
 		
 		

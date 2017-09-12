@@ -65,6 +65,8 @@ class Service
 	attr_reader :eventAddr
 	# subscriptions attached to the service
 	attr_reader :subscriptions
+	# service name
+	attr_reader :name
 
 
 	
@@ -430,9 +432,16 @@ class Action
 	
 	def invoke(params)
 
-		if !(object.understand?(@method))
+		if !(@object.respond_to?(@method))
 			raise ActionError.new(402)
 			@log.error("Can't invoke #{@method} on #{@object}")
+		else
+			begin
+				outargs = @object.send(@method,params,@service)
+			rescue ActionError => e
+				@log.error("Problem when invoking #{@method} on #{@object} #{e}")
+				raise
+			end
 		end
 
 	end
@@ -444,6 +453,10 @@ class Action
 	def validateArgs(args, expArgs)
 		
 		# check that the number of arguments passed in is what's expected
+		if (args == nil)
+			@log.warn("No Arguments to validate #{@service.name} - #{@name}")
+			raise ActionError.new(402)
+		end
 		
 		if args.size != expArgs.size
 			@log.warn("Argument size mismatch for #{@service.name} - #{@name}, expected #{expArgs.each_key.join('/')} but got #{args.each_key.join('/')}")
