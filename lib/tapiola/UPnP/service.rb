@@ -262,22 +262,37 @@ class Service
 			else
 				action.validateInArgs(args)
 				outArgs = action.invoke(args)
-				res = responseOK(args)
 				action.validateOutArgs(outArgs)
+				responseOK(res,outArgs)
 			end
 		rescue ActionError => e
 			@log.warn("Service #{@name}, Exception message #{e.message}")
-			res = responseError(e.code)
+			responseError(res,e.code)
 		end
 	
 	end
 
-	def responseOK(args)
+	def responseOK(res,args)
 		#create response body (xml) and headers
-	end
+		rootE =  REXML::Element.new("s:Envelope")
+		rootE.add_namespace("s","http://schemas.xmlsoap.org/soap/envelope/")
+		rootE.attributes["s:encodingStyle"] = "http://schemas.xmlsoap.org/soap/encoding/"
+		
+		bod = REXML::Element.new("s:Body")
+		bod.add_text "blha"
+		
+		rootE.add_element(bod)
+		doc = REXML::Document.new
+		doc << REXML::XMLDecl.new(1.0)
+		doc.add_element(rootE)
+		
+		doc.write(res.body,2)
+
+end
 	
-	def responseError(args)
+	def responseError(res,code)
 		#create response body (xml) and headers
+		res.body = "not OK #{code}"
 	end
 	
 	def handleDescription(req, res)

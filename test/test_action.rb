@@ -190,7 +190,7 @@ class TestSimpleDescription < Minitest::Test
 
 		assert(res.is_a?(Net::HTTPSuccess))
 		
-		puts res.body
+		puts  res.body
 
 		
 		
