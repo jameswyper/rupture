@@ -5,12 +5,13 @@ require_relative 'stateVariable'
 module UPnP
 
 =begin
-   A UPnP Service consists of state variables and actions, this is a simple base class to hold essential information about the service
-   A real service should implement a class derived from this one, set up the state variables and actions (which are also derived from simple base classes #UPnPAction
-   and #UPnPStateVariable) and use #addStateVariable and #addAction to associate them with the service
+
+A UPnP Service consists of state variables and actions, this is a simple base class to hold essential information about the service
+A real service should implement a class derived from this one, set up the state variables and actions (which are also derived from simple base classes #UPnPAction
+and #UPnPStateVariable) and use #addStateVariable and #addAction to associate them with the service
    
-  I think that we don't need to derive classes from Service, just instantiate them, as no code is specific to the service
-  However there is code that's specific to each action, so that needs to be via derived classes and instantiated (as it could be run at the same time from two clients in two threads, so it must be thread-safe)
+I think that we don't need to derive classes from Service, just instantiate them, as no code is specific to the service
+However there is code that's specific to each action, so that needs to be via derived classes and instantiated (as it could be run at the same time from two clients in two threads, so it must be thread-safe)
   
   So.. s = service.new; sv1 = statevariable.new; s.addStateVariable(sv1), repeat.. 
   def action1 < action
@@ -65,8 +66,6 @@ class Service
 	attr_reader :eventAddr
 	# subscriptions attached to the service
 	attr_reader :subscriptions
-	# service name
-	attr_reader :name
 
 
 	
@@ -263,7 +262,7 @@ class Service
 				action.validateInArgs(args)
 				outArgs = action.invoke(args)
 				action.validateOutArgs(outArgs)
-				responseOK(res,outArgs)
+				action.responseOK(res,outArgs)
 			end
 		rescue ActionError => e
 			@log.warn("Service #{@name}, Exception message #{e.message}")
@@ -272,28 +271,7 @@ class Service
 	
 	end
 
-	def responseOK(res,args)
-		#create response body (xml) and headers
-		rootE =  REXML::Element.new("s:Envelope")
-		rootE.add_namespace("s","http://schemas.xmlsoap.org/soap/envelope/")
-		rootE.attributes["s:encodingStyle"] = "http://schemas.xmlsoap.org/soap/encoding/"
-		
-		bod = REXML::Element.new("s:Body")
-		bod.add_text "blha"
-		
-		rootE.add_element(bod)
-		doc = REXML::Document.new
-		doc << REXML::XMLDecl.new(1.0)
-		doc.add_element(rootE)
-		
-		doc.write(res.body,2)
 
-end
-	
-	def responseError(res,code)
-		#create response body (xml) and headers
-		res.body = "not OK #{code}"
-	end
 	
 	def handleDescription(req, res)
 		@log.debug("Description (service) request: #{req}")
@@ -371,11 +349,11 @@ class Action
 	attr_reader :service
 	
 =begin rdoc
-	Called with the name of the action and a (non-UPnP) object / method that will be invoked to do the actual work
+Called with the name of the action and a (non-UPnP) object / method that will be invoked to do the actual work
 =end
 	
-	def initialize(n, obj, method)
-		@name = n
+	def initialize(name, obj, method)
+		@name = name
 		@args = Hash.new
 		@inArgs = Hash.new
 		@outArgs = Hash.new
@@ -384,9 +362,13 @@ class Action
 		@method = method
 	end
 	
+	def outArgsInSequence
+		return @outArgs.values.sort! { |x,y| x.seq <=> y.seq }
+	end
+	
 =begin rdoc
-	Adds an existing argument to the Action.  The spec says that arguments must have a defined sequence, so a sequence
-	number (starting from 1) must be passed as well as the argument object to be added
+Adds an existing argument to the Action.  The spec says that arguments must have a defined sequence, so a sequence
+number (starting from 1) must be passed as well as the argument object to be added
 =end
 	
 	def addArgument(arg, seq)
@@ -509,6 +491,66 @@ class Action
 	def validateOutArgs(args)
 		validateArgs(args,@outArgs)
 
+	end
+	
+	def responseOK(res,args)
+	
+=begin
+HTTP/1.1 200 OK
+CONTENT-LENGTH: bytes in body
+CONTENT-TYPE: text/xml; charset="utf-8"
+DATE: when response was generated
+EXT:
+SERVER: OS/version UPnP/1.0 product/version
+<?xml version="1.0"?>
+<s:Envelope
+xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+<s:Body>
+<u:actionNameResponse xmlns:u="urn:schemas-upnp-org:service:serviceType:v">
+<argumentName>out arg value</argumentName>
+other out args and their values go here, if any
+</u:actionNameResponse>
+</s:Body>
+</s:Envelope>
+=end
+		
+		
+		#create response body (xml) and headers
+		rootE =  REXML::Element.new("s:Envelope")
+		rootE.add_namespace("s","http://schemas.xmlsoap.org/soap/envelope/")
+		rootE.attributes["s:encodingStyle"] = "http://schemas.xmlsoap.org/soap/encoding/"
+		
+		bod = REXML::Element.new("s:Body")
+		
+		resp = REXML::Element.new("u:#{@name}Response")
+		resp.add_namespace("u","urn:schemas-upnp-org:service:#{@service.type}:#{@service.version}")
+
+		
+		outArgsInSequence.each do |arg|
+			a  = REXML::Element.new("u:#{arg[0].name}")
+			value = args[arg[0].name].to_s
+			stringValue = arg[0].relatedStateVariable.represent(value)
+			a.add_text(stringValue)  
+			resp.add_element(a)
+		end
+		
+		bod.add_element(resp)
+		rootE.add_element(bod)
+		
+		
+		doc = REXML::Document.new
+		doc.context[:attribute_quote] = :quote
+		doc << REXML::XMLDecl.new(1.0)
+		doc.add_element(rootE)
+		
+		doc.write(res.body,2)
+
+	end
+	
+	def responseError(res,code)
+		#create response body (xml) and headers
+		res.body = "not OK #{code}"
 	end
 	
 end
