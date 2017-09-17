@@ -1,4 +1,4 @@
-
+#The main UPnP file.  Require this to have access to all the UPnP code
 module UPnP
 end
 

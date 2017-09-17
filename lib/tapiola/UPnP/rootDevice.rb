@@ -4,6 +4,8 @@ require_relative 'device'
 require 'socket'
 require 'ipaddr'
 require 'webrick'
+require 'rexml/document'
+require 'rexml/xmldecl'
 
 module UPnP
 
@@ -23,14 +25,20 @@ class RootDevice < Device
 	# any devices contained within the root device.  Not sure if we need to refer to this outside the class so may remove this later
 	attr_reader :devices
 	
-	# Cache-Control value, default to 1800 seconds.  Again may not be needed outside the class
-	# attr_reader :cacheControl
+
 	
-	# IP and Port part of URL
+# IP part of URL
 	attr_reader :ip
+	
+	
+# Port part of URL
 	attr_reader :port
+
+
+# IP and Port part of URL
 	attr_reader :ipPort
 	
+# Reference to Logger object	
 	attr_accessor :log
 
 =begin rdoc
@@ -521,7 +529,7 @@ Signals that the Discovery threads should be shut down.
 	end
 	
 =begin rdoc
-
+Handles a call to the Description URL of the device, returning the XML describing it
 =end
 		
 	def handleDescription(req)
@@ -532,7 +540,7 @@ Signals that the Discovery threads should be shut down.
 	end
 	
 =begin rdoc
-
+Initialises the WEBrick server
 =end
 		
 	def webServerStart
@@ -559,7 +567,7 @@ Signals that the Discovery threads should be shut down.
 	end
 	
 =begin rdoc
-
+Stops the WEBrick server
 =end
 		
 	def webServerStop
@@ -627,7 +635,10 @@ Signals that the Discovery threads should be shut down.
 	end
 	
 =begin rdoc
-
+Starts up all the Threads associated with the UPnP service, ie
+1.  SSDP discovery / search
+2.  All HTTP server-based (description / action / presentation / subscription)
+3.  Periodic eventing of State Variables
 =end
 		
 	def start
@@ -645,7 +656,7 @@ Signals that the Discovery threads should be shut down.
 	end
 	
 =begin rdoc
-
+Shuts everything down in a hopefully orderly way
 =end
 		
 	def stop
@@ -668,6 +679,7 @@ From that we can process the request, parse the URL and call the appropriate ser
 
 class HandleServices < WEBrick::HTTPServlet::AbstractServlet
 	
+#Process a HTTP GET request (ie call to description or event subscription URLs)
 	def do_GET (req, res)
 		root = @options[0]
 		
@@ -715,7 +727,8 @@ class HandleServices < WEBrick::HTTPServlet::AbstractServlet
 		
 	end
 	
-	def do_POST (req, res)
+#Process a HTTP POST request (ie call to control URL)
+def do_POST (req, res)
 		root = @options[0]
 		
 		
@@ -769,7 +782,9 @@ From that we can process the request, parse the URL and call the appropriate ser
 =end
 
 class HandlePresentation < WEBrick::HTTPServlet::AbstractServlet
-	
+
+
+#Process a GET call to the Presentation URL.  Not sure of this is correct (where is the action variable?)
 	def do_GET (req, res)
 		root = @options[0]
 		

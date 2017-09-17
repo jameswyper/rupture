@@ -18,8 +18,8 @@ module UPnP
 
 class Device
 	
-	# Hash containing all valid device properties from the UPnP spec that are used in Description, and whether they are mandatory or optional
-	# The properties variable will hold the actual properties used in this device
+# Hash containing all valid device properties from the UPnP spec that are used in Description, and whether they are mandatory or optional
+# The properties variable will hold the actual properties used in this device
 	@@allProperties = {
 	:friendlyName => :M ,
 	:manufacturer => :M ,
@@ -31,7 +31,15 @@ class Device
 	:serialNumber => :O,
 	:UPC => :O
 	} 
+
+
+# Hash (name / object) of services offered by the Device
+	attr_accessor :services
 	
+# Reference to Device's Root Device (or self if the Device IS a Root Device)
+# I've never seen a Device contained within another in the wild, and haven't tested it much - beware 
+	attr_reader :rootDevice
+
 =begin rdoc
      initialiser MUST be called with the following parameters in the hash; in descending order of importance:
      
@@ -42,18 +50,18 @@ class Device
 	:FriendlyName (typically this is what clients display)
 
 
-	(the next four only appear to be used in device description)
+(the next four only appear to be used in device description)
 	
 	:Manufacturer
 	:ModelName
 	:ModelNumber
 	:ModelURL 
 	
-	The following parameters are optional:
+The following parameters are optional:
 	
 	:URLBase - start of URL for all web services e.g. if set to pyjamas then the addresses all start 127.0.0.1:60000/pyjamas/..
 	
-	(the next four only appear to be used in device description, if they aren't set XML tags won't be created for them)
+(the next four only appear to be used in device description, if they aren't set XML tags won't be created for them)
 
 	:ManufacturerURL 
 	:ModelDescription
@@ -62,9 +70,6 @@ class Device
 	
 =end	
 
-
-	attr_accessor :services
-	attr_reader :rootDevice
 
 	def initialize(params)
 		
@@ -91,7 +96,7 @@ class Device
 		@presentationAddr = "#{urlBase}/presentation/#{@name}/presentation.html"
 	end
 	
-	# trivial method to add a new service to the list of supported ones.  Expected to be called during setup only.  No support for removing services.
+# trivial method to add a new service to the list of supported ones.  Expected to be called during setup only.  No support for removing services.
 	def addService(service)
 		if (@services[service.type] != nil)
 			raise "device addService method: service of type #{service.type} already exists"
@@ -100,32 +105,38 @@ class Device
 		service.linkToDevice(self)
 	end
 	
-	# helper method for when root adds an embedded device, this ties the link up in the other direction
+# helper method for when root adds an embedded device, this ties the link up in the other direction
 	def linkToRoot(root)
 		@rootDevice = root
 	end
 	
-	# set of services supported by the device
+# set of services supported by the device
 	attr_reader :services
-	# device name
+	
+# device name
 	attr_accessor :name 
-	# Unique ID in uuid format for the device, generated when it is first created
+	
+# Unique ID in uuid format for the device, generated when it is first created
 	attr_accessor :uuid 
-	# UPnP device type e.g. "MediaServer"
+	
+# UPnP device type e.g. "MediaServer"
 	attr_accessor :type 
-	# UPnP device version (an integer)
+	
+# UPnP device version (an integer)
 	attr_accessor :version
-	# Hash containing the name and value of all the properties for the device e.g. Manufacturer, Serial Number etc.  All valid properties are held in #allProperties
+	
+# Hash containing the name and value of all the properties for the device e.g. Manufacturer, Serial Number etc.  All valid properties are held in #allProperties
 	attr_accessor :properties
-	# Array of icons representing the device
+	
+# Array of icons representing the device
 	attr_accessor :icons
-	# Base URL for all service, event, presentation and discovery calls
+	
+# Base URL for all service, event, presentation and discovery calls
 	attr_reader :urlBase
 	
 =begin rdoc
-    The UPnP spec specifies (Step 1 - discovery) that a message is sent on startup, periodically, and in response to a search request with the essential elements of the UPnP root device,
-    any embedded devices and services.  This method helps to construct that message for devices.  #serviceMessages does the same for services.  
-    They should only be called by the methods in the #UPnPRootDevice class
+The UPnP spec specifies (Step 1 - discovery) that a message is sent on startup, periodically, and in response to a search request with the essential elements of the UPnP root device, any embedded devices and services.  This method helps to construct that message for devices.  #serviceMessages does the same for services.  
+They should only be called by the methods in the #UPnPRootDevice class
 =end
 	def deviceMessages
 		a = Array.new
@@ -135,7 +146,7 @@ class Device
 	end
 	
 =begin rdoc
-    Similar helper method to that for #deviceMessages
+Similar helper method to that for #deviceMessages
 =end
 	def serviceMessages
 		a = Array.new
@@ -146,8 +157,8 @@ class Device
 	end
 	
 =begin rdoc
-     For Step 2 - description.  Once a client has discovered a device it will then request more detailed information about the device and the services offered.
-     This information is constructed as an XML message. This function creates the XML elements for a device
+For Step 2 - description.  Once a client has discovered a device it will then request more detailed information about the device and the services offered.
+This information is constructed as an XML message. This function creates the XML elements for a device
 =end
 	
 	def getXMLDeviceData
@@ -196,7 +207,11 @@ class Device
 	end
 
 
-
+=begin rdoc
+Generic, and very boring method to handle calls to the device's Presentation URL.
+Called with the Webrick request and response objects, the http action (GET/POST etc) and the URL actually called.
+If you want to provide funkier handling of the Presentation IRL you should derive a new class from Device or RootDevice and override this method, returning a WEBrick::HTTPStatus object
+=end
 	def handlePresentation(req,res,action,url)
 		if (url == 'presentation.html')
 			res.body = "This is #{@name}"

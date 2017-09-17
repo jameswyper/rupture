@@ -1,50 +1,17 @@
 
 require_relative 'common'
 require_relative 'stateVariable'
+require 'rexml/document'
+require 'rexml/xmldecl'
 
 module UPnP
 
 =begin
 
-A UPnP Service consists of state variables and actions, this is a simple base class to hold essential information about the service
-A real service should implement a class derived from this one, set up the state variables and actions (which are also derived from simple base classes #UPnPAction
-and #UPnPStateVariable) and use #addStateVariable and #addAction to associate them with the service
+A UPnP Service consists of state variables and actions, this is a class to hold essential information about the service.
+
+A real service should instantiate this class, set up the state variables and actions (which are also derived from simple base classes #UPnPAction and #UPnPStateVariable) and use #addStateVariable and #addAction to associate them with the service.
    
-I think that we don't need to derive classes from Service, just instantiate them, as no code is specific to the service
-However there is code that's specific to each action, so that needs to be via derived classes and instantiated (as it could be run at the same time from two clients in two threads, so it must be thread-safe)
-  
-  So.. s = service.new; sv1 = statevariable.new; s.addStateVariable(sv1), repeat.. 
-  def action1 < action
-     during initialise, create and add arguments (as instance variables)
-
-  end
-  def action2 < action
-  end
-  s.addaction(action1)
-  s.addaction(action2) (so the service linked to an action must be a CLASS variable)
-  
-  when handleControl is called
-  object of the correction action1/2 class will be created
-  arguments checked against the object and passed in  (this can, I think, be a generic method on action)
-  action.invoke -> find and run the right method, including looking up and changing arguments (so arguments need a value they aren't just metadata)
-  check return arguments and assemble returning XML
-   
-	TODO
-
-	this method will 
-	- decode the XML / SOAP request
-	- validate the action requested and the parameters passed
-	- invoke the action to do the work
-	- pick up the error code (if any) from the action and the output parameters
-	
-	when an Action is invoked it will
-	- use the arguments passed to it (in a hash)
-	- do whatever it needs to do
-	- if any state variables should change it will find them by name (self.service.stateVariables["name"]) and change the value
-	- add any out arguments to the hash
-	
-
-	- 
    
 =end
 
@@ -67,7 +34,9 @@ class Service
 	# subscriptions attached to the service
 	attr_reader :subscriptions
 
-
+=begin rdoc
+Set up the serivce with the Service Type (e.g. ContentDirectory) and version number
+=end
 	
 	def initialize(t, v)
 		@type = t
@@ -77,20 +46,39 @@ class Service
 		@subscriptions = Hash.new
 	end
 	
+=begin rdoc
+Links a State Variable to the service
+=end
 	def addStateVariable(s)
 		@stateVariables[s.name]  = s
 		s.service = self
 	end
 	
+=begin rdoc
+Convenience method - links multiple state variables to the service
+=end
 	def addStateVariables(*a)
 		a.each { |s| addStateVariable(s) }
 	end
 	
+=begin rdoc
+Links an Action to the service
+=end
 	def addAction(a)
 		@actions[a.name] = a
 		a.linkToService(self)
 	end
 	
+=begin rdoc
+Links multiple Actions to the service
+=end
+	def addActions(*a)
+		a.each {|s| addAction(s)}
+	end
+	
+=begin rdoc
+Links the Service to a UPnP Device
+=end
 	def linkToDevice(d)
 		@device = d
 		servAddr = "#{d.urlBase}/services/#{d.name}/#{@type}/"
@@ -100,7 +88,9 @@ class Service
 		@log = @device.rootDevice.log
 	end
 	
-	
+=begin rdoc
+returns a REXML::Document object containing the UPnP Service Description XML
+=end
 	def createDescriptionXML
 		
 		rootE =  REXML::Element.new("scpd")
@@ -198,6 +188,9 @@ class Service
 	
 	end
 	
+=begin
+Takes the XML sent by a control point (and the SOAPACTION part of the http header), validates it and extracts the name and arguments of the action requested.
+=end
 	def processActionXML(xml,soapaction)
 
 		@log.debug("XML: #{xml}")
@@ -248,6 +241,15 @@ class Service
 
 	end
 	
+=begin rdoc
+Called by the Webserver when something is posted to the Control URL for the service.
+Extracts the requested action and arguments (via call to #processActionXML)
+Checks that the action exists
+Validates the arguments passed in
+Invokes the action
+Validates the arguments passed back from the invoke
+Constructs a response indicating success or failure
+=end
 	def handleControl(req, res)
 	
 		@log.debug("in handleControl for service #{@name}")
@@ -271,6 +273,10 @@ class Service
 	
 	end
 
+=begin rdoc
+Called by the Webserver when something is requested from the Description URL for the service.
+Returns the service description in XML format
+=end
 
 	
 	def handleDescription(req, res)
@@ -279,6 +285,9 @@ class Service
 		res.content_type = "text/xml"
 	end
 	
+=begin rdoc
+Not sure if I need to put anything here yet
+=end
 	def validate
 	end
 		
@@ -331,6 +340,7 @@ Return Value flag - if this is the return value for the Action set to true. Defa
 	end
 end
 
+# Structure to hold Argument and Sequence pair
 ArgSeq = Struct.new(:arg, :seq)
 
 class Action
@@ -362,13 +372,16 @@ Called with the name of the action and a (non-UPnP) object / method that will be
 		@method = method
 	end
 	
+=begin rdoc
+Tiny helper method to return the entries in the @outArgs hash in sequence
+=end
+	
 	def outArgsInSequence
 		return @outArgs.values.sort! { |x,y| x.seq <=> y.seq }
 	end
 	
 =begin rdoc
-Adds an existing argument to the Action.  The spec says that arguments must have a defined sequence, so a sequence
-number (starting from 1) must be passed as well as the argument object to be added
+Adds an existing argument to the Action.  The spec says that arguments must have a defined sequence, so a sequence number (starting from 1) must be passed as well as the argument object to be added.  Populates the @inArgs and @outArgs hashes
 =end
 	
 	def addArgument(arg, seq)
@@ -412,17 +425,15 @@ number (starting from 1) must be passed as well as the argument object to be add
 	
 =begin rdoc
 
-	The object / method passed to the Action and initialisation is called.  The method MUST accept the following, in order:
+	The object / method passed to the Action during initialisation is called.  This is how non-UPnP code is linked to the UPnP processing.  The method MUST accept the following, in order:
 	
 	Hash containing all the parameters (in arguments) the action was invoked with (name/value pairs)
-	Service object
+	Service object (so that State Variables may be changed)
 	
 	The method should (via the service object) change any State Variables that it needs to
-	The method may be called concurrently, if this is a problem then use a Mutex or similar approach inside the 
-	thread-critical code to ensure it's single threaded (it will be necessary to do this when appending to a State Variable or
-	incrementing a count held in one, for example)
+	The method may be called concurrently, if this is a problem then use a Mutex or similar approach inside the 	thread-critical code to ensure it's single threaded (it will be necessary to do this when appending to a State Variable or	incrementing a count held in one, for example)
 	
-	The method MUST return a Hash containing name/value pairs of all out arguements
+	The method MUST return a Hash containing name/value pairs of all out arguements.
 	If it encounters an error it must raise an ActionError exception
 
 =end
@@ -445,6 +456,8 @@ number (starting from 1) must be passed as well as the argument object to be add
 	
 	
 =begin rdoc
+Private method; takes a name/value hash of Arguments passed to the the action and compares it
+with a hash of expected arguments
 =end
 	
 	def validateArgs(args, expArgs)
@@ -470,8 +483,21 @@ number (starting from 1) must be passed as well as the argument object to be add
 			end
 		end
 		
+
+		
+	end
+
+=begin rdoc
+Checks that the arguments in the name/value hash passed to the method: 
+1. match up with the expected argument names in @inArgs
+2. have valid values (when validated against RelatedStateVariable for the argument)
+=end
+	def validateInArgs(args)
+		
+		validateArgs(args,@inArgs)
+		
 		args.each_pair do |name,value|
-			sv = expArgs[name].arg.relatedStateVariable
+			sv = @inArgs[name].arg.relatedStateVariable
 			begin
 				args[name] = sv.interpret(value)
 			rescue StateVariableError => e
@@ -479,19 +505,22 @@ number (starting from 1) must be passed as well as the argument object to be add
 			rescue StateVariableRangeError
 				raise ActionError.new(601), e.message
 			end
-			
 		end
 		
 	end
-	
-	def validateInArgs(args)
-		validateArgs(args,@inArgs)
-	end
-	
+
+=begin rdoc
+Checks that the arguments in the name/value hash passed to the method atch up with the expected argument names in @outArgs
+=end
+
 	def validateOutArgs(args)
 		validateArgs(args,@outArgs)
 
 	end
+	
+=begin rdoc
+Populates the httpResponse object passed from the webserver with the correct headers and xml for a successful response to an Action call
+=end
 	
 	def responseOK(res,args)
 	
@@ -547,11 +576,17 @@ other out args and their values go here, if any
 		doc.write(res.body,2)
 
 	end
-	
+
+=begin rdoc
+Populates the httpResponse object passed from the webserver with the correct headers and xml for an unsuccessful response to an Action call
+=end
+
 	def responseError(res,code)
 		#create response body (xml) and headers
 		res.body = "not OK #{code}"
 	end
+	
+	private :validateArgs
 	
 end
 

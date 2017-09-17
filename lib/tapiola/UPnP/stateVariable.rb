@@ -1,4 +1,6 @@
 require_relative 'common'
+require 'rexml/document'
+require 'rexml/xmldecl'
 
 module UPnP
 
