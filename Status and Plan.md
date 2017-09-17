@@ -3,7 +3,9 @@
 August 2017
 
 Discovery works
+
 Device description works
+
 Framework has been set up for HTTP services (description, presentation, control, eventing)
 
 TODO
