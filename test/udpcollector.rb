@@ -26,8 +26,13 @@ class UDPCollector
 			@sock.setsockopt(Socket::IPPROTO_IP, Socket::IP_ADD_MEMBERSHIP, rip)
 		end
 		@sock.bind(Socket::INADDR_ANY,port)
-		#puts "#{self.object_id} Listener initialised on #{ip}:#{port} socket #{@sock.to_s}"
+		puts "#{self.object_id} Listener initialised on #{ip}:#{port} socket #{@sock.to_s}"
 		@ip = ip
+		
+		
+		@addr_infos = Socket.ip_address_list
+
+
 	end
 
 	def collect
@@ -44,7 +49,20 @@ class UDPCollector
 			msg, info = @sock.recvfrom(1024)
 			lm = CollectorMessage.new(info[3], info[1], msg)
 			#puts "#{self.object_id} UDP message from #{lm.ip}:#{lm.port}"
-			messages << lm
+
+
+			#ensure we only collect traffic from the local machine
+
+			ownip = false
+			@addr_infos.each do |addr_info|
+				if addr_info.ip_address == lm.ip
+					ownip = true
+					#puts "we're keeping it"
+				end
+			end
+
+			messages << lm if ownip
+			
 			s = IO.select([@sock],nil,nil,0.5) 
 		end
 

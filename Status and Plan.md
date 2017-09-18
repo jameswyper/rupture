@@ -10,47 +10,32 @@ Framework has been set up for HTTP services (description, presentation, control,
 
 TODO
 
-1. Webrick Servlets - make existing do_method generic and call it
+High
 
-2. Logging (debug) - add File / method / object references to each statement [need to test]
-
-
-4. Write method to start / stop all servers, including validation of device / service data
-
-
-
-6.  allow PresentationURL to be overridden and not mounted
-7.  write code to serve icons
-8.  allow logging object to be overridden
-
-9.  URLBase needs to be a property of the root device not the device
-
-
-10. Sample application
-
-11. Copyright notices
-
-12. Test suite based on Sample application including devices / services that don't validate
-
-13. State variable setup and attaching to services
-
-14. Actions / argument setup
-
+14. Actions - add XML for failure and headers for success and failure
 15. Events - moderator and subscriber threads need to be part of the root device.
 
-(notes)
 
-root will contain a list of Subscriptions and the event queue
+Medium
 
-an individual subscription will be associated with a service, have a sid and expiry time (may be nil)
-
-state variable will be defined individually, then attached to a service, with type, allowedlist | range, default value, moderation type and value (iime / increment), previous event time or value 
-
-action will be defined with name and list of arguments, (name, direction, retval, reference to state variable)
-
+19. Test_discovery - reject anything coming from other devices on network
+20.  Test_discovery - fix random bug on Lenovo
+10. Sample application
+12. Test suite based on Sample application including devices / services that don't validate
+18. Extend range of state variables
+7.  write code to serve icons
 16. Add option to state variable to reset after eventing takes place
 
+Low
+
 17.  If an optional Action is called that hasn't been coded we should return error code 602 (optional not implemented) not 401 (invalid action) - this requires us to allow Service to maintain a list of optional, unimplemented actions
+1. Webrick Servlets - make existing do_method generic and call it
+2. Logging (debug) - add File / method / object references to each statement [need to test]
+4. Write method to start / stop all servers, including validation of device / service data
+6.  allow PresentationURL to be overridden and not mounted
+8.  allow logging object to be overridden
+9.  URLBase needs to be a property of the root device not the device
+11. Copyright notices
 
 ##TEST PLAN
 
@@ -99,3 +84,34 @@ it's possible to spy on traffic in and out of the gupnp program and from that I 
 "rdoc lib" to document everything
 run a unit test just by running the __test.rb file
 use REXML for starters to create / parse XML, switch the Nokogiri and/or builder if needed
+
+##Eventing - how it's going to work
+
+Statevariable has value, changedSinceLastEvent (boolean - new), lastEventedValue, lastEventTime (new)
+
+Statevariable has a class method for creating event XML, reset changedSinceLastEvent and lastEventTime if appropriate too
+
+Service has set of subscriptions
+
+method: createEvent 
+gets the XML for a set of StateVariables
+for each subscriber creates and (unless expired) pushes a http client request onto the main device event queue (need to push subscriber and message)
+
+method: eventModerator
+new thread
+ticks along checking each state variable
+if time > lastEventTime + rate, calls createEvent
+sleep for a tiny bit, repeat (unless service is stopped)
+
+Device has
+method: processEventQueue
+pick off each event, send http request (see threads2 code in sketches)
+any failures, cancel that subscriber
+
+
+Subscriptions
+methods:
+create
+renew
+cancel
+event - to create the message.  check first if sub has expired, update subscription ID number
