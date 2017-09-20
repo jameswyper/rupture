@@ -35,7 +35,7 @@ require 'pry'
 
 
 
-class TestSimpleDescription < Minitest::Test
+class TestSimpleAction < Minitest::Test
 	
 	
 	class Adder
@@ -90,6 +90,9 @@ class TestSimpleDescription < Minitest::Test
 	def test_simple
 		
 		
+# start by checking the device and service descriptions
+# rather than write loads of assert statement by hand I've put the expected XML content for each xPath into an array
+
 
 		desc = Net::HTTP.get(URI("http://#{@root.ip}:#{@root.port}/test/description/description.xml"))
 
@@ -171,6 +174,8 @@ class TestSimpleDescription < Minitest::Test
 		
 		uri = URI('http://127.0.0.1:54321/test/services/sample1/Math/control.xml')
 
+# make a successful control call
+
 
 		req = Net::HTTP::Post.new(uri)
 		req['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Add"'
@@ -189,11 +194,73 @@ class TestSimpleDescription < Minitest::Test
 		res = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
 
 		assert(res.is_a?(Net::HTTPSuccess))
+		assert_equal("200",res.code)
 		
-		puts  res.body
+		document = REXML::Document.new res.body
 
+		w = REXML::XPath.first(document, "//m:Envelope/", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+		x = REXML::XPath.first(document, "//m:Envelope/m:Body", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+		y =  REXML::XPath.first(x,"//p:AddResponse",{"p" => "urn:schemas-upnp-org:service:Math:1"})
+		
+		assert_equal("http://schemas.xmlsoap.org/soap/encoding/",w.attributes["s:encodingStyle"])
+		assert_equal(1,y.elements.size,"returned arguments")
+		assert_equal("Result",y.elements[1].name,"argument name")
+		assert_equal("4",y.elements[1].text,"argument value")
+
+		assert_match  Regexp.new("\\d+", Regexp::IGNORECASE), res.to_hash["content-length"] [0]
+		assert_match  res.body.size.to_s, res.to_hash["content-length"] [0]
+		assert_match  "", res.to_hash["ext"] [0]
+		assert_match  'text/xml; charset="utf-8"', res.to_hash["content-type"] [0]
+
+# make a wrong control call
+
+
+		req = Net::HTTP::Post.new(uri)
+		req['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Add"'
+		req.body='<?xml version="1.0"?> 
+			<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Body>
+			<u:Add xmlns:u="urn:schemas-upnp-org:service:Math:1">
+			<First>2</First>
+			<Decond>2</Decond>
+			</u:Add>
+			</s:Body>
+			</s:Envelope>'
+
+		res = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
+
+		refute(res.is_a?(Net::HTTPSuccess))
+		assert_equal("500",res.code)
 		
 		
+		document = REXML::Document.new res.body
+
+		w = REXML::XPath.first(document, "//m:Envelope/", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+		f = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+		fc = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/faultcode", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+		fs = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/faultstring", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+		d = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/detail", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+		u = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/detail/UPnPError", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+		ec = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/detail/UPnPError/errorCode", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+		ed = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/detail/UPnPError/errorDescription", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+		
+		
+		refute_nil f
+		
+		###continue here
+		assert_equal("http://schemas.xmlsoap.org/soap/encoding/",w.attributes["s:encodingStyle"])
+
+
+
+
+		assert_match  Regexp.new("\\d+", Regexp::IGNORECASE), res.to_hash["content-length"] [0]
+		assert_match  res.body.size.to_s, res.to_hash["content-length"] [0]
+		assert_match  "", res.to_hash["ext"] [0]
+		assert_match  'text/xml; charset="utf-8"', res.to_hash["content-type"] [0]
+
+
 	end
 	
 	

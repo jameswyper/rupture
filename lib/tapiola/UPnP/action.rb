@@ -156,12 +156,12 @@ Adds an existing argument to the Action.  The spec says that arguments must have
 
 		if !(@object.respond_to?(@method))
 			raise ActionError.new(402)
-			@log.error("Can't invoke #{@method} on #{@object}")
+			$log.error("Can't invoke #{@method} on #{@object}")
 		else
 			begin
 				outargs = @object.send(@method,params,@service)
 			rescue ActionError => e
-				@log.error("Problem when invoking #{@method} on #{@object} #{e}")
+				$log.error("Problem when invoking #{@method} on #{@object} #{e}")
 				raise
 			end
 		end
@@ -178,12 +178,12 @@ with a hash of expected arguments
 		
 		# check that the number of arguments passed in is what's expected
 		if (args == nil)
-			@log.warn("No Arguments to validate #{@service.name} - #{@name}")
+			$log.warn("No Arguments to validate #{@service.type} - #{@name}")
 			raise ActionError.new(402)
 		end
 		
 		if args.size != expArgs.size
-			@log.warn("Argument size mismatch for #{@service.name} - #{@name}, expected #{expArgs.each_key.join('/')} but got #{args.each_key.join('/')}")
+			$log.warn("Argument size mismatch for #{@service.type} - #{@name}, expected #{expArgs.keys.join('/')} but got #{args.keys.join('/')}")
 			raise ActionError.new(402)
 		end
 		
@@ -192,7 +192,7 @@ with a hash of expected arguments
 		
 		args.each_key.sort.zip(expArgs.each_key.sort).each do |argpair| 			
 			if argpair[0] != argpair[1]
-				@log.warn("Argument name mismatch for #{@service.name} - #{@name}, expected #{expArgs.each_key.join('/')} but got #{args.each_key.join('/')}")
+				$log.warn("Argument name mismatch for #{@service.type} - #{@name}, expected #{expArgs.keys.join('/')} but got #{args.keys.join('/')}")
 				raise ActionError,402
 			end
 		end
@@ -287,18 +287,14 @@ other out args and their values go here, if any
 		doc << REXML::XMLDecl.new(1.0)
 		doc.add_element(rootE)
 		
-		doc.write(res.body,2)
+		doc.write(res.body)
+		
+		res.content_type = 'text/xml; charset="utf-8"'
+		res["ext"] = ""
+		res["server"] = "#{@service.device.rootDevice.os} UPnP/1.0 #{@service.device.rootDevice.product}"
 
 	end
 
-=begin rdoc
-Populates the httpResponse object passed from the webserver with the correct headers and xml for an unsuccessful response to an Action call
-=end
-
-	def responseError(res,code)
-		#create response body (xml) and headers
-		res.body = "not OK #{code}"
-	end
 	
 	
 end

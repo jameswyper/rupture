@@ -60,7 +60,7 @@ emb = UPnP::Device.new(:Type => "SampleTwo", :Version => 3, :Name => "sample2", 
 Services are, to begin with, just containers for State Variables and Actions.  So they are very easy to set up, just provide a type and version
 =end
 
-serv1 = UPnP::Service.new("Add",1)
+serv1 = UPnP::Service.new("Math",1)
 serv2 = UPnP::Service.new("Find",2)
 serv3 = UPnP::Service.new("ChangeVariable",1)
 
@@ -71,13 +71,16 @@ We create state variables
 
 sv1 = UPnP::StateVariable.new
 
-class action1 < UPnP::Action
-	def initialize(name)
-		super(name)
-		add
+act1 = UPnP::Action.new("Add",calculator,add)
+
+#add argument
+
+class Calc
+	def add
 	end
 end
 
+calculator = Calc.new
 
 
 

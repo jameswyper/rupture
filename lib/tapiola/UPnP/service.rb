@@ -33,6 +33,8 @@ class Service
 	attr_reader :eventAddr
 	# subscriptions attached to the service
 	attr_reader :subscriptions
+	# device the service is attached to
+	attr_reader :device
 
 =begin rdoc
 Set up the serivce with the Service Type (e.g. ContentDirectory) and version number
@@ -85,7 +87,6 @@ Links the Service to a UPnP Device
 		@eventAddr = servAddr + "event.xml"
 		@controlAddr = servAddr + "control.xml"
 		@descAddr = servAddr + "description.xml"
-		@log = @device.rootDevice.log
 	end
 	
 =begin rdoc
@@ -193,8 +194,8 @@ Takes the XML sent by a control point (and the SOAPACTION part of the http heade
 =end
 	def processActionXML(xml,soapaction)
 
-		@log.debug("XML: #{xml}")
-		@log.debug("soapaction field: #{soapaction}")
+		$log.debug("XML: #{xml}")
+		$log.debug("soapaction field: #{soapaction}")
 		
 		re = /^"(.*)#(.*)"$/
 		md = re.match(soapaction)
@@ -203,33 +204,33 @@ Takes the XML sent by a control point (and the SOAPACTION part of the http heade
 			namespace = md[1]
 			action = md[2]
 		else
-			@log.warn("SOAPACTION header invalid - was :#{soapaction}:")
+			$log.warn("SOAPACTION header invalid - was :#{soapaction}:")
 			raise ActionError.new(401)
 		end
-		@log.debug ("Namespace #{namespace} and Action #{action} obtained from header")
+		$log.debug ("Namespace #{namespace} and Action #{action} obtained from header")
 
 
 		begin
 			doc = REXML::Document.new xml
 		rescue REXML::ParseException => e
-			@log.warn("XML didn't parse #{e}")
+			$log.warn("XML didn't parse #{e}")
 			raise ActionError.new(401)
 		end
 
 		soapbody = REXML::XPath.first(doc, "//m:Envelope/m:Body", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
 		unless soapbody
-			@log.warn("Couldn't get SOAP body out of #{xml}")
+			$log.warn("Couldn't get SOAP body out of #{xml}")
 			raise ActionError.new(401)
 		end
 		
 		argsxml =  REXML::XPath.first(soapbody,"//p:#{action}",{"p" => "#{namespace}"})
 		unless argsxml
-			@log.warn("Couldn't get action name out of #{xml} with SOAPACTION header :#{soapaction}:")
+			$log.warn("Couldn't get action name out of #{xml} with SOAPACTION header :#{soapaction}:")
 			raise ActionError.new(401)
 		end
 
 		if (action != argsxml.name)
-			@log.warn("SOAPACTION header :#{soapaction}: didn't match XML name #{xml}")
+			$log.warn("SOAPACTION header :#{soapaction}: didn't match XML name #{xml}")
 			raise ActionError,401
 		end
 
@@ -252,25 +253,72 @@ Constructs a response indicating success or failure
 =end
 	def handleControl(req, res)
 	
-		@log.debug("in handleControl for service #{@name}")
+		$log.debug("in handleControl for service #{@name}")
 	
 		begin
 			actionname, args = processActionXML(req.body,req.header["soapaction"].join)
 			action = @actions[actionname]
 			if action == nil
-				@log.warn("Action #{actionname} doesn't exist in service #{@name}")
+				$log.warn("Action #{actionname} doesn't exist in service #{@name}")
 				raise ActionError.new(401)
 			else
 				action.validateInArgs(args)
 				outArgs = action.invoke(args)
 				action.validateOutArgs(outArgs)
 				action.responseOK(res,outArgs)
+				return true
 			end
 		rescue ActionError => e
-			@log.warn("Service #{@name}, Exception message #{e.message}")
+			$log.warn("Service #{@name}, Exception message #{e.message}")
 			responseError(res,e.code)
+			return false
 		end
-	
+		
+	end
+
+=begin rdoc
+Populates the httpResponse object passed from the webserver with the correct headers and xml for an unsuccessful response to an Action call
+This needs to be a method on the service class, not action, because the error may be that the action doesn't exist
+=end
+
+
+
+	def responseError(res,code)
+		
+		rootE =  REXML::Element.new("s:Envelope")
+		rootE.add_namespace("s","http://schemas.xmlsoap.org/soap/envelope/")
+		rootE.attributes["s:encodingStyle"] = "http://schemas.xmlsoap.org/soap/encoding/"
+		
+		bod = REXML::Element.new("s:Body")
+		
+		fault = REXML::Element.new("s:Fault")
+		faultcode = REXML::Element.new("faultcode").add_text("s:Client")
+		faultstring = REXML::Element.new("faultstring").add_text("UPnPError")
+		detail = REXML::Element.new("detail")
+		upnpError = REXML::Element.new("UPnPError").add_namespace("urn:schemas-upnp-org:control-1-0")
+		errorCode = REXML::Element.new("errorCode").add_text(code.to_s)
+		
+		upnpError.add_element(errorCode)
+		detail.add_element(upnpError)
+		fault.add_element(faultcode)
+		fault.add_element(faultstring)
+		fault.add_element(detail)
+		bod.add_element(fault)
+		rootE.add_element(bod)
+		
+		
+		doc = REXML::Document.new
+		doc.context[:attribute_quote] = :quote
+		doc << REXML::XMLDecl.new(1.0)
+		doc.add_element(rootE)
+		
+
+		res.status = 500
+		doc.write(res.body)
+
+		res.content_type = 'text/xml; charset="utf-8"'
+		res["ext"] = ""
+		res["server"] = "#{@device.rootDevice.os} UPnP/1.0 #{@device.rootDevice.product}"
 	end
 
 =begin rdoc
@@ -280,7 +328,7 @@ Returns the service description in XML format
 
 	
 	def handleDescription(req, res)
-		@log.debug("Description (service) request: #{req}")
+		$log.debug("Description (service) request: #{req}")
 		res.body = createDescriptionXML.to_s
 		res.content_type = "text/xml"
 	end

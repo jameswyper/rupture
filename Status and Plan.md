@@ -1,10 +1,14 @@
 #Progress and Next Steps
 
-August 2017
+September 2017
 
 Discovery works
 
 Device description works
+
+Control has been very lightly tested
+
+Eventing is not yet supported
 
 Framework has been set up for HTTP services (description, presentation, control, eventing)
 
@@ -12,7 +16,7 @@ TODO
 
 High
 
-14. Actions - add XML for failure and headers for success and failure
+
 15. Events - moderator and subscriber threads need to be part of the root device.
 
 
@@ -25,6 +29,7 @@ Medium
 18. Extend range of state variables
 7.  write code to serve icons
 16. Add option to state variable to reset after eventing takes place
+21.  Check discovery returns correct http headers and add to test
 
 Low
 

@@ -3,7 +3,7 @@ require 'time'
 require 'pry'
 require 'rexml/document'
 require 'rexml/xmldecl'
-require 'logger'
+
 require_relative 'common'
 require_relative 'icon'
 

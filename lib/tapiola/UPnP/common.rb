@@ -1,7 +1,8 @@
-
+require 'logger'
 
 module UPnP
 	
+	$log = Logger.new(STDOUT)
 	
 # Exception class for issues related to the setup / initialisation of the UPnP subsystem	
 	class SetupError < ::StandardError
