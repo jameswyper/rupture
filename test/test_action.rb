@@ -214,10 +214,156 @@ class TestSimpleAction < Minitest::Test
 
 # make a wrong control call
 
+		def wrong_control(req,code,uri,msg ="")
+			res = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
 
-		req = Net::HTTP::Post.new(uri)
-		req['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Add"'
-		req.body='<?xml version="1.0"?> 
+			refute(res.is_a?(Net::HTTPSuccess))
+			assert_equal("500",res.code)
+			
+			
+			document = REXML::Document.new res.body
+
+			w = REXML::XPath.first(document, "//m:Envelope/", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+			f = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+			fc = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/faultcode", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+			fs = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/faultstring", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+			d = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/detail", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+			u = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/detail/n:UPnPError", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/", "n"=>"urn:schemas-upnp-org:control-1-0"})
+			ec = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/detail/n:UPnPError/n:errorCode", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/", "n"=>"urn:schemas-upnp-org:control-1-0"})
+			#ed = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/detail/n:UPnPError/n:errorDescription", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/","n"=>"urn:schemas-upnp-org:control-1-0"})
+			
+			
+			refute_nil f, "#{msg} - Fault tag not present"
+			refute_nil fc, "#{msg} - Faultcode tag not present"
+			refute_nil fs, "#{msg} - Faultstring tag not present"
+			refute_nil d, "#{msg} - Detail tag not present"
+			refute_nil u, "#{msg} - UPnPError tag not present"
+			refute_nil ec, "#{msg} - Error Code tag not present"
+			#refute_nil ed
+			assert_equal 's:Client', fc.text, "#{msg} - Fault Code incorrect"
+			assert_equal 'UPnPError', fs.text, "#{msg} - Fault String  incorrect"
+			assert_equal  code, ec.text, "#{msg} - Error Code  incorrect"
+			
+			###continue here
+			assert_equal("http://schemas.xmlsoap.org/soap/encoding/",w.attributes["s:encodingStyle"], "#{msg} - s:encodingStyle")
+			assert_match  Regexp.new("\\d+", Regexp::IGNORECASE), res.to_hash["content-length"] [0], "#{msg} - content length header"
+			assert_match  res.body.size.to_s, res.to_hash["content-length"] [0], "#{msg} actual content length mismatch"
+			assert_match  "", res.to_hash["ext"] [0], "#{msg} - EXT header"
+			assert_match  'text/xml; charset="utf-8"', res.to_hash["content-type"] [0], "#{msg} - content type header"
+		end
+		
+		#wrong XML tags
+		
+		rq = Net::HTTP::Post.new(uri)
+		rq['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Add"'
+		rq.body='<?xml version="1.0"?> 
+			<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Mody>
+			<u:Add xmlns:u="urn:schemas-upnp-org:service:Math:1">
+			<First>2</First>
+			<Second>2</Second>
+			</u:Add>
+			</s:Mody>
+			</s:Envelope>'
+
+		wrong_control(rq,"401",uri, "Wrong XML Tags")
+		
+		#malformed XML
+		
+		rq = Net::HTTP::Post.new(uri)
+		rq['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Add"'
+		rq.body='<?xml version="1.0"?> 
+			"http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Bo
+			<u:Add xmlns:u="urn:schemas-upnp-org:service:Math:1">
+			<First>2</First>
+			<Decond>2</Decond>
+			</u:Add>
+			</s:Body>
+			</s:Envelope>'
+
+		wrong_control(rq,"401",uri,"malformed xml")
+		
+		#missing tags
+		
+		rq = Net::HTTP::Post.new(uri)
+		rq['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Add"'
+		rq.body='<?xml version="1.0"?> 
+			<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			
+			<u:Add xmlns:u="urn:schemas-upnp-org:service:Math:1">
+			<First>2</First>
+			<Decond>2</Decond>
+			</u:Add>
+	
+			</s:Envelope>'
+
+		wrong_control(rq,"401",uri,"missing tags")
+
+		#missing header
+		
+		rq = Net::HTTP::Post.new(uri)
+		#rq['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Add"'
+		rq.body='<?xml version="1.0"?> 
+			<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Body>
+			<u:Add xmlns:u="urn:schemas-upnp-org:service:Math:1">
+			<First>2</First>
+			<Second>2</Second>
+			</u:Add>
+			</s:Body>
+			</s:Envelope>'
+
+		wrong_control(rq,"401",uri,"missing header")
+		
+		#header / action mismatch
+		
+		rq = Net::HTTP::Post.new(uri)
+		rq['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Adder"'
+		rq.body='<?xml version="1.0"?> 
+			<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Body>
+			<u:Add xmlns:u="urn:schemas-upnp-org:service:Math:1">
+			<First>2</First>
+			<Second>2</Second>
+			</u:Add>
+			</s:Body>
+			</s:Envelope>'
+
+		wrong_control(rq,"401",uri,"header/action mismatch")
+		
+		#action does not exist
+		
+		rq = Net::HTTP::Post.new(uri)
+		rq['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Adder"'
+		rq.body='<?xml version="1.0"?> 
+			<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Body>
+			<u:Adder xmlns:u="urn:schemas-upnp-org:service:Math:1">
+			<First>2</First>
+			<Second>2</Second>
+			</u:Adder>
+			</s:Body>
+			</s:Envelope>'
+
+		wrong_control(rq,"401",uri,"action does not exist")
+		
+		#wrong argument name
+		
+		rq = Net::HTTP::Post.new(uri)
+		rq['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Add"'
+		rq.body='<?xml version="1.0"?> 
 			<s:Envelope
 			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
 			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
@@ -229,38 +375,44 @@ class TestSimpleAction < Minitest::Test
 			</s:Body>
 			</s:Envelope>'
 
-		res = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
+		wrong_control(rq,"402",uri,"wrong argument name")
+		
+		#missing argument
+		
+		rq = Net::HTTP::Post.new(uri)
+		rq['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Add"'
+		rq.body='<?xml version="1.0"?> 
+			<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Body>
+			<u:Add xmlns:u="urn:schemas-upnp-org:service:Math:1">
+			<Second>2</Second>
+			</u:Add>
+			</s:Body>
+			</s:Envelope>'
 
-		refute(res.is_a?(Net::HTTPSuccess))
-		assert_equal("500",res.code)
+		wrong_control(rq,"402",uri,"missing argument")
+		
+		#argument invalid for type
+		
+		rq = Net::HTTP::Post.new(uri)
+		rq['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Add"'
+		rq.body='<?xml version="1.0"?> 
+			<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Body>
+			<u:Add xmlns:u="urn:schemas-upnp-org:service:Math:1">
+			<First>two</First>
+			<Second>2</Second>
+			</u:Add>
+			</s:Body>
+			</s:Envelope>'
+
+		wrong_control(rq,"600",uri,"argument invalid for type")		
 		
 		
-		document = REXML::Document.new res.body
-
-		w = REXML::XPath.first(document, "//m:Envelope/", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
-		f = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
-		fc = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/faultcode", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
-		fs = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/faultstring", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
-		d = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/detail", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
-		u = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/detail/UPnPError", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
-		ec = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/detail/UPnPError/errorCode", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
-		ed = REXML::XPath.first(document, "//m:Envelope/m:Body/m:Fault/detail/UPnPError/errorDescription", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
-		
-		
-		refute_nil f
-		
-		###continue here
-		assert_equal("http://schemas.xmlsoap.org/soap/encoding/",w.attributes["s:encodingStyle"])
-
-
-
-
-		assert_match  Regexp.new("\\d+", Regexp::IGNORECASE), res.to_hash["content-length"] [0]
-		assert_match  res.body.size.to_s, res.to_hash["content-length"] [0]
-		assert_match  "", res.to_hash["ext"] [0]
-		assert_match  'text/xml; charset="utf-8"', res.to_hash["content-type"] [0]
-
-
 	end
 	
 	
