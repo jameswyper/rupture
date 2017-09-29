@@ -8,18 +8,25 @@ Set up an action badly
  - retval in wrong place
  - duplicate argument
  
+ 
+ 
  Set up a good action
   - call it
   - call a different action
-  - call an unimplemented optional action
   - call with missing arguments
   - call with extra arguments
   - call with both missing and extra
   - call with values that don't match SV for type
+  
+(all the above are in this test)  
+  
   - call with values that don't match SV for range
   - call with args that make the service fail
   - have the service return the wrong number of arguments
-  
+
+  - call an unimplemented optional action
+
+
   NB for fun we should have the service increment an state variable as a counter of number of times called, and event this
 	
 =end
@@ -412,6 +419,47 @@ class TestSimpleAction < Minitest::Test
 
 		wrong_control(rq,"600",uri,"argument invalid for type")		
 		
+		#extra argument 
+		
+		rq = Net::HTTP::Post.new(uri)
+		rq['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Add"'
+		rq.body='<?xml version="1.0"?> 
+		<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Body>
+			<u:Add xmlns:u="urn:schemas-upnp-org:service:Math:1">
+			<First>2</First>
+			<Second>2</Second>
+			<Third>3</Third>
+			</u:Add>
+			</s:Body>
+			</s:Envelope>'
+		
+
+		wrong_control(rq,"402",uri,"extra argument")		
+		
+		#missing and extra argument 
+		
+		rq = Net::HTTP::Post.new(uri)
+		rq['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Add"'
+		rq.body='<?xml version="1.0"?> 
+		<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Body>
+			<u:Add xmlns:u="urn:schemas-upnp-org:service:Math:1">
+			<First>2</First>
+			<Third>3</Third>
+			</u:Add>
+			</s:Body>
+			</s:Envelope>'
+		
+
+		wrong_control(rq,"402",uri,"missing and extra argument")		
+		
+
+		
 		
 	end
 	
@@ -421,6 +469,187 @@ class TestSimpleAction < Minitest::Test
 	@root.stop
 		
 	end
-	
+
 end
 
+class TestBadAction_1 < Minitest::Test
+	
+	
+	class Adder
+		def initialize
+			@count = 0
+		end
+		def add(inargs,service)
+			outargs = Hash.new
+			@count += 1
+			outargs["Result"] = inargs["First"] + inargs["Second"]
+			return outargs
+		end
+	end
+	
+	
+	def test_bad_arg_direction
+		
+		
+	assert_raises UPnP::SetupError do	
+		@root = UPnP::RootDevice.new(:type => "SampleOne", :version => 1, :name => "sample1", :friendlyName => "SampleApp Root Device",
+			:product => "Sample/1.0", :manufacturer => "James", :modelName => "JamesSample",	:modelNumber => "43",
+			:modelURL => "github.com/jameswyper/tapiola", :cacheControl => 15,
+			:serialNumber => "12345678", :modelDescription => "Sample App Root Device, to illustrate use of tapiola UPnP framework", 
+			:URLBase => "test", :ip => "127.0.0.1", :port => 54322, :logLevel => Logger::INFO)
+		
+		@serv1 = UPnP::Service.new("Math",1)
+		
+		@sv1 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_FIRST")
+		@sv2 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_SECOND")		
+		@sv3 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_OUT")		
+		@sv4 = UPnP::StateVariableInt.new( :name => "COUNT", :evented => true)		
+		
+		@adder = Adder.new
+
+		@act1 = UPnP::Action.new("Add",@adder,:add)
+		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv2),2)
+		@act1.addArgument(UPnP::Argument.new("First",:in,@sv1),1)
+		@act1.addArgument(UPnP::Argument.new("Result",:oooooot,@sv3,true),1)
+		
+		@serv1.addStateVariables(@sv1, @sv2, @sv3, @sv4)
+
+		@serv1.addAction(@act1)
+		
+		@root.addService(@serv1)		
+		Thread.new {@root.start}
+
+		@root.stop
+	end
+		
+	end
+	
+	
+	def teardown
+
+		
+	end
+
+end
+
+class TestBadAction_2 < Minitest::Test
+	
+	
+	class Adder
+		def initialize
+			@count = 0
+		end
+		def add(inargs,service)
+			outargs = Hash.new
+			@count += 1
+			outargs["Result"] = inargs["First"] + inargs["Second"]
+			return outargs
+		end
+	end
+	
+	
+	def test_duplicate_arg
+		
+		
+	assert_raises UPnP::SetupError do	
+		@root = UPnP::RootDevice.new(:type => "SampleOne", :version => 1, :name => "sample1", :friendlyName => "SampleApp Root Device",
+			:product => "Sample/1.0", :manufacturer => "James", :modelName => "JamesSample",	:modelNumber => "43",
+			:modelURL => "github.com/jameswyper/tapiola", :cacheControl => 15,
+			:serialNumber => "12345678", :modelDescription => "Sample App Root Device, to illustrate use of tapiola UPnP framework", 
+			:URLBase => "test", :ip => "127.0.0.1", :port => 54323, :logLevel => Logger::INFO)
+		
+		@serv1 = UPnP::Service.new("Math",1)
+		
+		@sv1 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_FIRST")
+		@sv2 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_SECOND")		
+		@sv3 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_OUT")		
+		@sv4 = UPnP::StateVariableInt.new( :name => "COUNT", :evented => true)		
+		
+		@adder = Adder.new
+
+		@act1 = UPnP::Action.new("Add",@adder,:add)
+		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv2),2)
+		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv1),1)
+		@act1.addArgument(UPnP::Argument.new("Result",:out,@sv3,true),1)
+		
+		@serv1.addStateVariables(@sv1, @sv2, @sv3, @sv4)
+
+		@serv1.addAction(@act1)
+		
+		@root.addService(@serv1)		
+		Thread.new {@root.start}
+
+		@root.stop
+	end
+		
+	end
+	
+	
+	def teardown
+
+		
+	end
+
+end
+
+class TestBadAction_3 < Minitest::Test
+	
+	
+	class Adder
+		def initialize
+			@count = 0
+		end
+		def add(inargs,service)
+			outargs = Hash.new
+			@count += 1
+			outargs["Result"] = inargs["First"] + inargs["Second"]
+			return outargs
+		end
+	end
+	
+	
+	def test_retval_wrong_place
+		
+		
+	assert_raises UPnP::SetupError do	
+		@root = UPnP::RootDevice.new(:type => "SampleOne", :version => 1, :name => "sample1", :friendlyName => "SampleApp Root Device",
+			:product => "Sample/1.0", :manufacturer => "James", :modelName => "JamesSample",	:modelNumber => "43",
+			:modelURL => "github.com/jameswyper/tapiola", :cacheControl => 15,
+			:serialNumber => "12345678", :modelDescription => "Sample App Root Device, to illustrate use of tapiola UPnP framework", 
+			:URLBase => "test", :ip => "127.0.0.1", :port => 54324, :logLevel => Logger::INFO)
+		
+		@serv1 = UPnP::Service.new("Math",1)
+		
+		@sv1 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_FIRST")
+		@sv2 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_SECOND")		
+		@sv3 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_OUT")		
+		@sv5 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_OUT2")		
+		@sv4 = UPnP::StateVariableInt.new( :name => "COUNT", :evented => true)		
+		
+		@adder = Adder.new
+
+		@act1 = UPnP::Action.new("Add",@adder,:add)
+		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv2),2)
+		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv1),1)
+		@act1.addArgument(UPnP::Argument.new("Result",:out,@sv5,true),2)
+		@act1.addArgument(UPnP::Argument.new("Result",:out,@sv3),1)
+		
+		@serv1.addStateVariables(@sv1, @sv2, @sv3, @sv4, @sv5)
+
+		@serv1.addAction(@act1)
+		
+		@root.addService(@serv1)		
+		Thread.new {@root.start}
+
+		@root.stop
+	end
+		
+	end
+	
+	
+	def teardown
+
+		
+	end
+
+end

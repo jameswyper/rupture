@@ -37,7 +37,7 @@ Return Value flag - if this is the return value for the Action set to true. Defa
 	
 	def initialize(n,d,s, r=false)
 
-		if ((d != :in) && (d != :out))  then raise "Argument initialize method: direction not :in or :out, was #{d}" end
+		if ((d != :in) && (d != :out))  then raise  SetupError, "Argument initialize method: direction not :in or :out, was #{d}" end
 		
 		@name = n
 		@relatedStateVariable = s
