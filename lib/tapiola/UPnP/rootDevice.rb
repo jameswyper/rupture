@@ -161,6 +161,8 @@ class RootDevice < Device
 		@descriptionAddr = "/#{@urlBase}/description"
 		
 		@location= "http://#{@ip}:#{@port}#{@descriptionAddr}/description.xml"
+		
+		@eventQueue = Queue.new
 	
 		$log.info "Listening on #{@ipPort}"
 	end
@@ -581,27 +583,27 @@ Stops the WEBrick server
 
 =end
 		
+	
+	def queueEvent(subscription,stateVariables)
+		eventQueue.push([subscription,stateVariables])
+	end
+	
+	
+	
 	def eventingStart
 		@eventingRunning = true
-		@eventTriggers = Queue.new
 		
 		@eventPublisher = Thread.new do
 			loop do
-				m = @eventTriggers.pop
-				m.service.subscriptions do |s|
-					unless s.expired?
-						delivered = false
-						x = 0
-						until ((delivered ||  (x >= s.callbackURLs.size) ) )do
-							msg = "NOTIFY #{s.callbackURLs[x]} HTTP/1.1\r\n"
-
-							msg << StateVariable.eventsXML([m])
-							#assemble event message (header from subscription, body from statevariables class method)
-							#send via Httpclient
-							#set delivered if sent OK
-						end
-						s.increment
-					end
+				m = @eventQueue.pop
+				sub = m[0]
+				svars = m[1]
+				if sub.expired?
+					sub.service.removeSubscription(sub)
+				else
+#					msg << StateVariable.eventsXML([m])
+	#send the message, increment sub if OK, remove it if not
+	
 				end
 			end
 		end
@@ -615,7 +617,7 @@ Stops the WEBrick server
 							if v.moderatedByRate?
 								t = Time.now
 								if ((t - v.lastEventedTime) > v.maximumRate)
-									@eventTriggers.push(v)
+									@eventQueue.push(v)
 									v.lastEventedTime = t
 								end
 							end
@@ -681,9 +683,12 @@ From that we can process the request, parse the URL and call the appropriate ser
 =end
 
 class HandleServices < WEBrick::HTTPServlet::AbstractServlet
-	
-#Process a HTTP GET request (ie call to description or event subscription URLs)
-	def do_GET (req, res)
+
+=begin rdoc
+Parse the URL and attempt to extract the device and service name from it
+Find out what we are being asked to do, and call the appropriate handleXXXXX method on the service
+=end
+	def generic_do (req,res,method,urlEnd,serviceHandler)
 		root = @options[0]
 		
 		
@@ -701,15 +706,10 @@ class HandleServices < WEBrick::HTTPServlet::AbstractServlet
 			if device
 				service = device.services[servicename]
 				if service
-					case what
-					when "description"
-						service.handleDescription(req,res)
-					when "event"
-						c = service.handleEvent(req,res)
-						# add error handling
-						# check this might need to go into do_post
+					if (what == urlEnd)
+						service.send(serviceHandler,req,res)
 					else
-						$log.warn("rootDevice.rb/HandleServices control / event / description not specified, this was instead:#{what}")
+						$log.warn("rootDevice.rb/HandleServices control / event / description not specified, this was instead:#{what}, with http method #{method}")
 						$log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
 						raise WEBrick::HTTPStatus::NotFound
 					end
@@ -728,53 +728,28 @@ class HandleServices < WEBrick::HTTPServlet::AbstractServlet
 			raise WEBrick::HTTPStatus::NotFound
 		end
 		
+	end
+
+
+#Process a HTTP GET request (ie call to description URL)
+	def do_GET (req, res)
+		generic_do(req,res,:GET,"description",:handleDescription)
 	end
 	
 #Process a HTTP POST request (ie call to control URL)
-def do_POST (req, res)
-		root = @options[0]
-		
-		
-		rex  = /.*#{root.urlBase}\/services\/(.*)\/(.*)\/(.*).xml/ 
-		m = rex.match(req.path)
-		devicename = m[1]
-		servicename = m[2]
-		what = m[3]
-		
-		$log.debug ("rootDevice.rb/HandleService path is #{req.path}") 
-		$log.debug ("rootDevice.rb/HandleServices device:#{devicename}, service:#{servicename}, what:#{what}")
-		
-		if (devicename && servicename && what)
-			device = root.devices[devicename]
-			if device
-				service = device.services[servicename]
-				if service
-					case what
-					when "control"
-						service.handleControl(req,res)
-					else
-						$log.warn("rootDevice.rb/HandleServices control / event / description not specified, this was instead:#{what}")
-						$log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
-						raise WEBrick::HTTPStatus::NotFound
-					end
-				else
-					$log.warn ("rootDevice.rb/HandleServices attempt made to use unknown service:#{servicename} on device #{devicename}")
-					$log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
-					raise WEBrick::HTTPStatus::NotFound
-				end
-			else
-				$log.warn ("rootDevice.rb/HandleServices attempt made to use unknown device:#{devicename}")
-				$log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
-				raise WEBrick::HTTPStatus::NotFound
-			end
-		else
-			$log.warn("rootDevice.rb/HandleServices URL:#{req.path} did not parse")
-			raise WEBrick::HTTPStatus::NotFound
-		end
-		
+	def do_POST (req, res)
+		generic_do(req,res,:POST,"control",:handleControl)
 	end
 
-
+	def do_SUBSCRIBE(req,res)
+		generic_do(req,res,:SUBSCRIBE,"event",:handleSubscribe)
+	end
+	
+	def do_UNSUBSCRIBE(req,res)
+		generic_do(req,res,:UNSUBSCRIBE,"event",:handleUnsubscribe)
+	end
+	
+	
 end
 
 =begin rdoc

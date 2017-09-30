@@ -46,10 +46,11 @@ class TestSimpleAction < Minitest::Test
 	
 	
 	class Adder
-		def initialize
+		def initialize(sv)
 			@count = 0
+			@stateVariables = sv
 		end
-		def add(inargs,service)
+		def add(inargs)
 			outargs = Hash.new
 			@count += 1
 			outargs["Result"] = inargs["First"] + inargs["Second"]
@@ -74,7 +75,7 @@ class TestSimpleAction < Minitest::Test
 		@sv3 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_OUT")		
 		@sv4 = UPnP::StateVariableInt.new( :name => "COUNT", :evented => true)		
 		
-		@adder = Adder.new
+		@adder = Adder.new(@serv1.stateVariables)
 
 		@act1 = UPnP::Action.new("Add",@adder,:add)
 		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv2),2)
@@ -476,10 +477,11 @@ class TestBadAction_1 < Minitest::Test
 	
 	
 	class Adder
-		def initialize
+		def initialize(sv)
 			@count = 0
+			@stateVariables = sv			
 		end
-		def add(inargs,service)
+		def add(inargs)
 			outargs = Hash.new
 			@count += 1
 			outargs["Result"] = inargs["First"] + inargs["Second"]
@@ -505,7 +507,7 @@ class TestBadAction_1 < Minitest::Test
 		@sv3 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_OUT")		
 		@sv4 = UPnP::StateVariableInt.new( :name => "COUNT", :evented => true)		
 		
-		@adder = Adder.new
+		@adder = Adder.new(@serv1.stateVariables)
 
 		@act1 = UPnP::Action.new("Add",@adder,:add)
 		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv2),2)
@@ -536,10 +538,11 @@ class TestBadAction_2 < Minitest::Test
 	
 	
 	class Adder
-		def initialize
+		def initialize(sv)
 			@count = 0
+			@stateVariables = sv			
 		end
-		def add(inargs,service)
+		def add(inargs)
 			outargs = Hash.new
 			@count += 1
 			outargs["Result"] = inargs["First"] + inargs["Second"]
@@ -565,7 +568,7 @@ class TestBadAction_2 < Minitest::Test
 		@sv3 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_OUT")		
 		@sv4 = UPnP::StateVariableInt.new( :name => "COUNT", :evented => true)		
 		
-		@adder = Adder.new
+		@adder = Adder.new(@serv1.stateVariables)
 
 		@act1 = UPnP::Action.new("Add",@adder,:add)
 		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv2),2)
@@ -596,10 +599,11 @@ class TestBadAction_3 < Minitest::Test
 	
 	
 	class Adder
-		def initialize
+		def initialize(sv)
 			@count = 0
+			@stateVariables = sv			
 		end
-		def add(inargs,service)
+		def add(inargs)
 			outargs = Hash.new
 			@count += 1
 			outargs["Result"] = inargs["First"] + inargs["Second"]
@@ -626,7 +630,7 @@ class TestBadAction_3 < Minitest::Test
 		@sv5 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_OUT2")		
 		@sv4 = UPnP::StateVariableInt.new( :name => "COUNT", :evented => true)		
 		
-		@adder = Adder.new
+		@adder = Adder.new(@serv1.stateVariables)
 
 		@act1 = UPnP::Action.new("Add",@adder,:add)
 		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv2),2)

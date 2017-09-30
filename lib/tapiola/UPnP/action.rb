@@ -139,16 +139,31 @@ Adds an existing argument to the Action.  The spec says that arguments must have
 	
 =begin rdoc
 
-	The object / method passed to the Action during initialisation is called.  This is how non-UPnP code is linked to the UPnP processing.  The method MUST accept the following, in order:
+	The object / method passed to the Action during initialisation is called.  This is how non-UPnP code is linked to the UPnP processing.  The method MUST accept the a	Hash containing all the parameters (in arguments) the action was invoked with (name/value pairs).
 	
-	Hash containing all the parameters (in arguments) the action was invoked with (name/value pairs)
-	Service object (so that State Variables may be changed)
+	The method should change any State Variables that it needs to; the cleanest way to achieve this is to pass the stateVariables of the service to the object when it is initialised eg
 	
-	The method should (via the service object) change any State Variables that it needs to
-	The method may be called concurrently, if this is a problem then use a Mutex or similar approach inside the 	thread-critical code to ensure it's single threaded (it will be necessary to do this when appending to a State Variable or	incrementing a count held in one, for example)
+	myserv = UPnP::Service.new("example",1)
+	
+	class My_non_UPnP_class
+	    def initialize(s)
+			@stateVariables = s
+		end
+		def do_action(inargs)
+		   .. do things here..
+		   @stateVariables["VAR_NAME"].assign(1)
+		end
+	end
+	
+	my_non_UPnP_obj = My_non_UPnP_class.New(myserv.stateVariables)
+	
+	
+	
+	The method may be called concurrently, if this is a problem then use a Mutex or similar approach inside the thread-critical code to ensure it's single threaded (it will be necessary to do this when appending to a State Variable or incrementing a count held in one, for example)
 	
 	The method MUST return a Hash containing name/value pairs of all out arguements.
 	If it encounters an error it must raise an ActionError exception
+	It should handle StateVariable exceptions if it changes any state variables
 
 =end
 	
@@ -159,7 +174,7 @@ Adds an existing argument to the Action.  The spec says that arguments must have
 			$log.error("Can't invoke #{@method} on #{@object}")
 		else
 			begin
-				outargs = @object.send(@method,params,@service)
+				outargs = @object.send(@method,params)
 			rescue ActionError => e
 				$log.error("Problem when invoking #{@method} on #{@object} #{e}")
 				raise

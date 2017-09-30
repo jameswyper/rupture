@@ -122,7 +122,11 @@ myService = Service.new(.....)
 
 None of the code in the Device or Service classes (other than during initialisation), affects the data in those classes, it's effectively "read only" code.  So it should be thread-safe.
 
-Actions need to be associated with a non-UPnP object that represents the work taking place.  Each action is mapped to a method on this object that must accept a set of arguments (name/value pairs in a hash) and the UPnP Service object.  The reason for including the Service object is to allow the action to query and manipulate State Variables - I might change this to just be the collection of State Variables at some point.
+Actions need to be associated with methods on one or more non-UPnP object that represents the work taking place.  In most cases I expect applications to define a single class representing each UPnP service, with methods for each action, but this isn't essential.  What is important is that these methods can access the services State Variables and the most convenient way of doing this is to pass the @stateVariables instance variable for the service to the non-UPnP object when it is initialised.
+
+Each of the methods that perform actions must take a hash of the input arguments and return a hash of the output ones.
+
+This will probably make more sense if you review the code for the sample application.
 
 
 ## known limitations and bugs
@@ -131,5 +135,5 @@ These are things that I'm unlikely to bother to fix
 
 - The code doesn't check that every device has at least one service
 - No testing has been done on pathological cases where a root and embedded device offer the same service
-- The code doesn't check that if a service is provided at version 2 (or later), earlier version(s) of the service are also provided
+- The code doesn't check that if a service is provided at version 2 (or later), earlier version(s) of the service are also provided.  In fact I'm not sure that it could handle this at present..
 - The code assumes (but doesn't check) that only standard UPnP device and service types are being used - handling of deviceType and serviceId tags in the description XML would need to improve to fix this

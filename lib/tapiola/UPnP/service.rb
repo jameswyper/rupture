@@ -163,7 +163,7 @@ returns a REXML::Document object containing the UPnP Service Description XML
 
 	end
 	
-	
+=begin	
 	def handleEvent(req, res)
 	
 	#decode the XML
@@ -184,9 +184,95 @@ returns a REXML::Document object containing the UPnP Service Description XML
 	#delete expired subscriptions
 	
 	#create response
+		
+	end
+=end
 	
+	def handleSubscribe(req,res)
+		
+		$log.debug("Event subscription request, headers follow")
+		req.headers.each { |k,v| $log.debug ("Header: #{k} Value: #{v}") }
+		
+		host = req.headers["host"]
+		nt = req.headers["nt"]
+		callback = req.headers["callback"]
+		timeout = req.headers["timeout"]
+		sid = req.headers["sid"]
+
+		seconds = 0
+		if timeout
+			md = /seconds-\\d+/.match(timeout)
+			if (md)
+				seconds = md[1]
+			end
+		end
+
+		if !host
+			res.code = 400
+			$log.warn("event subscription with no host header")
+		else
+			if (nt != "upnp:event") && (!sid)
+				res.code = 412
+				$log.warn("event subscription with no nt header")
+			else
+				if callback && !sid
+					if  callback =~ URI::regexp
+						Subscription.new(self,callback,seconds)
+					else
+						res.code = 412
+						$log.warn("invalid callback url #{callback} received for event subscription")
+					end
+				else
+					if sid && !callback
+						if !nt  #then create the renewal
+							sub = @subscriptions[sid]
+							if sub
+								sub.renew(seconds)
+							else
+								res.code = 412
+								$log.warn("SID #{sid} not found for subscription renewal")
+							end
+						else
+							res.code = 400 # specified SID and NT together
+							$log.warn("SID and NT headers both found in event subscription")
+						end
+					else
+						res.code = 400 
+						$log.warn("SID and Callback headers both found in event subscription")
+					end
+				end
+			end
+		end
+					
+	end
 	
+	def handleUnsubscribe(req,res)
+		$log.debug("Event subscription cancellation request, headers follow")
+		req.headers.each { |k,v| $log.debug ("Header: #{k} Value: #{v}") }
+		
+		host = req.headers["host"]
+		sid = req.headers["sid"]		
+		
+		if !host
+			res.code = 400
+			$log.warn("event subscription with no host header")
+		else
+			sub = @subscriptions[sid]
+			if sub
+				sub.cancel
+			else
+				res.code = 412
+				$log.warn("SID #{sid} not found for subscription cancellation")				
+			end
+		end
+	end
 	
+	def addSubscription(sub)
+		@subscriptions[sub.sid] = sub
+	end
+	
+	def removeSubscription(sub)
+		@subscriptions[sub.sid].delete
 	end
 	
 =begin

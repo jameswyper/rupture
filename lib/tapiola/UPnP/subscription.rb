@@ -9,26 +9,24 @@ module UPnP
 class Subscription
 	attr_reader :sid
 	attr_reader :expiryTime
-	attr_reader :callbackURLs
+	attr_reader :callbackURL
 	attr_reader :eventSeq
-	
-	def initialise(callback, expiry)
+
+	def initialize(service,callback, expiry)
 		self.renew(expiry)
-		@callbackURLs = Array.new
-		@sid = SecureRandom.uuid
+		@callbackURL = callback
+		@sid = "uuid:" + SecureRandom.uuid
 		@eventSeq = 0
-		#TODO #parse callback line and put into array
-		#TODO find a way of ensuring all evented variables are sent
+		@service = service
+		@service.addSubscription(self)
+
+#request the initial subscription
+		service.device.rootDevice.queueEvent(self,service.stateVariables.values)
 		
-		#if callback can't be parsedlog.warn
 	end
 	
 	def expired?
-		(@expiryTime <= Time.now)
-	end
-	
-	def invalid?
-		(@callbackURLs.size == 0)
+		(@expiryTime) && (@expiryTime <= Time.now)
 	end
 	
 	def renew(expiry)
@@ -45,6 +43,7 @@ class Subscription
 	
 	def increment
 		@eventSeq += 1
+		if @eventSeq > 4294967295 then @eventSeq = 1 end
 	end
 
 end

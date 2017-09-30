@@ -22,7 +22,7 @@ The rough plan of attack is
 
 - create some generic classes for UPnP devices and services [underway]
 - create a server that will handle SSDP discovery & advertisement (basically a simple, threaded UDP server) [done and tested]
-- extend this to add generic handling of Description [underway], Control [underway], Eventing [underway] and (maybe) Presentation [done]
+- extend this to add generic handling of Description [done, mostly tested], Control [done, half-tested], Eventing [underway] and (maybe) Presentation [done]
 - start specialising the classes to handle serving audio
 - create the virtual container hierarchy
 - get the specialised classes to use that..

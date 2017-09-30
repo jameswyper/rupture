@@ -22,7 +22,6 @@ High
 
 Medium
 
-19. Test_discovery - reject anything coming from other devices on network
 20.  Test_discovery - fix random bug on Lenovo
 10. Sample application
 12. Test suite based on Sample application including devices / services that don't validate
