@@ -1,0 +1,7 @@
+
+
+class Response
+
+	def sendResponse(s)
+	end
+end

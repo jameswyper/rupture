@@ -20,9 +20,6 @@ class Subscription
 		@service = service
 		@service.addSubscription(self)
 
-#request the initial subscription
-		service.device.rootDevice.queueEvent(self,service.stateVariables.values)
-		
 	end
 	
 	def expired?

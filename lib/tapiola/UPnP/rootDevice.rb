@@ -694,37 +694,37 @@ Find out what we are being asked to do, and call the appropriate handleXXXXX met
 		
 		rex  = /.*#{root.urlBase}\/services\/(.*)\/(.*)\/(.*).xml/ 
 		m = rex.match(req.path)
-		devicename = m[1]
-		servicename = m[2]
-		what = m[3]
+		if m && (m.size == 4)
+			devicename = m[1]
+			servicename = m[2]
+			what = m[3]
+		else
+			$log.warn("rootDevice.rb/HandleServices URL:#{req.path} did not parse")
+			raise WEBrick::HTTPStatus::NotFound
+		end
 		
 		$log.debug ("rootDevice.rb/HandleService path is #{req.path}") 
 		$log.debug ("rootDevice.rb/HandleServices device:#{devicename}, service:#{servicename}, what:#{what}")
 		
-		if (devicename && servicename && what)
-			device = root.devices[devicename]
-			if device
-				service = device.services[servicename]
-				if service
-					if (what == urlEnd)
-						service.send(serviceHandler,req,res)
-					else
-						$log.warn("rootDevice.rb/HandleServices control / event / description not specified, this was instead:#{what}, with http method #{method}")
-						$log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
-						raise WEBrick::HTTPStatus::NotFound
-					end
+		device = root.devices[devicename]
+		if device
+			service = device.services[servicename]
+			if service
+				if (what == urlEnd)
+					service.send(serviceHandler,req,res)
 				else
-					$log.warn ("rootDevice.rb/HandleServices attempt made to use unknown service:#{servicename} on device #{devicename}")
+					$log.warn("rootDevice.rb/HandleServices control / event / description not specified, this was instead:#{what}, with http method #{method}")
 					$log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
 					raise WEBrick::HTTPStatus::NotFound
 				end
 			else
-				$log.warn ("rootDevice.rb/HandleServices attempt made to use unknown device:#{devicename}")
+				$log.warn ("rootDevice.rb/HandleServices attempt made to use unknown service:#{servicename} on device #{devicename}")
 				$log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
 				raise WEBrick::HTTPStatus::NotFound
 			end
 		else
-			$log.warn("rootDevice.rb/HandleServices URL:#{req.path} did not parse")
+			$log.warn ("rootDevice.rb/HandleServices attempt made to use unknown device:#{devicename}")
+			$log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
 			raise WEBrick::HTTPStatus::NotFound
 		end
 		

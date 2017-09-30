@@ -17,7 +17,10 @@ TODO
 High
 
 
-15. Events - moderator and subscriber threads need to be part of the root device.
+15. Events
+- need to cater for resetting after events
+- code header responses for sub / cancel sub / renew
+- how to notify when socket response has been sent?
 
 
 Medium
@@ -33,7 +36,7 @@ Medium
 Low
 
 17.  If an optional Action is called that hasn't been coded we should return error code 602 (optional not implemented) not 401 (invalid action) - this requires us to allow Service to maintain a list of optional, unimplemented actions
-1. Webrick Servlets - make existing do_method generic and call it
+
 2. Logging (debug) - add File / method / object references to each statement [need to test]
 4. Write method to start / stop all servers, including validation of device / service data
 6.  allow PresentationURL to be overridden and not mounted

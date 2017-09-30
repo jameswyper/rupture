@@ -191,35 +191,50 @@ returns a REXML::Document object containing the UPnP Service Description XML
 	def handleSubscribe(req,res)
 		
 		$log.debug("Event subscription request, headers follow")
-		req.headers.each { |k,v| $log.debug ("Header: #{k} Value: #{v}") }
+		req.header.each { |k,v| $log.debug ("Header: #{k} Value: #{v}") }
 		
-		host = req.headers["host"]
-		nt = req.headers["nt"]
-		callback = req.headers["callback"]
-		timeout = req.headers["timeout"]
-		sid = req.headers["sid"]
+		host = req.header["host"][0]
+		nt = req.header["nt"][0]
+		callback = req.header["callback"][0]
+		timeout = req.header["timeout"][0]
+		sid = req.header["sid"][0]
 
 		seconds = 0
 		if timeout
 			md = /seconds-\\d+/.match(timeout)
 			if (md)
 				seconds = md[1]
+				if seconds < 1800 then seconds = 1800 end
 			end
 		end
 
 		if !host
-			res.code = 400
+			res.status = 400
 			$log.warn("event subscription with no host header")
 		else
 			if (nt != "upnp:event") && (!sid)
-				res.code = 412
+				res.status = 412
 				$log.warn("event subscription with no nt header")
 			else
 				if callback && !sid
 					if  callback =~ URI::regexp
-						Subscription.new(self,callback,seconds)
+						sub = Subscription.new(self,callback,seconds)
+
+
+						def res.send_response(sock)
+							self.class.instance_method(:send_response).bind(self).call(sock)
+							puts "la la la"
+						end
+						
+						if seconds == 0
+							res.header["timeout"] = "infinite"
+						else
+							res.header["timeout"] = "seconds-#{seconds}"
+						end
+						res.header["sid"] = sub.sid
+						
 					else
-						res.code = 412
+						res.status = 412
 						$log.warn("invalid callback url #{callback} received for event subscription")
 					end
 				else
@@ -229,16 +244,16 @@ returns a REXML::Document object containing the UPnP Service Description XML
 							if sub
 								sub.renew(seconds)
 							else
-								res.code = 412
+								res.status = 412
 								$log.warn("SID #{sid} not found for subscription renewal")
 							end
 						else
-							res.code = 400 # specified SID and NT together
+							res.status = 400 # specified SID and NT together
 							$log.warn("SID and NT headers both found in event subscription")
 						end
 					else
-						res.code = 400 
-						$log.warn("SID and Callback headers both found in event subscription")
+						res.status = 400 
+						$log.warn("SID and Callback headers neither or both found in event subscription")
 					end
 				end
 			end
@@ -248,20 +263,20 @@ returns a REXML::Document object containing the UPnP Service Description XML
 	
 	def handleUnsubscribe(req,res)
 		$log.debug("Event subscription cancellation request, headers follow")
-		req.headers.each { |k,v| $log.debug ("Header: #{k} Value: #{v}") }
+		req.header.each { |k,v| $log.debug ("Header: #{k} Value: #{v}") }
 		
-		host = req.headers["host"]
-		sid = req.headers["sid"]		
+		host = req.header["host"]
+		sid = req.header["sid"]		
 		
 		if !host
-			res.code = 400
+			res.status = 400
 			$log.warn("event subscription with no host header")
 		else
 			sub = @subscriptions[sid]
 			if sub
 				sub.cancel
 			else
-				res.code = 412
+				res.status = 412
 				$log.warn("SID #{sid} not found for subscription cancellation")				
 			end
 		end
