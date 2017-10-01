@@ -19,7 +19,17 @@ class Subscription
 		@eventSeq = 0
 		@service = service
 		@service.addSubscription(self)
+		@active=false
 
+	end
+		
+	def activate
+		@active=true
+	end
+	
+# A subscription is not active until we are sure that the subscriber has received the acknowledgement to their subscription request and knows the SID
+	def active?
+		@active
 	end
 	
 	def expired?

@@ -220,12 +220,28 @@ returns a REXML::Document object containing the UPnP Service Description XML
 					if  callback =~ URI::regexp
 						sub = Subscription.new(self,callback,seconds)
 
+=begin
+	The next few lines of code need a bit of explanation.  We cannot send the initial subscription message (containing the values of all the state variables) until we are sure that the subscriber has received the response to their subscription request.  But Webrick doesn't provide a way of telling us that this has happened.  
+	So what we do is to override the send_response method within Webrick by creating a singleton method (ie one that's assoicated with just this instance of the res object, not the whole class).  We also attach an extra variable to this object, a reference to the subscription we are setting up via a second singleton method.
+	The first singleton (send_response) firstly locates and calls the original send_response method for the res object and calls that.  That means we know that the subscriber has received the SID and it's OK to send the initial subscription message.  So we then queue that up for sending, and set the subscription as active (ie subsequent changes to the evented state variables for the service will be sent via this subscription).  Note that this singleton is *defined* here but it's not actually *executed* until Webrick processes the response later on.
+	The second singleton simply stores the subscription for the first method to use later, it needs to run here and now so it is first defined and then executed.
+	
+	I love that Ruby allows you to do this kind of thing but I still can't decide whether it's brilliant or horrible that I've done it.
+=end
 
 						def res.send_response(sock)
 							self.class.instance_method(:send_response).bind(self).call(sock)
-							puts "la la la"
+							@stashed_sub.service.device.rootDevice.queueEvent(@stashed_sub.service.stateVariables.values)
+							@stashed_sub.activate
 						end
 						
+						def res.stash_subscription
+							@stashed_sub = sub
+						end
+						
+						res.stash_subscription
+						
+# create the headers for the http response
 						if seconds == 0
 							res.header["timeout"] = "infinite"
 						else
@@ -265,19 +281,31 @@ returns a REXML::Document object containing the UPnP Service Description XML
 		$log.debug("Event subscription cancellation request, headers follow")
 		req.header.each { |k,v| $log.debug ("Header: #{k} Value: #{v}") }
 		
-		host = req.header["host"]
-		sid = req.header["sid"]		
+		host = req.header["host"][0]
+		sid = req.header["sid"][0]
+		nt = req.header["nt"][0]
+		callback = req.header["callback"][0]		
 		
 		if !host
 			res.status = 400
 			$log.warn("event subscription with no host header")
 		else
-			sub = @subscriptions[sid]
-			if sub
-				sub.cancel
-			else
+			if (!sid)
 				res.status = 412
-				$log.warn("SID #{sid} not found for subscription cancellation")				
+				$log.warn("No SID header for subscription cancellation")				
+			else
+				if (nt || callback)
+					res.status = 400
+					$log.warn("NT and CALLBACK headers for subscription cancellation")				
+				else
+					sub = @subscriptions[sid]	
+					if sub
+						sub.cancel
+					else
+						res.status = 412
+						$log.warn("SID #{sid} not found for subscription cancellation")				
+					end
+				end
 			end
 		end
 	end

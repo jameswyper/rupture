@@ -20,7 +20,9 @@ High
 15. Events
 - need to cater for resetting after events
 - code header responses for sub / cancel sub / renew
-- how to notify when socket response has been sent?
+- add default expiry time as root device parameter
+- check for activation before processing sub message
+- put the xml together and use httpclient to send NOTIFY message
 
 
 Medium
