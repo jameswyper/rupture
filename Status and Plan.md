@@ -23,17 +23,18 @@ High
 - add default expiry time as root device parameter
 - check for activation before processing sub message
 - put the xml together and use httpclient to send NOTIFY message
-
+- test, test and test again
 
 Medium
 
-20.  Test_discovery - fix random bug on Lenovo
+20.  Test_discovery - fix random bug on Lenovo VM
 10. Sample application
 12. Test suite based on Sample application including devices / services that don't validate
 18. Extend range of state variables
 7.  write code to serve icons
 16. Add option to state variable to reset after eventing takes place
 21.  Check discovery returns correct http headers and add to test
+23.  Replace Webrick
 
 Low
 
@@ -45,6 +46,7 @@ Low
 8.  allow logging object to be overridden
 9.  URLBase needs to be a property of the root device not the device
 11. Copyright notices
+22. Gemspec and test install on a clean VM.  Ideally at least one non-Ubuntu one too.
 
 ##TEST PLAN
 
@@ -92,7 +94,6 @@ it's possible to spy on traffic in and out of the gupnp program and from that I 
 
 "rdoc lib" to document everything
 run a unit test just by running the __test.rb file
-use REXML for starters to create / parse XML, switch the Nokogiri and/or builder if needed
 
 ##Eventing - how it's going to work
 
