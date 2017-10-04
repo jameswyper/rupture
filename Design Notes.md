@@ -82,6 +82,13 @@ All HTTP serving is handled by WEBrick, so for example the device Description is
 
 For device Presentation, Service Description, Service Control and Event Subscription, all this is again HTTP traffic so handled by WEBrick.  A couple of methods derived from WEBrick servlets will parse the incoming URLs and work out which action (Description / Control / Subscription / Presentation) is required on which Device / Service, then call the appropriate class method for that Device or Service to action the request and create the response.
 
+Note there are a couple of good reasons why I'm likely to move away from WEBrick in the future
+
+1.  The UPnP specification requires that a client control point should not be sent any event notifications until it has received confirmation that its subscription has been accepted.  WEBrick does not provide a way of signalling when it has completed the send of its reponse back to a client, so it's possible for a subscription to be set up and (because of activity in another thread) an event sent for it immediately, before the confirmation response has been assembled and sent back - a kind of race condition.  Simply pausing all event notifications for a few milliseconds when processing a subscription might fix this, but I've chosen a solution that's either brilliant or tackier, depending on your point of view.  It's documented in the subscription code and involves overriding what's effectively a private method within WEBrick so isn't guaranteed to stay stable as WEBrick evolves.
+
+2.  At some point I'd like to offer streaming / transcoding and WEBrick doesn't support chunked transfer encoding properly.
+
+My HTTP server needs are fairly simple so something based on gserver ought to do.
 ### Events
 
 For Eventing, a further two threads are needed. When a state variable changes, it can (as already mentioned) be moderated or unmoderated.  If the variable is unmoderated a change will immediately be pushed to an event queue.  
