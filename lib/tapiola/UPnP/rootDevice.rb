@@ -612,7 +612,7 @@ Stops the WEBrick server
 						
 #						puts "sending http request with body #{body}"
 						res = httpClient.request("NOTIFY",sub.callbackURI,:body=>body,
-							:header =>{"nt"=>"upnp:event","nts"=>"sid:propchange","content-type"=>"text/xml",
+							:header =>{"nt"=>"upnp:event","nts"=>"upnp:propchange","content-type"=>"text/xml",
 							"host"=>sub.callbackHost,"sid"=>sub.sid,"seq"=>sub.eventSeq.to_s})
 					rescue => e
 						puts "#{e.message} for subscription to #{sub.callbackURI} sid:#{sub.sid} number:#{sub.eventSeq}"

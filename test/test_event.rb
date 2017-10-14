@@ -9,7 +9,16 @@ require 'pry'
 require 'httpclient'
 require 'webrick'
 
+=begin
 
+proper subscription
+one with infinite timeout
+one with actual timeout
+one with below minimum timeout
+
+	
+
+=end
 
 class TestSimpleAction < Minitest::Test
 	
@@ -27,20 +36,82 @@ class TestSimpleAction < Minitest::Test
 		end
 	end
 	
-	class SubscriberServlet < WEBrick::HTTPServlet::AbstractServlet
-		def do_NOTIFY(req,res)
-			$eventMsgs.push([req.header,req.body])
+
+	class Subscriber
+
+		class SubscriberServlet < WEBrick::HTTPServlet::AbstractServlet
+			def do_NOTIFY(req,res)
+				$eventMsgs[@options[0]].push([req.header,req.body,Time.now])
+			end
 		end
+	
+
+		def initialize(port)
+			@port = port
+			@webserver = WEBrick::HTTPServer.new(:Port=>port)
+			@webserver.mount "/messageshere",SubscriberServlet, port
+			Thread.new {@webserver.start}
+			$eventMsgs[@port]=Queue.new
+		end
+		
+		def stop
+			@webserver.stop
+		end
+
+		def subscribe(uri,timeout=nil)
+			c = HTTPClient.new
+			if timeout
+				d= c.request("SUBSCRIBE",uri,:header =>{"nt"=>"upnp:event","timeout"=>"seconds-#{timeout}","callback"=>"localhost:#{@port}/messageshere/"})
+			else
+				d= c.request("SUBSCRIBE",uri,:header =>{"nt"=>"upnp:event","timeout"=>"infinite","callback"=>"localhost:#{@port}/messageshere/"})
+			end
+			@sid = d.headers["Sid"]
+			@headers = d.headers
+		end
+
+		attr_reader :headers, :sid
+
 	end
 	
+
+	def checkSubscriptionResponse(sub,expected)
+		expected.each do |k,v| 
+			assert_equal v, sub.headers[k], "On Subscription - Difference for header #{k}"
+		end
+		refute_nil(sub.sid,"Subscription ID is nil")
+	end
+	
+	
+	
+	def checkEventMessage(headers,body,expHeaders,expValues,context="")
+		expHeaders.each do |k,v| 
+			assert_equal v, headers[k][0], "#{context}: Event notification: Difference for header #{k}"
+		end
+		doc = REXML::Document.new(body)
 		
+		ps = REXML::XPath.match(doc, "//m:propertyset", {"m"=>"urn:schemas-upnp-org:event-1-0"})
+		p = REXML::XPath.match(doc, "//m:propertyset/m:property", {"m"=>"urn:schemas-upnp-org:event-1-0"})
+		
+		assert_equal(1, ps.size, "#{context}: Response XML didn't have exactly 1 propertyset element")
+		
+		h = Hash.new
+		
+		p.each do |prop|
+			assert_equal(1,prop.elements.size,"#{context}: Reponse XML didn't have one variable per property tag")
+			prop.each_element do |e|
+				h[e.name] = e.text
+			end
+		end
+		
+		assert_equal(expValues.size,h.size,"#{context}: Number of variables in notification")
+
+	end
+
 	def setup
 	
 		
-		$eventMsgs = Queue.new
-		@webserver = WEBrick::HTTPServer.new(:Port=>60000)
-		@webserver.mount "/messageshere",SubscriberServlet
-		Thread.new {@webserver.start}
+		$eventMsgs = Hash.new
+		@regular= Subscriber.new(60000)
 	
 		@root = UPnP::RootDevice.new(:type => "SampleOne", :version => 1, :name => "sample1", :friendlyName => "SampleApp Root Device",
 			:product => "Sample/1.0", :manufacturer => "James", :modelName => "JamesSample",	:modelNumber => "43",
@@ -69,7 +140,7 @@ class TestSimpleAction < Minitest::Test
 		@root.addService(@serv1)		
 		Thread.new {@root.start}
 
-		sleep(2)
+		sleep(0.1)
 	end
 	
 
@@ -80,18 +151,21 @@ class TestSimpleAction < Minitest::Test
 		
 		
 	uri = "http://127.0.0.1:54321/test/services/sample1/Math/event.xml"
-	
-	c = HTTPClient.new
-	
-	d= c.request("SUBSCRIBE",uri,:header =>{"nt"=>"upnp:event","timeout"=>"seconds-60","callback"=>"localhost:60000/messageshere/"})
-	
-	puts d.headers.inspect
+	@regular.subscribe(uri,60000)
 
-	x = $eventMsgs.pop
+	checkSubscriptionResponse(@regular,{ "Timeout" => "infinite" })
+
+	x = $eventMsgs[60000].pop
+
 	head = x[0]
 	body = x[1]
-	
 	puts head,body
+
+
+	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "0", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
+	{},"First event")
+	
+
 		
 	end
 	
@@ -99,7 +173,7 @@ class TestSimpleAction < Minitest::Test
 	def teardown
 
 	@root.stop
-	@webserver.stop
+	@regular.stop
 		
 	end
 
