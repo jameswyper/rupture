@@ -1,4 +1,7 @@
 
+#Copyright 2017 James Wyper
+
+
 require_relative 'common'
 require_relative 'stateVariable'
 require 'rexml/document'

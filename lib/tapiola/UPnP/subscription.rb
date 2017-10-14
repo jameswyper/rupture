@@ -1,7 +1,10 @@
 
+#Copyright 2017 James Wyper
+
 require_relative 'common'
 require 'rexml/document'
 require 'rexml/xmldecl'
+require 'uri'
 
 module UPnP
 
@@ -9,13 +12,17 @@ module UPnP
 class Subscription
 	attr_reader :sid
 	attr_reader :expiryTime
-	attr_reader :callbackURL
+	attr_reader :callbackURI
 	attr_reader :eventSeq
+	attr_reader :service
+	attr_reader :callbackHost
 
 	def initialize(service,callback, expiry)
 		self.renew(expiry)
-		@callbackURL = callback
-		@sid = "uuid:" + SecureRandom.uuid
+		url = "http://#{callback}" unless callback.start_with?('http')
+		@callbackURI = URI.parse(url)
+		@callbackHost = "#{@callbackURI.host}:#{@callbackURI.port}"
+		@sid = "uuid:#{SecureRandom.uuid}"
 		@eventSeq = 0
 		@service = service
 		@service.addSubscription(self)

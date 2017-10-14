@@ -1,4 +1,6 @@
 
+#Copyright 2017 James Wyper
+
 require_relative 'common'
 require_relative 'stateVariable'
 require 'rexml/document'
@@ -231,15 +233,15 @@ returns a REXML::Document object containing the UPnP Service Description XML
 
 						def res.send_response(sock)
 							self.class.instance_method(:send_response).bind(self).call(sock)
-							@stashed_sub.service.device.rootDevice.queueEvent(@stashed_sub.service.stateVariables.values)
-							@stashed_sub.activate
+							@stashedSub.service.device.rootDevice.queueEvent(@stashedSub,@stashedSub.service.stateVariables.values)
+							@stashedSub.activate
 						end
 						
-						def res.stash_subscription
-							@stashed_sub = sub
+						def res.stash_subscription(s)
+							@stashedSub = s
 						end
 						
-						res.stash_subscription
+						res.stash_subscription(sub)
 						
 # create the headers for the http response
 						if seconds == 0

@@ -1,4 +1,6 @@
 
+#Copyright 2017 James Wyper
+
 
 =begin
 Tests to do

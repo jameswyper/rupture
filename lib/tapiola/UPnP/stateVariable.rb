@@ -1,3 +1,6 @@
+
+#Copyright 2017 James Wyper
+
 require_relative 'common'
 require 'rexml/document'
 require 'rexml/xmldecl'
@@ -341,7 +344,7 @@ def validate(v)
 		doc = REXML::Document.new
 		doc << REXML::XMLDecl.new(1.0)
 		doc.add_element(p)
-		
+#		puts "Statevariable XML #{doc.to_s}"
 		return doc.to_s
 	end
 	
@@ -368,8 +371,8 @@ class StateVariableNumeric< StateVariable
 		super
 	end
 	
-	def represent(v)
-		v.to_s
+	def represent
+		@value.to_s
 	end
 
 end

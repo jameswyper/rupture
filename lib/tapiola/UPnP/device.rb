@@ -1,4 +1,6 @@
 
+#Copyright 2017 James Wyper
+
 require 'time'
 require 'pry'
 require 'rexml/document'

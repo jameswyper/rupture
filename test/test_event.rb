@@ -1,13 +1,13 @@
 
 
-
+#Copyright 2017 James Wyper
 
 require 'minitest/autorun'
 require_relative '../lib/tapiola/UPnP.rb'
 require  'rexml/document'
 require 'pry'
 require 'httpclient'
-
+require 'webrick'
 
 
 
@@ -27,10 +27,21 @@ class TestSimpleAction < Minitest::Test
 		end
 	end
 	
+	class SubscriberServlet < WEBrick::HTTPServlet::AbstractServlet
+		def do_NOTIFY(req,res)
+			$eventMsgs.push([req.header,req.body])
+		end
+	end
 	
 		
 	def setup
-
+	
+		
+		$eventMsgs = Queue.new
+		@webserver = WEBrick::HTTPServer.new(:Port=>60000)
+		@webserver.mount "/messageshere",SubscriberServlet
+		Thread.new {@webserver.start}
+	
 		@root = UPnP::RootDevice.new(:type => "SampleOne", :version => 1, :name => "sample1", :friendlyName => "SampleApp Root Device",
 			:product => "Sample/1.0", :manufacturer => "James", :modelName => "JamesSample",	:modelNumber => "43",
 			:modelURL => "github.com/jameswyper/tapiola", :cacheControl => 15,
@@ -58,7 +69,7 @@ class TestSimpleAction < Minitest::Test
 		@root.addService(@serv1)		
 		Thread.new {@root.start}
 
-
+		sleep(2)
 	end
 	
 
@@ -72,11 +83,15 @@ class TestSimpleAction < Minitest::Test
 	
 	c = HTTPClient.new
 	
-	d= c.request("SUBSCRIBE",uri,:header =>{"nt"=>"upnp:event","timeout"=>"seconds-60","callback"=>"localhost:60000"})
+	d= c.request("SUBSCRIBE",uri,:header =>{"nt"=>"upnp:event","timeout"=>"seconds-60","callback"=>"localhost:60000/messageshere/"})
 	
 	puts d.headers.inspect
 
-		
+	x = $eventMsgs.pop
+	head = x[0]
+	body = x[1]
+	
+	puts head,body
 		
 	end
 	
@@ -84,6 +99,7 @@ class TestSimpleAction < Minitest::Test
 	def teardown
 
 	@root.stop
+	@webserver.stop
 		
 	end
 

@@ -1,4 +1,7 @@
 
+#Copyright 2017 James Wyper
+
+
 require_relative 'device'
 
 require 'socket'
@@ -585,12 +588,15 @@ Stops the WEBrick server
 		
 	
 	def queueEvent(subscription,stateVariables)
-		eventQueue.push([subscription,stateVariables])
+		@eventQueue.push([subscription,stateVariables])
 	end
 	
 	
 	
 	def eventingStart
+		
+		httpClient = HTTPClient.new
+		
 		@eventingRunning = true
 		
 		@eventPublisher = Thread.new do
@@ -601,9 +607,21 @@ Stops the WEBrick server
 				if sub.expired?
 					sub.service.removeSubscription(sub)
 				else
-#					msg << StateVariable.eventsXML([m])
-	#send the message, increment sub if OK, remove it if not
-	
+					body =  StateVariable.eventsXML(svars)
+					begin
+						
+#						puts "sending http request with body #{body}"
+						res = httpClient.request("NOTIFY",sub.callbackURI,:body=>body,
+							:header =>{"nt"=>"upnp:event","nts"=>"sid:propchange","content-type"=>"text/xml",
+							"host"=>sub.callbackHost,"sid"=>sub.sid,"seq"=>sub.eventSeq.to_s})
+					rescue => e
+						puts "#{e.message} for subscription to #{sub.callbackURI} sid:#{sub.sid} number:#{sub.eventSeq}"
+					end
+					if (res) && (res.code == 200)
+						sub.increment
+					else
+						sub.cancel
+					end
 				end
 			end
 		end
@@ -656,8 +674,11 @@ Starts up all the Threads associated with the UPnP service, ie
 		end
 		$log.debug "Starting everything up..."
 		discoveryStart
-		webServerStart
 		eventingStart
+		
+		#start this last as it blocks the thread
+		webServerStart
+
 	end
 	
 =begin rdoc

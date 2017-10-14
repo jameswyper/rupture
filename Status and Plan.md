@@ -22,7 +22,6 @@ High
 - code header responses for sub / cancel sub / renew
 - add default expiry time as root device parameter
 - check for activation before processing sub message
-- put the xml together and use httpclient to send NOTIFY message
 - test, test and test again
 
 Medium
