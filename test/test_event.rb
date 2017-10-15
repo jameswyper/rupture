@@ -31,6 +31,7 @@ class TestSimpleAction < Minitest::Test
 		def add(inargs)
 			outargs = Hash.new
 			@count += 1
+			@stateVariables["COUNT"].assign(@count)
 			outargs["Result"] = inargs["First"] + inargs["Second"]
 			return outargs
 		end
@@ -104,6 +105,10 @@ class TestSimpleAction < Minitest::Test
 		end
 		
 		assert_equal(expValues.size,h.size,"#{context}: Number of variables in notification")
+		
+		expValues.each do |k,v|
+			assert_equal v,h[k],"#{context}: Event variable #{k} value differs"
+		end
 
 	end
 
@@ -117,16 +122,16 @@ class TestSimpleAction < Minitest::Test
 			:product => "Sample/1.0", :manufacturer => "James", :modelName => "JamesSample",	:modelNumber => "43",
 			:modelURL => "github.com/jameswyper/tapiola", :cacheControl => 15,
 			:serialNumber => "12345678", :modelDescription => "Sample App Root Device, to illustrate use of tapiola UPnP framework", 
-			:URLBase => "test", :ip => "127.0.0.1", :port => 54321, :logLevel => Logger::WARN)
+			:URLBase => "test", :ip => "127.0.0.1", :port => 54321, :logLevel => Logger::DEBUG)
 		
 		@serv1 = UPnP::Service.new("Math",1)
 		
 		@sv1 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_FIRST")
 		@sv2 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_SECOND")		
 		@sv3 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_OUT")		
-		@sv4 = UPnP::StateVariableInt.new( :name => "COUNT", :evented => true)		
+		@sv4 = UPnP::StateVariableInt.new( :name => "COUNT", :evented => true, :initialValue => 0)		
 		
-		@adder = Adder.new(@serv1.stateVariables)
+
 
 		@act1 = UPnP::Action.new("Add",@adder,:add)
 		@act1.addArgument(UPnP::Argument.new("Second",:in,@sv2),2)
@@ -134,7 +139,7 @@ class TestSimpleAction < Minitest::Test
 		@act1.addArgument(UPnP::Argument.new("Result",:out,@sv3,true),1)
 		
 		@serv1.addStateVariables(@sv1, @sv2, @sv3, @sv4)
-
+		@adder = Adder.new(@serv1.stateVariables)
 		@serv1.addAction(@act1)
 		
 		@root.addService(@serv1)		
@@ -144,7 +149,26 @@ class TestSimpleAction < Minitest::Test
 	end
 	
 
-	
+	def call_action(a,b)
+		
+		c = HTTPClient.new
+		d= c.request("POST",'http://127.0.0.1:54321/test/services/sample1/Math/control.xml',
+		:header =>{"soapaction"=>'"urn:schemas-upnp-org:service:Math:1#Add"'},
+		:body => '<?xml version="1.0"?> 
+			<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Body>
+			<u:Add xmlns:u="urn:schemas-upnp-org:service:Math:1">
+			<First>2</First>
+			<Second>2</Second>
+			</u:Add>
+			</s:Body>
+			</s:Envelope>')
+			
+		assert_equal 200,d.code,"Call to action failed"
+
+	end
 	
 	def test_event
 		
@@ -155,16 +179,15 @@ class TestSimpleAction < Minitest::Test
 
 	checkSubscriptionResponse(@regular,{ "Timeout" => "infinite" })
 
+	call_action(2,2)
+
 	x = $eventMsgs[60000].pop
-
-	head = x[0]
-	body = x[1]
-	puts head,body
-
-
 	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "0", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
-	{},"First event")
+	{"COUNT"=>"0"},"First event")
 	
+	x = $eventMsgs[60000].pop
+	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "1", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
+	{"COUNT"=>"1"},"First event")
 
 		
 	end

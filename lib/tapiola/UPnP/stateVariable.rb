@@ -141,9 +141,14 @@ Optional parameters are
 			unless (@allowedValues[@defaultValue]) then raise SetupError, "Statevariable initialize method: for name #{@name} :DefaultValue not in :AllowedValues list" end 
 		end
 		
-		if @defaultValue 
-			@value = @defaultValue
+		if params[:initialValue]
+			@value = params[:initialValue]
 			@lastEventedValue = @value
+		else
+			if @defaultValue 
+				@value = @defaultValue
+				@lastEventedValue = @value
+			end
 		end
 		
 		@evented = params[:evented]
@@ -238,7 +243,7 @@ Optional parameters are
 			end
 		end
 
-		if (@allowedValues)
+		if (!@allowedValues.empty?)
 			unless (@allowedValues[v]) then raise StateVariableError, "#{@name}: value #{v} not in allowed value list" end
 		end
 		
@@ -324,7 +329,7 @@ def validate(v)
     returns the string representation of a StateVariable
 =end
 	def 	represent
-		v.to_s
+		@value.to_s
 	end
 
 =begin rdoc
@@ -335,16 +340,19 @@ def validate(v)
 	
 	
 	def self.eventsXML(vars)   #class method because multiple variables could be passed in at once
-		p = REXML::Element.new("propertyset")
-		p.add_namespace("e", "urn:schemas.upnp.org:event-1-0")
+		p = REXML::Element.new("e:propertyset")
+		p.add_namespace("e", "urn:schemas-upnp-org:event-1-0")
 		vars.each do |v|
-			p.add_element("property").add_text(v.represent) # was v.to_s but I think that's wrong
+			if v.evented?
+				p.add_element("e:property").add_element(v.name).add_text(v.represent) 
+			end
 		end
 		
 		doc = REXML::Document.new
+		doc.context[:attribute_quote] = :quote
 		doc << REXML::XMLDecl.new(1.0)
 		doc.add_element(p)
-#		puts "Statevariable XML #{doc.to_s}"
+
 		return doc.to_s
 	end
 	
@@ -462,8 +470,8 @@ class StateVariableFixed144 < StateVariableFloat
 		end
 		return f
 	end
-	def represent(v)
-		return v.round(4).to_s
+	def represent
+		return @value.round(4).to_s
 	end
 end
 
@@ -474,8 +482,8 @@ class StateVariableString < StateVariable
 	def interpret(v)
 		v
 	end
-	def represent(v)
-		v.to_s
+	def represent
+		@value.to_s
 	end
 end
 
@@ -534,7 +542,7 @@ class StateVariableBoolean < StateVariable
 	end
 	
 	def represent
-		if (value) then return "1" else return "0" end
+		if (@value) then return "1" else return "0" end
 	end
 
 end
