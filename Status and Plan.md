@@ -24,6 +24,8 @@ High
 - check for activation before processing sub message
 - test, test and test again
 
+24. Finish test_action2.rb - more complex Action testing
+
 Medium
 
 20.  Test_discovery - fix random bug on Lenovo VM
