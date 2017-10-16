@@ -336,7 +336,7 @@ Takes the XML sent by a control point (and the SOAPACTION part of the http heade
 			action = md[2]
 		else
 			$log.warn("SOAPACTION header invalid - was :#{soapaction}:")
-			raise ActionError.new(401)
+			raise ActionError.new(401), "SOAPACTION header invalid - was :#{soapaction}:"
 		end
 		$log.debug ("Namespace #{namespace} and Action #{action} obtained from header")
 
@@ -345,24 +345,25 @@ Takes the XML sent by a control point (and the SOAPACTION part of the http heade
 			doc = REXML::Document.new xml
 		rescue REXML::ParseException => e
 			$log.warn("XML didn't parse #{e}")
-			raise ActionError.new(401)
+			raise ActionError.new(401), "XML didn't parse #{e}"
 		end
 
 		soapbody = REXML::XPath.first(doc, "//m:Envelope/m:Body", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
 		unless soapbody
 			$log.warn("Couldn't get SOAP body out of #{xml}")
-			raise ActionError.new(401)
+			raise ActionError.new(401), "Couldn't get SOAP body out of #{xml}"
+
 		end
 		
 		argsxml =  REXML::XPath.first(soapbody,"//p:#{action}",{"p" => "#{namespace}"})
 		unless argsxml
 			$log.warn("Couldn't get action name out of #{xml} with SOAPACTION header :#{soapaction}:")
-			raise ActionError.new(401)
+			raise ActionError.new(401), "Couldn't get action name out of #{xml} with SOAPACTION header :#{soapaction}:"
 		end
 
 		if (action != argsxml.name)
 			$log.warn("SOAPACTION header :#{soapaction}: didn't match XML name #{xml}")
-			raise ActionError,401
+			raise ActionError.new(401), "SOAPACTION header :#{soapaction}: didn't match XML name #{xml}"
 		end
 
 		args = Hash.new
@@ -391,7 +392,7 @@ Constructs a response indicating success or failure
 			action = @actions[actionname]
 			if action == nil
 				$log.warn("Action #{actionname} doesn't exist in service #{@name}")
-				raise ActionError.new(401)
+				raise ActionError.new(401), "Action #{actionname} doesn't exist in service #{@name}"
 			else
 				action.validateInArgs(args)
 				outArgs = action.invoke(args)
@@ -404,7 +405,7 @@ Constructs a response indicating success or failure
 			responseError(res,e.code)
 			return false
 		end
-		
+
 	end
 
 =begin rdoc

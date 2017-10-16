@@ -9,6 +9,7 @@ require 'ipaddr'
 require 'webrick'
 require 'rexml/document'
 require 'rexml/xmldecl'
+require 'httpclient'
 
 module UPnP
 
@@ -594,7 +595,9 @@ Stops the WEBrick server
 	
 	
 	def eventingStart
-		
+
+		$log.debug "eventingStart begin..."
+
 		httpClient = HTTPClient.new
 		
 		@eventingRunning = true
@@ -635,7 +638,7 @@ Stops the WEBrick server
 							if v.moderatedByRate?
 								t = Time.now
 								if ((t - v.lastEventedTime) > v.maximumRate)
-									@eventQueue.push(v)
+									v.service.subscriptions.each_value {|sub| queueEvent(sub,[v]) }
 									v.lastEventedTime = t
 								end
 							end
@@ -644,7 +647,8 @@ Stops the WEBrick server
 				end
 			end
 		end
-		
+
+		$log.debug "eventingStart end..."
 		
 	end
 	

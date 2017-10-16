@@ -260,7 +260,11 @@ Optional parameters are
 			# check that eventing is enabled and fire an event unless it's moderated in some way
 		
 			if ((self.evented?) && !(self.moderatedByRate? || self.moderatedByDelta?))
-				@service.device.rootDevice.eventTriggers.push(@value)
+				@service.subscriptions.each_value do |sub|
+					if !sub.expired?
+						@service.device.rootDevice.queueEvent(sub,[self])
+					end
+				end
 			end
 		
 			# if the event is moderated by delta (only fires once the variable has changed by a sufficient amount) check for the size of change
@@ -268,7 +272,11 @@ Optional parameters are
 			if self.moderatedByDelta?
 				if ((@lastEventedValue - v).abs > (@minimumDelta * @allowedIncrement))
 					@lastEventedValue = v
-					@service.device.rootDevice.eventTriggers.push(@value)
+					@service.subscriptions.each_value do |sub|
+						if !sub.expired?
+							@service.device.rootDevice.queueEvent(sub,[self])
+						end
+					end
 				end
 			end
 		
@@ -380,8 +388,13 @@ class StateVariableNumeric< StateVariable
 	end
 	
 	def represent
-		@value.to_s
+		represent_value(self.value)
 	end
+
+	def represent_value(v)
+		v.to_s
+	end
+
 
 end
 
@@ -394,7 +407,7 @@ class StateVariableFloat < StateVariableNumeric
 			raise StateVariableError ,"Attempt to interpret #{v} as Integer State Variable #{@name}"
 		end
 		if ((f < @varMax) || (f > @varMin))
-			raise StateVariableError ,"Value #{v} outside allowed range (#{@varMax},#{@varMin}) for State Variable #{@name}"
+			raise StateVariableRangeError ,"Value #{v} outside allowed range (#{@varMax},#{@varMin}) for State Variable #{@name}"
 		end
 		return f
 	end
@@ -411,7 +424,7 @@ class StateVariableInteger < StateVariableNumeric
 		end
 		
 		if ((i > @varMax) || (i < @varMin))
-			raise StateVariableError ,"Value #{v} outside allowed range (#{@varMin},#{@varMax}) for State Variable #{@name}"
+			raise StateVariableRangeError ,"Value #{v} outside allowed range (#{@varMin},#{@varMax}) for State Variable #{@name}"
 		end
 		
 		return i

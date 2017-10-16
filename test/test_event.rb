@@ -122,7 +122,7 @@ class TestSimpleAction < Minitest::Test
 			:product => "Sample/1.0", :manufacturer => "James", :modelName => "JamesSample",	:modelNumber => "43",
 			:modelURL => "github.com/jameswyper/tapiola", :cacheControl => 15,
 			:serialNumber => "12345678", :modelDescription => "Sample App Root Device, to illustrate use of tapiola UPnP framework", 
-			:URLBase => "test", :ip => "127.0.0.1", :port => 54321, :logLevel => Logger::DEBUG)
+			:URLBase => "test", :ip => "127.0.0.1", :port => 54321, :logLevel => Logger::WARN)
 		
 		@serv1 = UPnP::Service.new("Math",1)
 		
@@ -130,7 +130,8 @@ class TestSimpleAction < Minitest::Test
 		@sv2 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_SECOND")		
 		@sv3 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_OUT")		
 		@sv4 = UPnP::StateVariableInt.new( :name => "COUNT", :evented => true, :initialValue => 0)		
-		
+		@serv1.addStateVariables(@sv1, @sv2, @sv3, @sv4)
+		@adder = Adder.new(@serv1.stateVariables)		
 
 
 		@act1 = UPnP::Action.new("Add",@adder,:add)
@@ -138,8 +139,7 @@ class TestSimpleAction < Minitest::Test
 		@act1.addArgument(UPnP::Argument.new("First",:in,@sv1),1)
 		@act1.addArgument(UPnP::Argument.new("Result",:out,@sv3,true),1)
 		
-		@serv1.addStateVariables(@sv1, @sv2, @sv3, @sv4)
-		@adder = Adder.new(@serv1.stateVariables)
+
 		@serv1.addAction(@act1)
 		
 		@root.addService(@serv1)		

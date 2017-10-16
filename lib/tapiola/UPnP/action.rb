@@ -173,7 +173,7 @@ Adds an existing argument to the Action.  The spec says that arguments must have
 	def invoke(params)
 
 		if !(@object.respond_to?(@method))
-			raise ActionError.new(402)
+			raise ActionError.new(402), "Can't invoke #{@method} on #{@object}"
 			$log.error("Can't invoke #{@method} on #{@object}")
 		else
 			begin
@@ -197,12 +197,12 @@ with a hash of expected arguments
 		# check that the number of arguments passed in is what's expected
 		if (args == nil)
 			$log.warn("No Arguments to validate #{@service.type} - #{@name}")
-			raise ActionError.new(402)
+			raise ActionError.new(402), "No Arguments to validate #{@service.type} - #{@name}"
 		end
 		
 		if args.size != expArgs.size
 			$log.warn("Argument size mismatch for #{@service.type} - #{@name}, expected #{expArgs.keys.join('/')} but got #{args.keys.join('/')}")
-			raise ActionError.new(402)
+			raise ActionError.new(402), "Argument size mismatch for #{@service.type} - #{@name}, expected #{expArgs.keys.join('/')} but got #{args.keys.join('/')}"
 		end
 		
 		# check that the names of the arguments passed in are what's expected
@@ -211,7 +211,7 @@ with a hash of expected arguments
 		args.each_key.sort.zip(expArgs.each_key.sort).each do |argpair| 			
 			if argpair[0] != argpair[1]
 				$log.warn("Argument name mismatch for #{@service.type} - #{@name}, expected #{expArgs.keys.join('/')} but got #{args.keys.join('/')}")
-				raise ActionError,402
+				raise ActionError,402, "Argument name mismatch for #{@service.type} - #{@name}, expected #{expArgs.keys.join('/')} but got #{args.keys.join('/')}"
 			end
 		end
 		
@@ -233,8 +233,10 @@ Checks that the arguments in the name/value hash passed to the method:
 			begin
 				args[name] = sv.interpret(value)
 			rescue StateVariableError => e
+				$log.warn("Couldn't interpret string #{value} as a value for State Variable #{sv.name}")
 				raise ActionError.new(600), e.message
 			rescue StateVariableRangeError
+				$log.warn("Range error (value #{value}) for State Variable #{sv.name}")
 				raise ActionError.new(601), e.message
 			end
 		end
@@ -291,7 +293,7 @@ other out args and their values go here, if any
 		outArgsInSequence.each do |arg|
 			a  = REXML::Element.new("u:#{arg[0].name}")
 			value = args[arg[0].name].to_s
-			stringValue = arg[0].relatedStateVariable.represent(value)
+			stringValue = arg[0].relatedStateVariable.represent_value(value)
 			a.add_text(stringValue)  
 			resp.add_element(a)
 		end
