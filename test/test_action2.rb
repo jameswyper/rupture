@@ -117,9 +117,9 @@ class TestMoreActions < Minitest::Test
 		@act3.addArgument(UPnP::Argument.new("Reversed",:out,@sv10,true),1)	
 
 		@act4 = UPnP::Action.new("BadReverse",@reverser,:rev)
-		@act4.addArgument(UPnP::Argument.new("BadString",:in,@sv12),1)
+		@act4.addArgument(UPnP::Argument.new("String",:in,@sv12),1)
 		@act4.addArgument(UPnP::Argument.new("BadExtra",:out,@sv13),2)
-		@act4.addArgument(UPnP::Argument.new("BadReversed",:out,@sv14,true),1)			
+		@act4.addArgument(UPnP::Argument.new("Reversed",:out,@sv14,true),1)			
 
 
 		@serv1.addStateVariables(@sv1, @sv2, @sv3, @sv4,@sv5,@sv6,@sv7,@sv8)
@@ -263,13 +263,11 @@ class TestMoreActions < Minitest::Test
 		["specVersion/major",1,"1"],
 		["specVersion/minor",1,"0"],
 		["actionList/action/name",2,["Reverse","BadReverse"]],
-		["actionList/action/argumentList/argument/name",5,["BadString","BadReversed","String","Reversed","BadExtra"]],
+		["actionList/action/argumentList/argument/name",5,["String","Reversed","BadExtra"]],
 		["actionList/action/argumentList/argument/direction",5,["in","out"]],
 		["actionList/action/argumentList/argument/relatedStateVariable",5,["A_ARG_TYPE_BADREV_IN","A_ARG_TYPE_BADREV_OUT","A_ARG_TYPE_BADREV_OUT2","A_ARG_TYPE_REV_IN","A_ARG_TYPE_REV_OUT"]],
 		["actionList/action/argumentList/argument[name='String']/retval",0,nil],
-		["actionList/action/argumentList/argument[name='Reversed']/retval",1,""],
-		["actionList/action/argumentList/argument[name='BadString']/retval",0,nil],
-		["actionList/action/argumentList/argument[name='BadReversed']/retval",1,""],	
+		["actionList/action/argumentList/argument[name='Reversed']/retval",2,""],
 		["actionList/action/argumentList/argument[name='BadExtra']/retval",0,nil],				
 		["serviceStateTable/stateVariable/name",6,["A_ARG_TYPE_REV_IN","A_ARG_TYPE_REV_OUT","A_ARG_TYPE_BADREV_IN","A_ARG_TYPE_BADREV_OUT","A_ARG_TYPE_BADREV_OUT2","CHARS"]],
 		]
@@ -295,7 +293,7 @@ class TestMoreActions < Minitest::Test
 		
 		
 		uri = URI('http://127.0.0.1:54321/test/services/sample1/Math/control.xml')
-
+		uri2 = URI('http://127.0.0.1:54321/test/services/sample1/String/control.xml')
 # make a successful control call
 
 
@@ -334,7 +332,174 @@ class TestMoreActions < Minitest::Test
 		assert_match  "", res.to_hash["ext"] [0]
 		assert_match  'text/xml; charset="utf-8"', res.to_hash["content-type"] [0]
 
-	
+
+# call the modulo action
+
+		req = Net::HTTP::Post.new(uri)
+		req['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Divide"'
+		req.body='<?xml version="1.0"?> 
+			<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Body>
+			<u:Divide xmlns:u="urn:schemas-upnp-org:service:Math:1">
+			<Top>5</Top>
+			<Bottom>2</Bottom>
+			</u:Divide>
+			</s:Body>
+			</s:Envelope>'
+
+		res = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
+
+		assert(res.is_a?(Net::HTTPSuccess))
+		assert_equal("200",res.code)
+		
+		document = REXML::Document.new res.body
+
+		w = REXML::XPath.first(document, "//m:Envelope/", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+		x = REXML::XPath.first(document, "//m:Envelope/m:Body", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+		y =  REXML::XPath.first(x,"//p:DivideResponse",{"p" => "urn:schemas-upnp-org:service:Math:1"})
+		
+		assert_equal("http://schemas.xmlsoap.org/soap/encoding/",w.attributes["s:encodingStyle"])
+		assert_equal(2,y.elements.size,"returned arguments")
+		assert_equal("Result",y.elements[1].name,"argument name")
+		assert_equal("2",y.elements[1].text,"argument value")
+		assert_equal("Modulo",y.elements[2].name,"argument name")
+		assert_equal("1",y.elements[2].text,"argument value")
+
+		assert_match  Regexp.new("\\d+", Regexp::IGNORECASE), res.to_hash["content-length"] [0]
+		assert_match  res.body.size.to_s, res.to_hash["content-length"] [0]
+		assert_match  "", res.to_hash["ext"] [0]
+		assert_match  'text/xml; charset="utf-8"', res.to_hash["content-type"] [0]
+
+
+# call the modulo action with inappropriate arguments 
+
+		req = Net::HTTP::Post.new(uri)
+		req['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Divide"'
+		req.body='<?xml version="1.0"?> 
+			<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Body>
+			<u:Divide xmlns:u="urn:schemas-upnp-org:service:Math:1">
+			<Top>5.8</Top>
+			<Bottom>2.1</Bottom>
+			</u:Divide>
+			</s:Body>
+			</s:Envelope>'
+
+		res = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
+
+		refute(res.is_a?(Net::HTTPSuccess))
+		assert_equal("500",res.code)
+		
+		ec = REXML::XPath.first(REXML::Document.new(res.body), "//m:Envelope/m:Body/m:Fault/detail/n:UPnPError/n:errorCode", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/", "n"=>"urn:schemas-upnp-org:control-1-0"})		
+		assert_equal("402",ec.text,"Call modulo with incorrect arguments")
+		
+		
+		req = Net::HTTP::Post.new(uri)
+		req['SOAPACTION'] = '"urn:schemas-upnp-org:service:Math:1#Divide"'
+		req.body='<?xml version="1.0"?> 
+			<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Body>
+			<u:Divide xmlns:u="urn:schemas-upnp-org:service:Math:1">
+			<Top>Five</Top>
+			<Bottom>2</Bottom>
+			</u:Divide>
+			</s:Body>
+			</s:Envelope>'
+
+		res = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
+
+		refute(res.is_a?(Net::HTTPSuccess))
+		assert_equal("500",res.code)
+		ec = REXML::XPath.first(REXML::Document.new(res.body), "//m:Envelope/m:Body/m:Fault/detail/n:UPnPError/n:errorCode", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/", "n"=>"urn:schemas-upnp-org:control-1-0"})		
+		assert_equal("402",ec.text,"Call modulo with incorrect arguments")
+				
+		
+# call the reverser action
+
+		req = Net::HTTP::Post.new(uri2)
+		req['SOAPACTION'] = '"urn:schemas-upnp-org:service:String:1#Reverse"'
+		req.body='<?xml version="1.0"?> 
+			<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Body>
+			<u:Reverse xmlns:u="urn:schemas-upnp-org:service:String:1">
+			<String>Not a Palindrome!</String>
+			</u:Reverse>
+			</s:Body>
+			</s:Envelope>'
+
+		res = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
+
+		assert(res.is_a?(Net::HTTPSuccess))
+		assert_equal("200",res.code)
+		
+		document = REXML::Document.new res.body
+
+		w = REXML::XPath.first(document, "//m:Envelope/", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+		x = REXML::XPath.first(document, "//m:Envelope/m:Body", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
+		y =  REXML::XPath.first(x,"//p:ReverseResponse",{"p" => "urn:schemas-upnp-org:service:String:1"})
+		
+		assert_equal("http://schemas.xmlsoap.org/soap/encoding/",w.attributes["s:encodingStyle"])
+		assert_equal(1,y.elements.size,"returned arguments")
+		assert_equal("Reversed",y.elements[1].name,"argument name")
+		assert_equal("!emordnilaP a toN",y.elements[1].text,"argument value")
+
+		assert_match  Regexp.new("\\d+", Regexp::IGNORECASE), res.to_hash["content-length"] [0]
+		assert_match  res.body.size.to_s, res.to_hash["content-length"] [0]
+		assert_match  "", res.to_hash["ext"] [0]
+		assert_match  'text/xml; charset="utf-8"', res.to_hash["content-type"] [0]
+
+# call the reverser action but on the Math URL
+
+		req = Net::HTTP::Post.new(uri)
+		req['SOAPACTION'] = '"urn:schemas-upnp-org:service:String:1#Reverse"'
+		req.body='<?xml version="1.0"?> 
+			<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Body>
+			<u:Reverse xmlns:u="urn:schemas-upnp-org:service:String:1">
+			<String>Not a Palindrome!</String>
+			</u:Reverse>
+			</s:Body>
+			</s:Envelope>'
+
+		res = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
+
+		refute(res.is_a?(Net::HTTPSuccess))
+		assert_equal("500",res.code)
+		ec = REXML::XPath.first(REXML::Document.new(res.body), "//m:Envelope/m:Body/m:Fault/detail/n:UPnPError/n:errorCode", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/", "n"=>"urn:schemas-upnp-org:control-1-0"})		
+		assert_equal("401",ec.text,"Call String function on Math service")
+			
+# call the bad_reverse action	
+
+		req = Net::HTTP::Post.new(uri2)
+		req['SOAPACTION'] = '"urn:schemas-upnp-org:service:String:1#BadReverse"'
+		req.body='<?xml version="1.0"?> 
+			<s:Envelope
+			xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+			<s:Body>
+			<u:BadReverse xmlns:u="urn:schemas-upnp-org:service:String:1">
+			<String>Not a Palindrome!</String>
+			</u:BadReverse>
+			</s:Body>
+			</s:Envelope>'
+
+		res = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
+
+		refute(res.is_a?(Net::HTTPSuccess))
+		assert_equal("500",res.code)
+		ec = REXML::XPath.first(REXML::Document.new(res.body), "//m:Envelope/m:Body/m:Fault/detail/n:UPnPError/n:errorCode", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/", "n"=>"urn:schemas-upnp-org:control-1-0"})		
+		assert_equal("402",ec.text,"Call BadReverse action")
+			
 	end
 	
 	

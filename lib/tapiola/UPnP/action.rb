@@ -234,7 +234,7 @@ Checks that the arguments in the name/value hash passed to the method:
 				args[name] = sv.interpret(value)
 			rescue StateVariableError => e
 				$log.warn("Couldn't interpret string #{value} as a value for State Variable #{sv.name}")
-				raise ActionError.new(600), e.message
+				raise ActionError.new(402), e.message
 			rescue StateVariableRangeError
 				$log.warn("Range error (value #{value}) for State Variable #{sv.name}")
 				raise ActionError.new(601), e.message

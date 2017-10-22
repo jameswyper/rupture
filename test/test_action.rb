@@ -420,7 +420,7 @@ class TestSimpleAction < Minitest::Test
 			</s:Body>
 			</s:Envelope>'
 
-		wrong_control(rq,"600",uri,"argument invalid for type")		
+		wrong_control(rq,"402",uri,"argument invalid for type")		
 		
 		#extra argument 
 		

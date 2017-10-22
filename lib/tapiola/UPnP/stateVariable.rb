@@ -334,10 +334,16 @@ def validate(v)
 =end
 
 =begin rdoc
-    returns the string representation of a StateVariable
+    returns the string representation of the StateVariable's current value
 =end
-	def 	represent
-		@value.to_s
+	def represent
+		represent_value(self.value)
+	end
+=begin rdoc
+	returns the string representation of a value that may or may not be currently assigned to the StateVariable
+=end
+	def represent_value(v)
+		v.to_s
 	end
 
 =begin rdoc
@@ -387,13 +393,7 @@ class StateVariableNumeric< StateVariable
 		super
 	end
 	
-	def represent
-		represent_value(self.value)
-	end
 
-	def represent_value(v)
-		v.to_s
-	end
 
 
 end

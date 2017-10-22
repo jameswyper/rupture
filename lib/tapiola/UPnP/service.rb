@@ -385,14 +385,14 @@ Constructs a response indicating success or failure
 =end
 	def handleControl(req, res)
 	
-		$log.debug("in handleControl for service #{@name}")
+		$log.debug("in handleControl for service #{@type}")
 	
 		begin
 			actionname, args = processActionXML(req.body,req.header["soapaction"].join)
 			action = @actions[actionname]
 			if action == nil
-				$log.warn("Action #{actionname} doesn't exist in service #{@name}")
-				raise ActionError.new(401), "Action #{actionname} doesn't exist in service #{@name}"
+				$log.warn("Action #{actionname} doesn't exist in service #{@type}")
+				raise ActionError.new(401), "Action #{actionname} doesn't exist in service #{@type}"
 			else
 				action.validateInArgs(args)
 				outArgs = action.invoke(args)
@@ -401,7 +401,7 @@ Constructs a response indicating success or failure
 				return true
 			end
 		rescue ActionError => e
-			$log.warn("Service #{@name}, Exception message #{e.message}")
+			$log.warn("Service #{@type}, Exception message #{e.message}")
 			responseError(res,e.code)
 			return false
 		end
