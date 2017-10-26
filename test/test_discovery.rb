@@ -159,7 +159,7 @@ end
 		usn = Array.new
 		msg.each do |m|
 			assert_equal "HTTP/1.1 200 OK",m[0]
-			assert_equal "CACHE-CONTROL: max-age = 15", m[1] 
+			assert_equal "CACHE-CONTROL: max-age = 15", m[1] , msg
 			assert_match Regexp.new("DATE: .*"),m[2]
 			assert_equal "EXT:",m[3]
 			assert_match Regexp.new("LOCATION: http://[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}:[0-9]{1,5}/test/description/description\.xml"), m[4] 

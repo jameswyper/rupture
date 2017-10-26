@@ -20,19 +20,21 @@ one with below minimum timeout
 
 =end
 
-class TestSimpleAction < Minitest::Test
+class TestSimpleEvent < Minitest::Test
 	
 	
 	class Adder
 		def initialize(sv)
 			@count = 0
 			@stateVariables = sv
+			Thread.new { sleep (1); @stateVariables["TICKER"] .assign(@stateVariables["TICKER"].value + 1) }
 		end
 		def add(inargs)
 			outargs = Hash.new
 			@count += 1
 			@stateVariables["COUNT"].assign(@count)
 			outargs["Result"] = inargs["First"] + inargs["Second"]
+			@stateVariables["ACCUMULATOR"].assign(@stateVariables["ACCUMULATOR"].value + outargs["Result"])
 			return outargs
 		end
 	end
@@ -117,20 +119,24 @@ class TestSimpleAction < Minitest::Test
 		
 		$eventMsgs = Hash.new
 		@regular= Subscriber.new(60000)
+		@second = Subscriber.new(60001)
 	
 		@root = UPnP::RootDevice.new(:type => "SampleOne", :version => 1, :name => "sample1", :friendlyName => "SampleApp Root Device",
 			:product => "Sample/1.0", :manufacturer => "James", :modelName => "JamesSample",	:modelNumber => "43",
 			:modelURL => "github.com/jameswyper/tapiola", :cacheControl => 15,
 			:serialNumber => "12345678", :modelDescription => "Sample App Root Device, to illustrate use of tapiola UPnP framework", 
-			:URLBase => "test", :ip => "127.0.0.1", :port => 54321, :logLevel => Logger::WARN)
+			:URLBase => "test", :ip => "127.0.0.1", :port => 54321, 
+			:logLevel => Logger::DEBUG)
 		
 		@serv1 = UPnP::Service.new("Math",1)
 		
 		@sv1 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_FIRST")
 		@sv2 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_SECOND")		
 		@sv3 = UPnP::StateVariableInt.new( :name => "A_ARG_TYPE_OUT")		
-		@sv4 = UPnP::StateVariableInt.new( :name => "COUNT", :evented => true, :initialValue => 0)		
-		@serv1.addStateVariables(@sv1, @sv2, @sv3, @sv4)
+		@sv4 = UPnP::StateVariableInt.new( :name => "COUNT", :evented => true, :initialValue => 0)
+		@sv5 = UPnP::StateVariableInt.new( :name => "ACCUMULATOR", :evented => true, :initialValue => 0, :moderationType => :delta, :minimumDelta => 10, :allowedIncrement => 1 )
+		@sv6 = UPnP::StateVariableInt.new( :name => "TICKER", :evented => true, :initialValue => 0, :maximumRate => 3,:moderationType => :rate )
+		@serv1.addStateVariables(@sv1, @sv2, @sv3, @sv4, @sv5, @sv6)
 		@adder = Adder.new(@serv1.stateVariables)		
 
 
@@ -160,8 +166,8 @@ class TestSimpleAction < Minitest::Test
 			s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 			<s:Body>
 			<u:Add xmlns:u="urn:schemas-upnp-org:service:Math:1">
-			<First>2</First>
-			<Second>2</Second>
+			<First>' + a.to_s + '</First>
+			<Second>' + b.to_s + '</Second>
 			</u:Add>
 			</s:Body>
 			</s:Envelope>')
@@ -183,13 +189,59 @@ class TestSimpleAction < Minitest::Test
 
 	x = $eventMsgs[60000].pop
 	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "0", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
-	{"COUNT"=>"0"},"First event")
+	{"COUNT"=>"0", "TICKER" => "0", "ACCUMULATOR" => "0"},"Initial Subscription")
 	
 	x = $eventMsgs[60000].pop
 	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "1", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
-	{"COUNT"=>"1"},"First event")
+	{"COUNT"=>"1"},"First action")
 
-		
+	call_action(3,3)
+
+	x = $eventMsgs[60000].pop
+	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "2", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
+	{"COUNT" => "2"},"Second action - count #{x[1]}")
+
+	x = $eventMsgs[60000].pop
+	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "3", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
+	{"ACCUMULATOR" => "10"},"Second action - accumulator #{x[1]}")	
+	
+	sleep(1.1)
+	
+	@second.subscribe(uri,30)
+	checkSubscriptionResponse(@second,{ "Timeout" => "infinite" })	
+	
+	x = $eventMsgs[60001].pop
+	checkEventMessage(x[0],x[1],{"sid"=>@second.sid, "seq" => "0", "host" => "localhost:60001", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
+	{"COUNT"=>"2", "TICKER" => "1", "ACCUMULATOR" => "10"},"Second Subscription #{x[1]}")	
+	
+	assert_equal($eventMsgs[60000].size,0,"Queue for first sub not empty")
+	assert_equal($eventMsgs[60001].size,0,"Queue for second sub not empty")	
+	
+	sleep(2)
+	x = $eventMsgs[60001].pop
+	checkEventMessage(x[0],x[1],{"sid"=>@second.sid, "seq" => "1", "host" => "localhost:60001", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
+	{"TICKER" => "3"},"Second Subscription #{x[1]}")	
+	x = $eventMsgs[60000].pop
+	checkEventMessage(x[0],x[1],{"sid"=>@second.sid, "seq" => "4", "host" => "localhost:60001", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
+	{"TICKER" => "3", },"Second Subscription #{x[1]}")	
+
+	call_action(3,3)
+	x = $eventMsgs[60001].pop
+	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "2", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
+	{"COUNT" => "3"},"Third action - count #{x[1]}")
+	x = $eventMsgs[60000].pop
+	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "5", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
+	{"COUNT" => "3"},"Third action - count #{x[1]}")
+
+
+	assert_equal($eventMsgs[60000].size,0,"Queue for first sub not empty")
+	assert_equal($eventMsgs[60001].size,0,"Queue for second sub not empty")	
+
+#still to test
+#cancelling a sub
+#renewing a sub
+
+
 	end
 	
 	

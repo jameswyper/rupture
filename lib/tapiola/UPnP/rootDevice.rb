@@ -98,7 +98,7 @@ class RootDevice < Device
 		end
 		$log.datetime_format  = "%H:%M:%S"
 		$log.formatter = proc do |severity, datetime, progname, msg|
-			"#{severity} [#{datetime}] #{progname}/#{__FILE__}/#{__method__}: #{msg}\n"
+			"#{severity} [#{datetime}] #{msg}\n"
 		end
 		#check that the root-specific mandatory parameters are here (others will be checked in the super method)
 				

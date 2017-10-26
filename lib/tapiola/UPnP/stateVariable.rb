@@ -62,6 +62,8 @@ class StateVariable
 	attr_accessor :service
 	# time that an event was last fired for a moderated variable
 	attr_accessor :lastEventedTime
+	# event rate
+	attr_reader :maximumRate
 	# state variable type
 	attr_reader :type
 	
@@ -157,19 +159,20 @@ Optional parameters are
 		#cross-check moderation parameters
 		
 		if (params[:moderationType] == :delta)
-			@moderationbyDelta = true
-			@moderationbyRate = false
+			@moderatedByDelta = true
+			@moderatedByRate = false
 			@minimumDelta = params[:minimumDelta]
 			unless @minimumDelta then raise SetupError, "Statevariable initialize method: for name #{@name} :MinimumDelta not specified" end
 			unless @allowedIncrement then raise SetupError, "Statevariable initialize method: for name #{@name} :MinimumDelta requires :AllowedIncrement to also be set" end
 		elsif (params[:moderationType] == :rate)
-			@moderationbyRate = true
-			@moderationbyDelta = false
+			@moderatedByRate = true
+			@moderatedByDelta = false
+			@lastEventedTime = Time.now
 			@maximumRate = params[:maximumRate]
 			unless @maximumRate then raise SetupError, "Statevariable initialize method: for name #{@name} :MaximumRate not specified" end
 		else
-			@moderationbyRate = false
-			@moderationbyDelta = false
+			@moderatedByRate = false
+			@moderatedByDelta = false
 		end
 		
 		@semaphore = Mutex.new
@@ -253,13 +256,13 @@ Optional parameters are
 		
 		
 			# assign it to the state variable
-			# todo - provide string representations in format expected
 		
 			@value =  v
 		
 			# check that eventing is enabled and fire an event unless it's moderated in some way
 		
 			if ((self.evented?) && !(self.moderatedByRate? || self.moderatedByDelta?))
+				$log.debug("SV regular event for #{@name} about to trigger, value #{@value}")
 				@service.subscriptions.each_value do |sub|
 					if !sub.expired?
 						@service.device.rootDevice.queueEvent(sub,[self])
@@ -270,7 +273,10 @@ Optional parameters are
 			# if the event is moderated by delta (only fires once the variable has changed by a sufficient amount) check for the size of change
 		
 			if self.moderatedByDelta?
-				if ((@lastEventedValue - v).abs > (@minimumDelta * @allowedIncrement))
+				$log.debug("SV #{@name} is moderated by delta, last value was #{@lastEventedValue}, this value is #{v}")
+				$log.debug("SV minimum delta and allowed increment are #{@minimumDelta} and #{@allowedIncrement}")
+				if ((@lastEventedValue - v).abs >= (@minimumDelta * @allowedIncrement))
+					$log.debug("SV so an event will fire")
 					@lastEventedValue = v
 					@service.subscriptions.each_value do |sub|
 						if !sub.expired?
