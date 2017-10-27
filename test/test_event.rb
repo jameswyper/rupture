@@ -24,10 +24,11 @@ class TestSimpleEvent < Minitest::Test
 	
 	
 	class Adder
+		attr_accessor :tick
 		def initialize(sv)
 			@count = 0
 			@stateVariables = sv
-			Thread.new { sleep (1); @stateVariables["TICKER"] .assign(@stateVariables["TICKER"].value + 1) }
+			@tick = Thread.new { loop {sleep (1); @stateVariables["TICKER"] .assign(@stateVariables["TICKER"].value + 1) }}
 		end
 		def add(inargs)
 			outargs = Hash.new
@@ -70,6 +71,26 @@ class TestSimpleEvent < Minitest::Test
 			end
 			@sid = d.headers["Sid"]
 			@headers = d.headers
+			return d.code
+		end
+
+		def renew(uri,timeout=nil)
+			c = HTTPClient.new
+			if timeout
+				d= c.request("SUBSCRIBE",uri,:header =>{"sid"=>"#{sid}","timeout"=>"seconds-#{timeout}"})
+				
+			else
+				d= c.request("SUBSCRIBE",uri,:header =>{"sid"=>"#{sid}","timeout"=>"infinite"})
+			end
+			@headers = d.headers
+			return d.code
+		end
+
+		def cancel(uri)
+			c = HTTPClient.new
+			d= c.request("UNSUBSCRIBE",uri,:header =>{"sid"=>"#{sid}"})
+			@headers = d.headers
+			return d.code
 		end
 
 		attr_reader :headers, :sid
@@ -77,9 +98,9 @@ class TestSimpleEvent < Minitest::Test
 	end
 	
 
-	def checkSubscriptionResponse(sub,expected)
+	def checkSubscriptionResponse(sub,expected,msg)
 		expected.each do |k,v| 
-			assert_equal v, sub.headers[k], "On Subscription - Difference for header #{k}"
+			assert_equal v, sub.headers[k], "On Subscription - Difference for header #{k} - #{msg}"
 		end
 		refute_nil(sub.sid,"Subscription ID is nil")
 	end
@@ -123,9 +144,10 @@ class TestSimpleEvent < Minitest::Test
 	
 		@root = UPnP::RootDevice.new(:type => "SampleOne", :version => 1, :name => "sample1", :friendlyName => "SampleApp Root Device",
 			:product => "Sample/1.0", :manufacturer => "James", :modelName => "JamesSample",	:modelNumber => "43",
-			:modelURL => "github.com/jameswyper/tapiola", :cacheControl => 15,
+			:modelURL => "github.com/jameswyper/tapiola", :cacheControl => 1800,
 			:serialNumber => "12345678", :modelDescription => "Sample App Root Device, to illustrate use of tapiola UPnP framework", 
 			:URLBase => "test", :ip => "127.0.0.1", :port => 54321, 
+			:minSubscriptionTimeout => 10, :eventLoopDelay => 0.2,
 			:logLevel => Logger::DEBUG)
 		
 		@serv1 = UPnP::Service.new("Math",1)
@@ -181,21 +203,23 @@ class TestSimpleEvent < Minitest::Test
 		
 		
 	uri = "http://127.0.0.1:54321/test/services/sample1/Math/event.xml"
-	@regular.subscribe(uri,60000)
-
-	checkSubscriptionResponse(@regular,{ "Timeout" => "infinite" })
+	code = @regular.subscribe(uri,2)
+	assert_equal(200,code,"First sub - initial")
+	checkSubscriptionResponse(@regular,{ "Timeout" => "seconds-10" },"First sub initial")
 
 	call_action(2,2)
-
+	puts "after call_action(2,2)"
+	
 	x = $eventMsgs[60000].pop
 	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "0", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
-	{"COUNT"=>"0", "TICKER" => "0", "ACCUMULATOR" => "0"},"Initial Subscription")
+	{"COUNT"=>"0", "TICKER" => "0", "ACCUMULATOR" => "0"},"Initial Subscription #{x[1]}")
 	
 	x = $eventMsgs[60000].pop
 	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "1", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
 	{"COUNT"=>"1"},"First action")
 
 	call_action(3,3)
+	puts "after call_action(3,3)"
 
 	x = $eventMsgs[60000].pop
 	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "2", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
@@ -207,9 +231,11 @@ class TestSimpleEvent < Minitest::Test
 	
 	sleep(1.1)
 	
-	@second.subscribe(uri,30)
-	checkSubscriptionResponse(@second,{ "Timeout" => "infinite" })	
+	code = @second.subscribe(uri,10)
+	assert_equal(200,code,"Second sub - initial")	
+	checkSubscriptionResponse(@second,{ "Timeout" => "seconds-10" },"second sub initial")	
 	
+	puts "after second subscription"
 	x = $eventMsgs[60001].pop
 	checkEventMessage(x[0],x[1],{"sid"=>@second.sid, "seq" => "0", "host" => "localhost:60001", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
 	{"COUNT"=>"2", "TICKER" => "1", "ACCUMULATOR" => "10"},"Second Subscription #{x[1]}")	
@@ -218,16 +244,22 @@ class TestSimpleEvent < Minitest::Test
 	assert_equal($eventMsgs[60001].size,0,"Queue for second sub not empty")	
 	
 	sleep(2)
+	puts "after sleeping 2 seconds"
 	x = $eventMsgs[60001].pop
+	puts "popped 60001"
 	checkEventMessage(x[0],x[1],{"sid"=>@second.sid, "seq" => "1", "host" => "localhost:60001", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
 	{"TICKER" => "3"},"Second Subscription #{x[1]}")	
 	x = $eventMsgs[60000].pop
-	checkEventMessage(x[0],x[1],{"sid"=>@second.sid, "seq" => "4", "host" => "localhost:60001", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
-	{"TICKER" => "3", },"Second Subscription #{x[1]}")	
+	puts "popped 60000"
+	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "4", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
+	{"TICKER" => "3", },"First Subscription #{x[1]}")	
+
 
 	call_action(3,3)
+	puts "after second call_action 3,3 call"
+	
 	x = $eventMsgs[60001].pop
-	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "2", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
+	checkEventMessage(x[0],x[1],{"sid"=>@second.sid, "seq" => "2", "host" => "localhost:60001", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
 	{"COUNT" => "3"},"Third action - count #{x[1]}")
 	x = $eventMsgs[60000].pop
 	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "5", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
@@ -236,12 +268,51 @@ class TestSimpleEvent < Minitest::Test
 
 	assert_equal($eventMsgs[60000].size,0,"Queue for first sub not empty")
 	assert_equal($eventMsgs[60001].size,0,"Queue for second sub not empty")	
+	
+	sleep(4)
+	puts "after sleeping 4 seconds (7.1 total)"
+	x = $eventMsgs[60001].pop
+	checkEventMessage(x[0],x[1],{"sid"=>@second.sid, "seq" => "3", "host" => "localhost:60001", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
+	{"TICKER" => "6"},"Second Subscription #{x[1]}")	
+	x = $eventMsgs[60000].pop
+	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "6", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
+	{"TICKER" => "6", },"First Subscription #{x[1]}")	
 
-#still to test
-#cancelling a sub
-#renewing a sub
+	code = @second.renew(uri,30)
+	assert_equal(200,code,"Second sub - renewal")	
+	checkSubscriptionResponse(@second,{"Timeout" => "seconds-30"},"second sub renew")
 
+# sleep another 2 seconds - get tickers x 2
 
+	sleep(2)
+	puts "after sleeping 2 seconds (9.1 total)"
+	x = $eventMsgs[60001].pop
+	checkEventMessage(x[0],x[1],{"sid"=>@second.sid, "seq" => "4", "host" => "localhost:60001", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
+	{"TICKER" => "9"},"Second Subscription #{x[1]}")	
+	x = $eventMsgs[60000].pop
+	checkEventMessage(x[0],x[1],{"sid"=>@regular.sid, "seq" => "7", "host" => "localhost:60000", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
+	{"TICKER" => "9", },"First Subscription #{x[1]}")	
+
+# sleep another 4 seconds - get ticker for second only
+
+	sleep(2)
+	assert_equal($eventMsgs[60000].size,0,"Queue for first sub not empty")
+	x = $eventMsgs[60001].pop
+	checkEventMessage(x[0],x[1],{"sid"=>@second.sid, "seq" => "5", "host" => "localhost:60001", "content-type" => "text/xml","nt"=>"upnp:event","nts"=>"upnp:propchange"},
+	{"TICKER" => "12"},"Second Subscription #{x[1]}")	
+
+#cancel the second
+
+	code = @second.cancel(uri)
+	assert_equal(200,code,"Second sub - cancel")
+
+# wait
+	sleep(4)
+	assert_equal($eventMsgs[60000].size,0,"Queue for first sub not empty")
+	assert_equal($eventMsgs[60001].size,0,"Queue for second sub not empty")
+
+	@adder.tick.kill
+	
 	end
 	
 	
@@ -249,7 +320,7 @@ class TestSimpleEvent < Minitest::Test
 
 	@root.stop
 	@regular.stop
-		
+	@second.stop	
 	end
 
 end

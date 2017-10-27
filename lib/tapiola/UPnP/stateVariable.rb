@@ -62,7 +62,9 @@ class StateVariable
 	attr_accessor :service
 	# time that an event was last fired for a moderated variable
 	attr_accessor :lastEventedTime
-	# event rate
+	# value the last time the variable was evented
+	attr_accessor :lastEventedValue
+	# event rate - number of seconds that elapse between events being sent
 	attr_reader :maximumRate
 	# state variable type
 	attr_reader :type
@@ -262,10 +264,23 @@ Optional parameters are
 			# check that eventing is enabled and fire an event unless it's moderated in some way
 		
 			if ((self.evented?) && !(self.moderatedByRate? || self.moderatedByDelta?))
-				$log.debug("SV regular event for #{@name} about to trigger, value #{@value}")
+				$log.debug("SVA: regular event for #{@name} about to trigger, value #{@value}")
 				@service.subscriptions.each_value do |sub|
 					if !sub.expired?
-						@service.device.rootDevice.queueEvent(sub,[self])
+						if sub.active?
+							@service.device.rootDevice.queueEvent(sub,[self])
+						else
+							Thread.new do
+								begin
+									Timeout(2) do
+										until (sub.active) do sleep(0.01) end
+										@service.device.rootDevice.queueEvent(sub,[self])
+									end
+								rescue Timeout::Error
+									$log.error("SVA: waited too long for subscription #{sub.sid} to activate")
+								end
+							end
+						end
 					end
 				end
 			end
@@ -273,10 +288,10 @@ Optional parameters are
 			# if the event is moderated by delta (only fires once the variable has changed by a sufficient amount) check for the size of change
 		
 			if self.moderatedByDelta?
-				$log.debug("SV #{@name} is moderated by delta, last value was #{@lastEventedValue}, this value is #{v}")
-				$log.debug("SV minimum delta and allowed increment are #{@minimumDelta} and #{@allowedIncrement}")
+				$log.debug("SVA: #{@name} is moderated by delta, last value was #{@lastEventedValue}, this value is #{v}")
+				$log.debug("SVA: minimum delta and allowed increment are #{@minimumDelta} and #{@allowedIncrement}")
 				if ((@lastEventedValue - v).abs >= (@minimumDelta * @allowedIncrement))
-					$log.debug("SV so an event will fire")
+					$log.debug("SVA: so an event will fire")
 					@lastEventedValue = v
 					@service.subscriptions.each_value do |sub|
 						if !sub.expired?

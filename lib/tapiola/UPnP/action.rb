@@ -174,12 +174,12 @@ Adds an existing argument to the Action.  The spec says that arguments must have
 
 		if !(@object.respond_to?(@method))
 			raise ActionError.new(402), "Can't invoke #{@method} on #{@object}"
-			$log.error("Can't invoke #{@method} on #{@object}")
+			$log.error("ACI: Can't invoke #{@method} on #{@object}")
 		else
 			begin
 				outargs = @object.send(@method,params)
 			rescue ActionError => e
-				$log.error("Problem when invoking #{@method} on #{@object} #{e}")
+				$log.error("ACI: Problem when invoking #{@method} on #{@object} #{e}")
 				raise
 			end
 		end
@@ -196,12 +196,12 @@ with a hash of expected arguments
 		
 		# check that the number of arguments passed in is what's expected
 		if (args == nil)
-			$log.warn("No Arguments to validate #{@service.type} - #{@name}")
+			$log.warn("ACV: No Arguments to validate #{@service.type} - #{@name}")
 			raise ActionError.new(402), "No Arguments to validate #{@service.type} - #{@name}"
 		end
 		
 		if args.size != expArgs.size
-			$log.warn("Argument size mismatch for #{@service.type} - #{@name}, expected #{expArgs.keys.join('/')} but got #{args.keys.join('/')}")
+			$log.warn("ACV: Argument size mismatch for #{@service.type} - #{@name}, expected #{expArgs.keys.join('/')} but got #{args.keys.join('/')}")
 			raise ActionError.new(402), "Argument size mismatch for #{@service.type} - #{@name}, expected #{expArgs.keys.join('/')} but got #{args.keys.join('/')}"
 		end
 		
@@ -210,7 +210,7 @@ with a hash of expected arguments
 		
 		args.each_key.sort.zip(expArgs.each_key.sort).each do |argpair| 			
 			if argpair[0] != argpair[1]
-				$log.warn("Argument name mismatch for #{@service.type} - #{@name}, expected #{expArgs.keys.join('/')} but got #{args.keys.join('/')}")
+				$log.warn("ACV: Argument name mismatch for #{@service.type} - #{@name}, expected #{expArgs.keys.join('/')} but got #{args.keys.join('/')}")
 				raise ActionError,402, "Argument name mismatch for #{@service.type} - #{@name}, expected #{expArgs.keys.join('/')} but got #{args.keys.join('/')}"
 			end
 		end
@@ -233,10 +233,10 @@ Checks that the arguments in the name/value hash passed to the method:
 			begin
 				args[name] = sv.interpret(value)
 			rescue StateVariableError => e
-				$log.warn("Couldn't interpret string #{value} as a value for State Variable #{sv.name}")
+				$log.warn("AVI: Couldn't interpret string #{value} as a value for State Variable #{sv.name}")
 				raise ActionError.new(402), e.message
 			rescue StateVariableRangeError
-				$log.warn("Range error (value #{value}) for State Variable #{sv.name}")
+				$log.warn("AVI: Range error (value #{value}) for State Variable #{sv.name}")
 				raise ActionError.new(601), e.message
 			end
 		end

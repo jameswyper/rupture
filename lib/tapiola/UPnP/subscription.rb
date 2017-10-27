@@ -18,14 +18,15 @@ class Subscription
 	attr_reader :callbackHost
 
 	def initialize(service,callback, expiry)
+		
+		@sid = "uuid:#{SecureRandom.uuid}"
+		@service = service
+		@service.addSubscription(self)
 		self.renew(expiry)
 		url = "http://#{callback}" unless callback.start_with?('http')
 		@callbackURI = URI.parse(url)
 		@callbackHost = "#{@callbackURI.host}:#{@callbackURI.port}"
-		@sid = "uuid:#{SecureRandom.uuid}"
 		@eventSeq = 0
-		@service = service
-		@service.addSubscription(self)
 		@active=false
 
 	end

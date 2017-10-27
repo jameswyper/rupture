@@ -192,8 +192,8 @@ returns a REXML::Document object containing the UPnP Service Description XML
 	
 	def handleSubscribe(req,res)
 		
-		$log.debug("Event subscription request, headers follow")
-		req.header.each { |k,v| $log.debug ("Header: #{k} Value: #{v}") }
+		$log.debug("HSU: Event subscription request, headers follow")
+		req.header.each { |k,v| $log.debug ("HSU: Header: #{k} Value: #{v}") }
 		
 		host = req.header["host"][0]
 		nt = req.header["nt"][0]
@@ -203,20 +203,21 @@ returns a REXML::Document object containing the UPnP Service Description XML
 
 		seconds = 0
 		if timeout
-			md = /seconds-\\d+/.match(timeout)
+			md = /seconds-([0-9]+)/i.match(timeout)
 			if (md)
-				seconds = md[1]
-				if seconds < 1800 then seconds = 1800 end
+				$log.debug "HSU: timeout of #{md[1]} extracted from header"
+				seconds = md[1].to_i
+				if seconds < @device.rootDevice.minSubscriptionTimeout then seconds = @device.rootDevice.minSubscriptionTimeout end
 			end
 		end
 
 		if !host
 			res.status = 400
-			$log.warn("event subscription with no host header")
+			$log.warn("HSU: event subscription with no host header")
 		else
 			if (nt != "upnp:event") && (!sid)
 				res.status = 412
-				$log.warn("event subscription with no nt header")
+				$log.warn("HSU: event subscription with no nt header")
 			else
 				if callback && !sid
 					if  callback =~ URI::regexp
@@ -253,7 +254,7 @@ returns a REXML::Document object containing the UPnP Service Description XML
 						
 					else
 						res.status = 412
-						$log.warn("invalid callback url #{callback} received for event subscription")
+						$log.warn("HSU: invalid callback url #{callback} received for event subscription")
 					end
 				else
 					if sid && !callback
@@ -261,17 +262,22 @@ returns a REXML::Document object containing the UPnP Service Description XML
 							sub = @subscriptions[sid]
 							if sub
 								sub.renew(seconds)
+								if seconds == 0
+									res.header["timeout"] = "infinite"
+								else
+									res.header["timeout"] = "seconds-#{seconds}"
+								end
 							else
 								res.status = 412
-								$log.warn("SID #{sid} not found for subscription renewal")
+								$log.warn("HSU: SID #{sid} not found for subscription renewal")
 							end
 						else
 							res.status = 400 # specified SID and NT together
-							$log.warn("SID and NT headers both found in event subscription")
+							$log.warn("HSU: SID and NT headers both found in event subscription")
 						end
 					else
 						res.status = 400 
-						$log.warn("SID and Callback headers neither or both found in event subscription")
+						$log.warn("HSU: SID and Callback headers neither or both found in event subscription")
 					end
 				end
 			end
@@ -280,8 +286,8 @@ returns a REXML::Document object containing the UPnP Service Description XML
 	end
 	
 	def handleUnsubscribe(req,res)
-		$log.debug("Event subscription cancellation request, headers follow")
-		req.header.each { |k,v| $log.debug ("Header: #{k} Value: #{v}") }
+		$log.debug("HUS: Event subscription cancellation request, headers follow")
+		req.header.each { |k,v| $log.debug ("HUS: Header: #{k} Value: #{v}") }
 		
 		host = req.header["host"][0]
 		sid = req.header["sid"][0]
@@ -290,22 +296,22 @@ returns a REXML::Document object containing the UPnP Service Description XML
 		
 		if !host
 			res.status = 400
-			$log.warn("event subscription with no host header")
+			$log.warn("HUS: event subscription with no host header")
 		else
 			if (!sid)
 				res.status = 412
-				$log.warn("No SID header for subscription cancellation")				
+				$log.warn("HUS: No SID header for subscription cancellation")				
 			else
 				if (nt || callback)
 					res.status = 400
-					$log.warn("NT and CALLBACK headers for subscription cancellation")				
+					$log.warn("HUS: NT and CALLBACK headers for subscription cancellation")				
 				else
 					sub = @subscriptions[sid]	
 					if sub
 						sub.cancel
 					else
 						res.status = 412
-						$log.warn("SID #{sid} not found for subscription cancellation")				
+						$log.warn("HUS: SID #{sid} not found for subscription cancellation")				
 					end
 				end
 			end
@@ -314,10 +320,12 @@ returns a REXML::Document object containing the UPnP Service Description XML
 	
 	def addSubscription(sub)
 		@subscriptions[sub.sid] = sub
+		$log.debug("ADS: Subscription #{sub.sid} added to #{@type}")
 	end
 	
 	def removeSubscription(sub)
-		@subscriptions[sub.sid].delete
+		@subscriptions.delete(sub.sid)
+		$log.debug("RMS: Subscription #{sub.sid} removed from #{@type}")
 	end
 	
 =begin
@@ -325,8 +333,8 @@ Takes the XML sent by a control point (and the SOAPACTION part of the http heade
 =end
 	def processActionXML(xml,soapaction)
 
-		$log.debug("XML: #{xml}")
-		$log.debug("soapaction field: #{soapaction}")
+		$log.debug("PAX: XML: #{xml}")
+		$log.debug("PAX: soapaction field: #{soapaction}")
 		
 		re = /^"(.*)#(.*)"$/
 		md = re.match(soapaction)
@@ -335,34 +343,34 @@ Takes the XML sent by a control point (and the SOAPACTION part of the http heade
 			namespace = md[1]
 			action = md[2]
 		else
-			$log.warn("SOAPACTION header invalid - was :#{soapaction}:")
+			$log.warn("PAX: SOAPACTION header invalid - was :#{soapaction}:")
 			raise ActionError.new(401), "SOAPACTION header invalid - was :#{soapaction}:"
 		end
-		$log.debug ("Namespace #{namespace} and Action #{action} obtained from header")
+		$log.debug ("PAX: Namespace #{namespace} and Action #{action} obtained from header")
 
 
 		begin
 			doc = REXML::Document.new xml
 		rescue REXML::ParseException => e
-			$log.warn("XML didn't parse #{e}")
+			$log.warn("PAX: XML didn't parse #{e}")
 			raise ActionError.new(401), "XML didn't parse #{e}"
 		end
 
 		soapbody = REXML::XPath.first(doc, "//m:Envelope/m:Body", {"m"=>"http://schemas.xmlsoap.org/soap/envelope/"})
 		unless soapbody
-			$log.warn("Couldn't get SOAP body out of #{xml}")
+			$log.warn("PAX: Couldn't get SOAP body out of #{xml}")
 			raise ActionError.new(401), "Couldn't get SOAP body out of #{xml}"
 
 		end
 		
 		argsxml =  REXML::XPath.first(soapbody,"//p:#{action}",{"p" => "#{namespace}"})
 		unless argsxml
-			$log.warn("Couldn't get action name out of #{xml} with SOAPACTION header :#{soapaction}:")
+			$log.warn("PAX: Couldn't get action name out of #{xml} with SOAPACTION header :#{soapaction}:")
 			raise ActionError.new(401), "Couldn't get action name out of #{xml} with SOAPACTION header :#{soapaction}:"
 		end
 
 		if (action != argsxml.name)
-			$log.warn("SOAPACTION header :#{soapaction}: didn't match XML name #{xml}")
+			$log.warn("PAX: SOAPACTION header :#{soapaction}: didn't match XML name #{xml}")
 			raise ActionError.new(401), "SOAPACTION header :#{soapaction}: didn't match XML name #{xml}"
 		end
 
@@ -385,13 +393,13 @@ Constructs a response indicating success or failure
 =end
 	def handleControl(req, res)
 	
-		$log.debug("in handleControl for service #{@type}")
+		$log.debug("HCL: in handleControl for service #{@type}")
 	
 		begin
 			actionname, args = processActionXML(req.body,req.header["soapaction"].join)
 			action = @actions[actionname]
 			if action == nil
-				$log.warn("Action #{actionname} doesn't exist in service #{@type}")
+				$log.warn("HCL: Action #{actionname} doesn't exist in service #{@type}")
 				raise ActionError.new(401), "Action #{actionname} doesn't exist in service #{@type}"
 			else
 				action.validateInArgs(args)
@@ -401,7 +409,7 @@ Constructs a response indicating success or failure
 				return true
 			end
 		rescue ActionError => e
-			$log.warn("Service #{@type}, Exception message #{e.message}")
+			$log.warn("HCL: Service #{@type}, Exception message #{e.message}")
 			responseError(res,e.code)
 			return false
 		end
@@ -460,7 +468,7 @@ Returns the service description in XML format
 
 	
 	def handleDescription(req, res)
-		$log.debug("Description (service) request: #{req}")
+		$log.debug("HSD: Description (service) request: #{req}")
 		res.body = createDescriptionXML.to_s
 		res.content_type = "text/xml"
 	end

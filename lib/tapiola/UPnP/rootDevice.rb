@@ -50,39 +50,47 @@ class RootDevice < Device
 
 # product (used in http / udp headers)
 	attr_accessor :product
+	
+# The minimum time a subscription will be valid for - if a subscriber requests a lower timeout we'll make it this one instead.  Should usually be 1800 (seconds) but for testing you'll want to set it lower
+	attr_reader :minSubscriptionTimeout
 
 =begin rdoc
      initialiser MUST be called with the following parameters in the hash; in descending order of importance:
      
        
-	:Type (e.g MediaServer)
-	:Version (e.g. 1)
-	:Name (e.g. "tapiola"), will be used to form URLs
-	:FriendlyName (typically this is what clients display)
+	:type (e.g MediaServer)
+	:version (e.g. 1)
+	:name (e.g. "tapiola"), will be used to form URLs
+	:friendlyName (typically this is what clients display)
 
 	:Product (seems unimportant - e.g. Tapiola/1.0 - appears in SSDP messages) 
 
 	(the next four only appear to be used in device description)
 	
-	:Manufacturer
-	:ModelName
-	:ModelNumber
-	:ModelURL 
+	:manufacturer
+	:modelName
+	:modelNumber
+	:modelURL 
 	
 	
 	The following parameters are optional:
 	
-	:IP and :Port (if these are left out a sensible ip and free port will be found)
-	:Interface - if supplied, and IP left blank, then will attempt to get the IP for this interface (and only this one)
-	:OS and :CacheControl (defaults will be used if these are left out)
+	:ip and :port (if these are left out a sensible ip and free port will be found)
+	:interface - if supplied, and IP left blank, then will attempt to get the IP for this interface (and only this one)
+	:os and :CacheControl (defaults will be used if these are left out)
 	:URLBase - start of URL for all web services e.g. if set to pyjamas then the addresses all start 127.0.0.1:60000/pyjamas/..
 	
 	(the next four only appear to be used in device description, if they aren't set XML tags won't be created for them)
 
-	:ManufacturerURL 
-	:ModelDescription
-	:SerialNumber
+	:manufacturerURL 
+	:modelDescription
+	:serialNumber
 	:UPC 
+	
+	(the next two for debugging /testing)
+	
+	:minSubScriptionTimeout
+	:eventLoopDelay
 	
 	Finally the logging level, can be set to Logger::DEBUG if needs be
 	
@@ -117,7 +125,7 @@ class RootDevice < Device
 		@product = params[:product]
 		if (!@os = params[:os]) then @os = RUBY_PLATFORM end
 		if (!@cacheControl = params[:cacheControl]) then @cacheControl = 1800 end
-		$log.debug ("Cache Control set to #{@cacheControl}")
+		$log.debug ("RDI: Cache Control set to #{@cacheControl}")
 		# if an ip wasn't specified, find one that isn't the loopback one and assume this is the one we should listen to
 		# if an interface name was supplied, match to that
 		
@@ -129,7 +137,7 @@ class RootDevice < Device
 			Socket::getifaddrs.each do |i|
 				a = i.addr
 				n = i.name
-				$log.debug ("Looking for interfaces, found #{n}, filtering on :#{f}")
+				$log.debug ("RDI: Looking for interfaces, found #{n}, filtering on :#{f}")
 				if a.ipv4?
 					if !a.ipv4_loopback?
 						if (f)
@@ -147,7 +155,7 @@ class RootDevice < Device
 			end
 		else
 			@ip = ip
-			$log.debug ("Listening on #{@ip}")
+			$log.debug ("RDI: IP address supplied: #{@ip}")
 		end
 		
 		# if a port wasn't specified, ask Webrick to find a free one by specifying port 0 and then check what it found
@@ -166,9 +174,15 @@ class RootDevice < Device
 		
 		@location= "http://#{@ip}:#{@port}#{@descriptionAddr}/description.xml"
 		
+		@eventLoopDelay = params[:eventLoopDelay]
+		unless (@eventLoopDelay) then @eventLoopDelay = 0.05 end
+		
+		@minSubscriptionTimeout = params[:minSubscriptionTimeout]
+		unless (@minSubscriptionTimeout) then @minSubscriptionTimeout = 1800 end
+		
 		@eventQueue = Queue.new
 	
-		$log.info "Listening on #{@ipPort}"
+		$log.info "RDI: Listening on #{@ipPort}"
 	end
 
 # trivial method to add devices to a root device, it's just a list.  No support for removing them.  Should only be called at runtime.
@@ -311,9 +325,9 @@ Calls getXMLDeviceData to get individual XML elements for each device (root and 
 		line = message.split("\n")
 		
 		if /^M-SEARCH.*/ =~ line[0] 
-			line.each_index {|n| $log.debug n.to_s + ":#{line[n]}" }
+			line.each_index {|n| $log.debug "HDS:" + n.to_s + ":#{line[n]}" }
 		else
-			$log.debug "Not a search:#{line[0]}"
+			$log.debug "HDS: Not a search:#{line[0]}"
 			return 0,a
 		end
 		
@@ -333,7 +347,7 @@ Calls getXMLDeviceData to get individual XML elements for each device (root and 
 			return 0, a
 		else
 			target.chomp!
-			$log.debug "Search target:#{target}:"
+			$log.debug "HDS: Search target:#{target}:"
 			if target == "ssdp:all"
 				a << createSearchResponse("upnp:rootdevice","uuid:#{@uuid}::upnp:rootdevice")
 				@devices.each_value do |d|
@@ -391,7 +405,7 @@ Returns the last of these threads (the sender one) so that the main program can 
 
 	def discoveryStart
 		
-		$log.debug "discoveryStart entry point"
+		$log.debug "DSS: begin discoveryStart"
 		@discoveryRunning = TRUE
 		@ssdpMessages = Queue.new
 		
@@ -420,34 +434,34 @@ Returns the last of these threads (the sender one) so that the main program can 
 			
 			while @discoveryRunning do
 				
-				$log.debug "Responder: Waiting for multicast message"
+				$log.debug "DSS: Waiting for next multicast message"
 				rmsg,rinfo = rsock.recvfrom(1024)
-				$log.debug "Responder: Received multicast message from #{rinfo[3]}:#{rinfo[1]}"
+				$log.debug "DSS: Received multicast message from #{rinfo[3]}:#{rinfo[1]}"
 				
 				begin
 				
 				d, r = handleSearch(rmsg)
 				
-				$log.debug "Responder: handleSearch returned"
+				$log.debug "DSS: handleSearch has been called"
 				
 				if (!r.empty?)
 					#$log.debug "Responder: " + r.join("\n")
-					$log.debug "Valid search request, creating response"
+					$log.debug "DSS: Valid search request, creating response"
 					# pass an array of four values onto the queue, the IP address and port of the requestor
 					# the time in seconds the requestor said it would wait for a response
 					# finally the response messages (itself an array)
 					@ssdpMessages.push([rinfo[3], rinfo[1], d, r ])
 				else
-					$log.debug "Invalid search request"
+					$log.debug "DSS: Invalid search request"
 				end
 				
 				rescue StandardError => detail
 					
-					$log.debug detail.to_s
+					$log.debug "DSS: Exception raised " + detail.to_s
 					$log.debug detail.backtrace.join("\n")
 				
 				end
-				$log.debug "Responder: ready to go round again"
+				$log.debug "DSS: ready to go round again"
 			end
 			
 		end
@@ -457,9 +471,9 @@ Returns the last of these threads (the sender one) so that the main program can 
 		ssdpAdvertiser = Thread.new do
 			
 			while @discoveryRunning do
-				$log.debug "Ad " 
+				$log.debug "DSS: About to advertise " 
 				@ssdpMessages.push([MULTICAST_ADDR, PORT, 0, keepAlive])
-				$log.debug "Ad (pushed) #{@ssdpMessages.size} " 
+				$log.debug "DSS: Advertised #{@ssdpMessages.size} " 
 				sleep (@cacheControl * (0.1 + (rand * 0.4)))
 			end
 		end
@@ -469,15 +483,15 @@ Returns the last of these threads (the sender one) so that the main program can 
 		@ssdpSender = Thread.new do
 			
 			while (@discoveryRunning || !@ssdpMessages.empty?) do
-				$log.debug"Sender: Queue size is #{@ssdpMessages.size} " 
+				$log.debug"DSS: Sender: Queue size is #{@ssdpMessages.size} " 
 				if (!@discoveryRunning)
-					$log.debug "Sender: (in cleanup)" 
+					$log.debug "DSS: Sender: (in cleanup)" 
 				end
-				$log.debug "Sender: (about to pop)"
+				$log.debug "DSS: Sender: (about to pop)"
 				
 				m = @ssdpMessages.pop #should block here if nothing in queue, which is fine
 				
-				$log.debug "Sender: (popped) " 
+				$log.debug "DSS: Sender: (popped) " 
 				dip = m[0]
 				dp = m[1]
 				d = m[2]
@@ -486,7 +500,7 @@ Returns the last of these threads (the sender one) so that the main program can 
 					3.times do
 						r.each do |msg|
 							begin
-								$log.debug "Sender: multicasting "
+								$log.debug "DSS: Sender: multicasting "
 								msock.send msg, 0, MULTICAST_ADDR, PORT
 							end
 							sleep (0.05 + (rand * 0.1))
@@ -495,18 +509,18 @@ Returns the last of these threads (the sender one) so that the main program can 
 				else
 					r.each do |msg|
 						begin
-							$log.debug "Sender: responding to #{dip}:#{dp} with #{msg}"
+							$log.debug "DSS: Sender: responding to #{dip}:#{dp} with #{msg}"
 							ssock.send msg, 0, dip, dp
-							$log.debug "Sender: response apparently sent"
+							$log.debug "DSS: Sender: response sent"
 						end
 						sleep( 0.05 + (rand * 0.1))
 					end
 				end
-				$log.debug "Sender: (looping round again)"
+				$log.debug "DSS: Sender: (looping round again)"
 			end
 			
 			# if we've reached this point then we need to stop the other threads and clean up the sockets
-			$log.debug "Send (final) " + Time.now.to_s
+			$log.debug "DSS: Send (final) " + Time.now.to_s
 			ssdpAdvertiser.kill
 			ssdpResponder.kill
 			ssock.close
@@ -526,11 +540,11 @@ Signals that the Discovery threads should be shut down.
 		
 		#load queue with SSDP:ByeBye messages 
 		
-		$log.debug "Stop " 
+		$log.debug "DST: Pushing bye-bye multicast messages out " 
 		@ssdpMessages.push([MULTICAST_ADDR, PORT, 0, byeBye])
-		$log.debug "Stop (pushed) #{@ssdpMessages.size}" 
+		$log.debug "DST: Stop (pushed) #{@ssdpMessages.size}" 
 		@discoveryRunning = FALSE
-		$log.debug "Stop (@dR false) " 
+		$log.debug "DST: Stopped discoveryRunning " 
 		
 		# wait for the SSDP sender code to finish sending those messages
 		
@@ -542,7 +556,7 @@ Handles a call to the Description URL of the device, returning the XML describin
 =end
 		
 	def handleDescription(req)
-		$log.debug("Description (root) request: #{req}")
+		$log.debug("HDD: Description (root) request: #{req}")
 		b = String.new
 		b = createDescriptionXML.to_s
 		return b
@@ -554,7 +568,7 @@ Initialises the WEBrick server
 		
 	def webServerStart
 
-		$log.debug "Description address is #{@descriptionAddr}"
+		$log.debug "WSS: Description address is #{@descriptionAddr}"
 
 # since the Description processing is part of the root device and doesn't do anything clever we can use a simple mount_proc for it
 
@@ -596,7 +610,7 @@ Stops the WEBrick server
 	
 	def eventingStart
 
-		$log.debug "eventingStart begin..."
+		$log.debug "EVS: eventingStart begin..."
 
 		httpClient = HTTPClient.new
 		
@@ -608,17 +622,18 @@ Stops the WEBrick server
 				sub = m[0]
 				svars = m[1]
 				if sub.expired?
+					$log.info("EVP: Subscription #{sub.callbackHost} sid #{sub.sid} has expired")
 					sub.service.removeSubscription(sub)
 				else
 					body =  StateVariable.eventsXML(svars)
 					begin
 						
-#						puts "sending http request with body #{body}"
+						$log.debug("EVP: Sending event to #{sub.callbackHost} sid #{sub.sid} including #{svars[0].name}, #{svars.size} variables in all")
 						res = httpClient.request("NOTIFY",sub.callbackURI,:body=>body,
 							:header =>{"nt"=>"upnp:event","nts"=>"upnp:propchange","content-type"=>"text/xml",
 							"host"=>sub.callbackHost,"sid"=>sub.sid,"seq"=>sub.eventSeq.to_s})
 					rescue => e
-						puts "#{e.message} for subscription to #{sub.callbackURI} sid:#{sub.sid} number:#{sub.eventSeq}"
+						$log.info("EVP: #{e.message} for subscription to #{sub.callbackURI} sid:#{sub.sid} number:#{sub.eventSeq}")
 					end
 					if (res) && (res.code == 200)
 						sub.increment
@@ -631,15 +646,21 @@ Stops the WEBrick server
 		
 		@eventModerator = Thread.new do
 			loop do
-				sleep 0.01
+				sleep @eventLoopDelay
 				@devices.each_value do |d|
 					d.services.each_value do |s|
 						s.stateVariables.each_value do |v|
 							if v.moderatedByRate?
+								$log.debug("EVM: #{v.name} is rate-moderated, last at #{v.lastEventedTime} and it's now #{Time.now}, max rate is #{v.maximumRate}, value is #{v.value}, last evented as #{v.lastEventedValue}")
 								t = Time.now
-								if ((t - v.lastEventedTime) > v.maximumRate)
-									v.service.subscriptions.each_value {|sub| queueEvent(sub,[v]) }
+								if ((t - v.lastEventedTime) > v.maximumRate) && (v.value != v.lastEventedValue)
+									$log.debug("EVM: so we are going to send an event")
+									v.service.subscriptions.each_value do |sub| 
+										$log.debug("EVM: putting request for #{sub.callbackHost} sid #{sub.sid} on queue for #{v.name}")
+										queueEvent(sub,[v]) 
+									end
 									v.lastEventedTime = t
+									v.lastEventedValue = v.value
 								end
 							end
 						end
@@ -648,7 +669,7 @@ Stops the WEBrick server
 			end
 		end
 
-		$log.debug "eventingStart end..."
+		$log.debug "EVS: eventingStart end..."
 		
 	end
 	
@@ -669,14 +690,14 @@ Starts up all the Threads associated with the UPnP service, ie
 =end
 		
 	def start
-		$log.debug "Validating devices/services..."
+		$log.debug "RTS: Validating devices/services..."
 		@devices.each_value do |d|
 			d.validate
 			d.services.each_value do |s|
 				s.validate
 			end
 		end
-		$log.debug "Starting everything up..."
+		$log.debug "RTS: Starting everything up..."
 		discoveryStart
 		eventingStart
 		
@@ -698,8 +719,8 @@ Shuts everything down in a hopefully orderly way
 
 
 	
-end 
-end
+end #class
+end #module
 
 =begin rdoc
 This class has to live outside the main UPnP class hierarchy because it is derived from Webrick and ruby doesn't do multiple inheiritance
@@ -724,12 +745,12 @@ Find out what we are being asked to do, and call the appropriate handleXXXXX met
 			servicename = m[2]
 			what = m[3]
 		else
-			$log.warn("rootDevice.rb/HandleServices URL:#{req.path} did not parse")
+			$log.warn("HSV: rootDevice.rb/HandleServices URL:#{req.path} did not parse")
 			raise WEBrick::HTTPStatus::NotFound
 		end
 		
-		$log.debug ("rootDevice.rb/HandleService path is #{req.path}") 
-		$log.debug ("rootDevice.rb/HandleServices device:#{devicename}, service:#{servicename}, what:#{what}")
+		$log.debug ("HSV: rootDevice.rb/HandleService path is #{req.path}") 
+		$log.debug ("HSV: rootDevice.rb/HandleServices device:#{devicename}, service:#{servicename}, what:#{what}")
 		
 		device = root.devices[devicename]
 		if device
@@ -738,18 +759,18 @@ Find out what we are being asked to do, and call the appropriate handleXXXXX met
 				if (what == urlEnd)
 					service.send(serviceHandler,req,res)
 				else
-					$log.warn("rootDevice.rb/HandleServices control / event / description not specified, this was instead:#{what}, with http method #{method}")
-					$log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
+					$log.warn("HSV: rootDevice.rb/HandleServices control / event / description not specified, this was instead:#{what}, with http method #{method}")
+					$log.warn("HSV: rootDevice.rb/HandleServices URL was:#{req.path}")
 					raise WEBrick::HTTPStatus::NotFound
 				end
 			else
-				$log.warn ("rootDevice.rb/HandleServices attempt made to use unknown service:#{servicename} on device #{devicename}")
-				$log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
+				$log.warn ("HSV: rootDevice.rb/HandleServices attempt made to use unknown service:#{servicename} on device #{devicename}")
+				$log.warn("HSV: rootDevice.rb/HandleServices URL was:#{req.path}")
 				raise WEBrick::HTTPStatus::NotFound
 			end
 		else
-			$log.warn ("rootDevice.rb/HandleServices attempt made to use unknown device:#{devicename}")
-			$log.warn("rootDevice.rb/HandleServices URL was:#{req.path}")
+			$log.warn ("HSV: rootDevice.rb/HandleServices attempt made to use unknown device:#{devicename}")
+			$log.warn("HSV: rootDevice.rb/HandleServices URL was:#{req.path}")
 			raise WEBrick::HTTPStatus::NotFound
 		end
 		
@@ -797,20 +818,20 @@ class HandlePresentation < WEBrick::HTTPServlet::AbstractServlet
 		purl = m[2]
 		
 		
-		$log.debug ("rootDevice.rb/HandlePresentation path is #{req.path}") 
-		$log.debug ("rootDevice.rb/HandlePresentation device:#{devicename}, url:#{purl}")
+		$log.debug ("HPN: rootDevice.rb/HandlePresentation path is #{req.path}") 
+		$log.debug ("HPN: rootDevice.rb/HandlePresentation device:#{devicename}, url:#{purl}")
 		
 		if (devicename && purl)
 			device = root.devices[devicename]
 			if device
 				device.handlePresentation(req,res,action,purl)
 			else
-				$log.warn ("rootDevice.rb/HandlePresentation attempt made to use unknown device:#{devicename}")
-				$log.warn("rootDevice.rb/HandlePresentation URL was:#{req.path}")
+				$log.warn ("HPN: rootDevice.rb/HandlePresentation attempt made to use unknown device:#{devicename}")
+				$log.warn("HPN: rootDevice.rb/HandlePresentation URL was:#{req.path}")
 				raise WEBrick::HTTPStatus::NotFound
 			end
 		else
-			$log.warn("rootDevice.rb/HandlePresentation URL:#{req.path} did not parse")
+			$log.warn("HPN: rootDevice.rb/HandlePresentation URL:#{req.path} did not parse")
 			raise WEBrick::HTTPStatus::NotFound
 		end
 		

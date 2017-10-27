@@ -1,16 +1,12 @@
 #Progress and Next Steps
 
-September 2017
+October 2017
 
-Discovery works
+Everything is pretty much there.  Discovery, description, control and eventing have all been coded and tested, and there's a framework that allows you to provide your own Presentation handling code if you wish.
+The major gaps are (a) only string and integer state variables have been catered for - there's just a lot of boilerplate to write for the rest and placeholders for the code are there, and (b) icons aren't properly supported or tested yet.  This will happen when I start to write the AV server.
 
-Device description works
+Test scripts using MiniTest have been written, occasionally the discovery one will fail with address already in use, just re-run it.
 
-Control has been very lightly tested
-
-Eventing is not yet supported
-
-Framework has been set up for HTTP services (description, presentation, control, eventing)
 
 TODO
 
@@ -19,12 +15,7 @@ High
 
 15. Events
 - need to cater for resetting after events
-- code header responses for sub / cancel sub / renew
-- add default expiry time as root device parameter
-- check for activation before processing sub message
-- test, test and test again
 
-24. Finish test_action2.rb - more complex Action testing
 
 Medium
 
@@ -34,19 +25,18 @@ Medium
 18. Extend range of state variables
 7.  write code to serve icons
 16. Add option to state variable to reset after eventing takes place
-21.  Check discovery returns correct http headers and add to test
+21.  Check description returns correct http headers and add to test
 23.  Replace Webrick
 
 Low
 
 17.  If an optional Action is called that hasn't been coded we should return error code 602 (optional not implemented) not 401 (invalid action) - this requires us to allow Service to maintain a list of optional, unimplemented actions
 
-2. Logging (debug) - add File / method / object references to each statement [need to test]
 4. Write method to start / stop all servers, including validation of device / service data
 6.  allow PresentationURL to be overridden and not mounted
 8.  allow logging object to be overridden
 9.  URLBase needs to be a property of the root device not the device
-11. Copyright notices
+
 22. Gemspec and test install on a clean VM.  Ideally at least one non-Ubuntu one too.
 
 ##TEST PLAN
