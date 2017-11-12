@@ -3,7 +3,7 @@ module AV
 class CDSetupError < ::StandardError
 end
 
-class CDClass
+class CDObject
 	PropertyMeta = Struct.new(:xmlType, :namespace, :required, :multiValued)
 #
 #  set up the properties for the base Content Directory Object in a hash
@@ -66,37 +66,13 @@ class CDClass
 	attr_reader :property
 	
 	def initialize(classname, parent)
-		@property = Array.new
+		@property = Hash.new
 		@classname = classname
 		if (@type = @@classes[classname] == nil)
 			raise CDSetupError, "class #{classname} undefined"
 		end
-		if (@type == :container)
-			@childItems = Array.new
-			@childContainers = Array.new
-		end
 		@parent = parent
 		if (parent) then @parent.addChild[self] end
-	end
-	
-	def children
-		return @childContainers + @childItems
-	end
-	
-	def addChild(child)
-		if child.type == :container
-			@childContainers << child
-		else
-			@childItems << child
-		end
-	end
-	
-	def removeChild(child)
-		if child.type == :container
-			@childContainers.delete(child)
-		else
-			@childItems.delete(child)
-		end
 	end
 	
 	def addProperty(name,value)
@@ -135,9 +111,27 @@ class CDClass
 	
 	def createXMLFragment(filter)
 	end
-	
 		
-	def self.getChildren(object,sort,offset,limit)
+	
+end
+
+class CDContainer < CDObject
+	
+	def initialize(classname, parent)
+		super
+		@children = Array.new
+		@updateID = 0
+	end
+
+	def addChild(child)
+		@children << child
+	end
+	
+	def removeChild(child)
+		@children.delete(child)
+	end
+	
+	def getChildren(object,sort,offset,limit)
 		if (@@cacheObject != object || @@cacheSort != sort)
 			@@cacheChildren = getAllChildren(object,sort)
 		end
@@ -152,15 +146,32 @@ class CDClass
 		end
 	end
 	
-	def self.getAllChildren(object,sort)
+	def getAllChildren(object,sort)
 		@@cacheObject = object
 		@@cacheSort = sort
-		#decide whether we're getting containers or items or both
-		# get them
-		# sort them
-		# store them
+		if sort.empty?
+			return @children
+		else
+			return @children.sort do |x,y|
+				sort.each do |p|
+					if x.property[p] > y.property[p]
+						return 1
+					else
+						if x.property[p] < y.property[p]
+							return -1
+						end
+					end
+					return 0
+				end
+			end
+		end
 	end
 	
+	def addProperty(p,v)
+		@properties[p] = v
+		@updateID = @updateID + 1
+	end
+
 end
 
 end #module
