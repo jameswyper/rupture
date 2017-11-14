@@ -59,20 +59,40 @@ class CDObject
 					:toc => PropertyMeta.new(:element,:UPnP,false,false)
 					}
 					)  })
-	@@classes = { :CDItem => :item, :CDContainer => :container, :CDAlbum => :container, :CDMusicAlbum => :container }
-	
+	@@classes = { :CDItem => "object.item", 
+				:CDContainer => "object.container", 
+				:CDAlbum => "object.container.album", 
+				:CDMusicAlbum => "object.container.musicAlbum"}
+	 
+	 
+	@@id = 0
 
 	attr_reader :type
 	attr_reader :property
+	attr_reader :id
 	
 	def initialize(classname, parent)
+
 		@property = Hash.new
 		@classname = classname
+		@updateID = 0
 		if (@type = @@classes[classname] == nil)
 			raise CDSetupError, "class #{classname} undefined"
+		else
+			self.addProperty(:class,@@classes[classname])
 		end
+
+		@id = @@id
+		@@id = @@id + 1
+
+		self.addProperty(:id,@id)
 		@parent = parent
-		if (parent) then @parent.addChild[self] end
+		if (parent)
+			@parent.addChild(self)
+			self.addProperty(:parentID,@parent.id)
+		else
+			self.addProperty(:parentID,-1)
+		end
 	end
 	
 	def addProperty(name,value)
@@ -82,9 +102,10 @@ class CDObject
 		else
 			raise CDSetupError, "Property #{name} not defined for class #{@classname}"
 		end
+		@updateID = @updateID + 1
 	end
 	
-	def checkproperties
+	def checkProperties
 		ok = true
 		missing = Array.new
 		required = Hash.new
@@ -167,10 +188,6 @@ class CDContainer < CDObject
 		end
 	end
 	
-	def addProperty(p,v)
-		@properties[p] = v
-		@updateID = @updateID + 1
-	end
 
 end
 
