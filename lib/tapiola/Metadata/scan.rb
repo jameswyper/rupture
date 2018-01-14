@@ -10,6 +10,8 @@ require 'base64'
 require 'rexml/document'
 require 'httpclient'
 
+$stdout.sync = true
+
 class Database
 	
 	def initialize(f)
@@ -31,12 +33,18 @@ class Database
 		create table if not exists md_disc (id integer, mb_discID text, mb_release_id text);
 		create table if not exists xx_id (name text, id int);
 		create table if not exists md_track_tags (md_track_id integer, tag text, value text);
-		create table if not exists md_track2work (track_id integer, work_mb_id text);
+		create table if not exists md_track2work (track_id integer, work_mb_id text, performing_work_mb_id text);
+		create table if not exists mb_work (work_mb_id text, title text, type text, key text);
+		create table if not exists mb_work2work (work_mb_id text, parent_work_mb_id text);
+		create table if not exists md_disc_not_on_mb(path text, discnumber integer, discID text, toc text);
 		delete from md_track;
 		delete from md_disc;
 		delete from md_track_tags;
 		delete from xx_id;
 		delete from md_track2work;
+		delete from mb_work;
+		delete from mb_work2work;
+		delete from md_disc_not_on_mb;
 		create table if not exists mb_cache (request text, code text, body text);
 		")
 		
@@ -141,21 +149,24 @@ class Database
 		end
 		
 		toc = "1"
+
 		
 		s = sprintf("%02X",1)
 		s << sprintf("%02X",rows.size)
 		
-		toc << " #{rows.size}"
+		toc << "+#{rows.size}"
+
+		
 		lo = offset
 		rows.each do |r| 
 			lo = lo + r[2]
 		end
 		s << sprintf("%08X",lo)
-		toc << " #{lo}"
+		toc << "+#{lo}"
 		fo = offset
 		rows.each do |r|
 			s << sprintf("%08X",fo)
-			toc << " #{fo}"
+			toc << "+#{fo}"
 			fo = fo + r[2]
 		end
 		if rows.size < 99 
@@ -164,7 +175,7 @@ class Database
 		#puts "#{path} #{offset} #{toc}"
 		t = ::Digest::SHA1.digest(s)
 		b = ::Base64.strict_encode64(t).gsub('+','.').gsub('/','_').gsub('=','-')
-		return b
+		return b, toc
 	end
 	
 	def storeMbDiscID(id,path,disc)
@@ -200,7 +211,26 @@ class Database
 	def storeRecordingForTrack(t,w)
 		@db.execute("update md_track set mb_recording_id = ? where id = ?",w,t)
 	end
+	
+	def storeNoMBdisc(path,disc,id,toc)
+		@db.execute("insert into md_disc_not_on_mb (path, discnumber, discID, toc) values(?,?,?,?)",path,disc,id,toc)
+	end
 
+	def getDistinctWorks
+		return @db.execute("select distinct work_mb_id from md_track2work")
+	end
+	
+	def storeWorkParent(work,parent)
+		@db.execute("insert into mb_work2work (work_mb_id, parent_work_mb_id) values (?,?)",work,parent)
+	end
+	
+	def storeWorkDetails(id,title,type,key)
+		@db.execute("insert into mb_work (work_mb_id, title, type,key) values (?,?,?,?)", id,title,type,key)
+	end
+	
+	def storePerformingWork(track, work)
+		@db.execute("update md_track2work set performing_work_mb_id = ? where mb_track_id = ?",work,track)
+	end
 end
 
 class TopFolder
@@ -356,6 +386,44 @@ class MusicBrainz
 		return aw
 	end
 	
+	def getWorkAttributes(id)
+		c, r = mbCachedRequest("/ws/2/work/#{id}?inc=aliases")
+		x = REXML::Document.new(r)
+		#puts r
+		type = x.elements["/metadata/work"].attributes["type"]
+		title = x.elements["/metadata/work/title"].text
+		y = x.elements["/metadata/work/attribute-list/"] 
+		#puts "y=#{y}"
+		key = nil
+		if (y)
+			y.each do |a|
+				if a.attributes["type"] == "Key"
+					key = a.text
+				end
+			end
+		end
+		#puts title,type,key
+		return title, type, key
+	end
+	
+	def getParentWork(id)
+		c , r = mbCachedRequest("/ws/2/work/#{id}?inc=work-rels")
+		x = REXML::Document.new(r)
+		x.elements.each("/metadata/work/relation-list/relation") do |rel|
+			if rel.attributes["type"] == "parts" && rel.elements["direction"]
+				d = rel.elements["direction"].text
+				if d == "backward"
+					up = rel.elements["work"].attributes["id"]
+					if (up != nil)
+						return (up)
+					end
+				end
+			end
+		end
+		return nil
+	end
+	
+=begin	
 	def getWorkForWork(id)
 		c , r = mbCachedRequest("/ws/2/work/#{id}?inc=work-rels")
 		x = REXML::Document.new(r)
@@ -381,9 +449,9 @@ class MusicBrainz
 		puts "Found #{rtit} (no type)"
 		return rid, nil, rtit
 	end
+=end
+
 end
-
-
 
 
 # things to do
@@ -400,7 +468,14 @@ end
 d = Database.new("/home/james/test.db")
 #d = Database.new(argv[1])
 a = MusicBrainz.new('192.168.0.99:5000',d)
-x = TopFolder.new("/media/music/flac/classical/")
+
+
+
+
+#a.getWorkAttributes("3a4ab76a-2c25-3c30-9587-abd9f3bf5a18")
+
+
+x = TopFolder.new("/media/music/flac/classical")
 #x = TopFolder.new("/home/james/Music/flac/classical")
 #x = TopFolder.new(argv[0])
 
@@ -426,24 +501,28 @@ dinfo.each do |k,v|
 		gotit = false
 		[150,182,183,178,180,188,190].each do |o|
 		
-			id = d.calcMbDiscID(k,w[0],o)
-			puts "#{k} #{w[0]} trying #{id} (#{o})"
+			id, toc = d.calcMbDiscID(k,w[0],o)
+			#puts "#{k} #{w[0]} trying #{id} (#{o})"
 			if a.checkDiscID(id) == "200"
 				d.storeMbDiscID(id,k,w[0])
-				puts "Got discID for #{k} #{w[0]} with offset #{o} (#{id})"
+				#puts "Got discID for #{k} #{w[0]} with offset #{o} (#{id})"
 				gotit = true
 				break
 			end
 			
 		end
 		if (!gotit)
+			id, toc = d.calcMbDiscID(k,w[0],150)
 			puts "No discID for #{k} #{w[0]} with offsets tried"
+			d.storeNoMBdisc(k,w[0],id,toc)
+			puts "https://musicbrainz.org/cdtoc/attach?id=#{id}&tracks=#{toc}"
 		end
 	end
 end
 
 d.endLUW
 
+10.times {|n| puts }
 
 r = d.getAllMbDiscIDs
 c = 0
@@ -456,5 +535,29 @@ r.each do |s|
 	d.endLUW
 end
 
-#get list of distinct works
-#call workforwork
+10.times {|n| puts }
+
+r = d.getDistinctWorks
+s = r.size
+ct = 0
+r.each do |w|
+	title, type, key = a.getWorkAttributes(w[0])
+	puts "Track work: #{w[0]} #{title} #{type} #{key}"
+	d.storeWorkDetails(w[0],title,type,key)
+	c = w[0]
+	p = a.getParentWork(c)
+	while (p != nil)
+		d.storeWorkParent(c,p)
+		title, type, key = a.getWorkAttributes(p)
+		puts "Parent work: #{p} #{title} #{type} #{key}"
+		d.storeWorkDetails(p,title,type,key)
+		c = p
+		p = a.getParentWork(c)
+	end
+	ct = ct + 1
+	puts "#{ct} of #{s} works processed"
+end
+
+
+# to do - add artist-rels query to works to obtain composer (& arranger if possible)
+# upsert work details
