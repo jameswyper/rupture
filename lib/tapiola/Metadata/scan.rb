@@ -27,15 +27,18 @@ class Database
 		drop table if exists xx_id;
 		drop table if exists md_track_tags;
 		drop table if exists md_track2work;
+		drop table if exists mb_work2work;
+		drop table if exists mb_work;
+		drop table if exists md_disc_not_on_mb;
 		create table if not exists md_track (id integer, filename text, pathname text, genre text, artist text, composer text, album_artist text,
 			album text, track integer, title text, mb_recording_id text, md_disc_id integer, samplerate integer, samples integer,
 			discnumber integer, comment text);
 		create table if not exists md_disc (id integer, mb_discID text, mb_release_id text);
 		create table if not exists xx_id (name text, id int);
 		create table if not exists md_track_tags (md_track_id integer, tag text, value text);
-		create table if not exists md_track2work (track_id integer, work_mb_id text, performing_work_mb_id text);
-		create table if not exists mb_work (work_mb_id text, title text, type text, key text);
-		create table if not exists mb_work2work (work_mb_id text, parent_work_mb_id text);
+		create table if not exists md_track2work (track_id integer, work_mb_id text, performing_work_mb_id text, performing_work_sequence real);
+		create table if not exists mb_work (work_mb_id text, title text, type text, key text, composer text, arranger text);
+		create table if not exists mb_work2work (work_mb_id text, sequence integer, parent_work_mb_id text);
 		create table if not exists md_disc_not_on_mb(path text, discnumber integer, discID text, toc text);
 		delete from md_track;
 		delete from md_disc;
@@ -220,16 +223,40 @@ class Database
 		return @db.execute("select distinct work_mb_id from md_track2work")
 	end
 	
-	def storeWorkParent(work,parent)
-		@db.execute("insert into mb_work2work (work_mb_id, parent_work_mb_id) values (?,?)",work,parent)
+	def storeWorkParent(work,parent,sequence)
+		rows = @db.execute("select work_mb_id from mb_work2work where work_mb_id = ?", work)
+		if (rows == nil) || (rows.size == 0)
+			@db.execute("insert into mb_work2work (work_mb_id, sequence, parent_work_mb_id) values (?,?,?)",work,sequence,parent)
+		end
 	end
 	
-	def storeWorkDetails(id,title,type,key)
-		@db.execute("insert into mb_work (work_mb_id, title, type,key) values (?,?,?,?)", id,title,type,key)
+	def storeWorkDetails(id,title,type,key,comp,arr)
+		@db.execute("insert into mb_work (work_mb_id, title, type,key, composer, arranger) values (?,?,?,?,?,?)", id,title,type,key,comp,arr)
 	end
 	
-	def storePerformingWork(track, work)
-		@db.execute("update md_track2work set performing_work_mb_id = ? where mb_track_id = ?",work,track)
+	def storePerformingWork(track, work, seq)
+		@db.execute("update md_track2work set performing_work_mb_id = ?, performing_work_sequence = ? where track_id = ?",work,seq,track)
+	end
+	
+	def getAllTracksWithWorks
+		return @db.execute("select a.track_id, a.work_mb_id, b.title from md_track2work a, md_track b where b.id = a.track_id")
+	end
+	
+	def getWorkDetails(w)
+		return @db.execute("select type, key,title from mb_work where work_mb_id = ?",w)[0]
+	end
+	
+	def getParentWork(w)
+		rows = @db.execute("select parent_work_mb_id, sequence from mb_work2work where work_mb_id = ?",w)
+		if (rows != nil)
+			if rows.size > 0
+				return rows[0]
+			else
+				return nil
+			end
+		else
+			return nil
+		end
 	end
 end
 
@@ -402,7 +429,14 @@ class MusicBrainz
 				end
 			end
 		end
-		#puts title,type,key
+		y = x.elements["/metadata/work/alias-list/alias"]
+		if (y)
+			y.each do |a|
+				if (y.attributes["type"] =="Work name") && (y.attributes["locale"] == "en")
+					puts "Alias: #{y.text}"
+				end
+			end
+		end
 		return title, type, key
 	end
 	
@@ -413,43 +447,42 @@ class MusicBrainz
 			if rel.attributes["type"] == "parts" && rel.elements["direction"]
 				d = rel.elements["direction"].text
 				if d == "backward"
+					st = rel.elements["ordering-key"]
+					if (st != nil)
+						s = st.text.to_i
+					else
+						s = nil
+					end
 					up = rel.elements["work"].attributes["id"]
 					if (up != nil)
-						return (up)
+						return (up), s
 					end
 				end
 			end
 		end
-		return nil
+		return nil, nil
 	end
 	
-=begin	
-	def getWorkForWork(id)
-		c , r = mbCachedRequest("/ws/2/work/#{id}?inc=work-rels")
+	
+	def getWorkArtists(id)
+		c, r = mbCachedRequest("/ws/2/work/#{id}?inc=artist-rels")
 		x = REXML::Document.new(r)
-		t = x.elements["/metadata/work"].attributes["type"]
-		#puts id
-		rid = x.elements["/metadata/work"].attributes["id"]
-		rtit = x.elements["/metadata/work/title"].text
-		if t != nil
-		puts "Found #{rtit} which is of type #{t}"
-			return rid, t, rtit
-		end
-		x.elements.each("/metadata/work/relation-list/relation") do |rel|
-			if rel.attributes["type"] == "parts" && rel.elements["direction"]
-				d = rel.elements["direction"].text
-				if d == "backward"
-					up = rel.elements["work"].attributes["id"]
-					if (up != nil)
-						return getWorkForWork(up)
-					end
-				end
+		#puts r
+		arts = Array.new
+		x.elements.each("/metadata/work/relation-list/relation") do |rel|	
+			if (rel.attributes["type"] == "composer") || (rel.attributes["type"].include?("arranger"))
+				an = rel.elements["artist/name"].text
+				asn = rel.elements["artist/sort-name"].text
+				aid = rel.elements["artist"].attributes["id"]
+				at = rel.attributes["type"]
+				arts << [an,asn,aid,at]
 			end
 		end
-		puts "Found #{rtit} (no type)"
-		return rid, nil, rtit
+		return arts
 	end
-=end
+
+	
+
 
 end
 
@@ -465,19 +498,17 @@ end
 # maybe cross-check track times too
 
 #File.delete("/home/james/test.db")
-d = Database.new("/home/james/test.db")
+d = Database.new("/home/james/testv.db")
 #d = Database.new(argv[1])
 a = MusicBrainz.new('192.168.0.99:5000',d)
 
 
 
 
-#a.getWorkAttributes("3a4ab76a-2c25-3c30-9587-abd9f3bf5a18")
-
-
-x = TopFolder.new("/media/music/flac/classical")
+x = TopFolder.new("/media/music/flac/classical/vocal")
 #x = TopFolder.new("/home/james/Music/flac/classical")
 #x = TopFolder.new(argv[0])
+
 
 #=begin
 d.resetTables
@@ -543,21 +574,78 @@ ct = 0
 r.each do |w|
 	title, type, key = a.getWorkAttributes(w[0])
 	puts "Track work: #{w[0]} #{title} #{type} #{key}"
-	d.storeWorkDetails(w[0],title,type,key)
-	c = w[0]
-	p = a.getParentWork(c)
-	while (p != nil)
-		d.storeWorkParent(c,p)
-		title, type, key = a.getWorkAttributes(p)
-		puts "Parent work: #{p} #{title} #{type} #{key}"
-		d.storeWorkDetails(p,title,type,key)
-		c = p
-		p = a.getParentWork(c)
+	arts = a.getWorkArtists(w[0])
+	arr = nil
+	comp = nil
+	arts.each do |art| 
+		if art[3] == "composer"
+			comp = art[1]
+		else
+			if art[3] == "arranger"
+				arr = art[1]
+			else
+				if (art[3].include?("arranger")) && (arr == nil)
+					arr = art[1]
+				end
+			end
+		end
 	end
+	d.storeWorkDetails(w[0],title,type,key,comp,arr)
+	c = w[0]
+	p,s = a.getParentWork(c)
+	while (p != nil)
+		d.storeWorkParent(c,p,s)
+		title, type, key = a.getWorkAttributes(p)
+		puts "Parent work(#{s}): #{p} #{title} #{type} #{key}"
+		arts = a.getWorkArtists(p)
+		arr = nil
+		comp = nil
+		arts.each do |art| 
+			if art[3] == "composer"
+				comp = art[1]
+			else
+				if art[3] == "arranger"
+					arr = art[1]
+				else
+					if (art[3].include?("arranger")) && (arr == nil)
+						arr = art[1]
+					end
+				end
+			end
+		end
+		d.storeWorkDetails(p,title,type,key,comp,arr)
+		c = p
+		p,s = a.getParentWork(c)
+	end
+	
 	ct = ct + 1
 	puts "#{ct} of #{s} works processed"
 end
 
+10.times {|n| puts }
 
-# to do - add artist-rels query to works to obtain composer (& arranger if possible)
+r = d.getAllTracksWithWorks
+r.each do |t|
+	w = d.getParentWork(t[1])
+	pwfound = false
+	s = 0.0
+	pwt = ""
+	while (w != nil) && (!pwfound)
+		pw = w[0]
+		if w[1]
+			s = w[1] + (s/100)
+		end
+		wd = d.getWorkDetails(w[0])
+		pwt = wd[2]
+		if ((wd[0] != nil) || (wd[1] != nil))
+			pwfound = true
+		end
+		w = d.getParentWork(w[0])
+	end
+	puts "#{t[2]} is part #{s} of #{pwt}"
+	d.storePerformingWork(t[0],pw,s)
+end
+
+
+
 # upsert work details
