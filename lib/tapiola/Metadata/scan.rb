@@ -307,8 +307,22 @@ class MusicBrainz
 	def mbRequest(service)
 		c = HTTPClient.new
 		c.receive_timeout = 300
-		return  c.request('GET',"http://#{@server}/#{service}",
+		if @server.include?("musicbrainz.org")  
+			sleep(1.1)
+		end
+		r = c.request('GET',"http://#{@server}/#{service}",
 			:header => {'user-agent' => 'jrwyper@yahoo.co.uk'})
+		while (r.code == 503) || (r.code == 500)
+			r = c.request('GET',"http://#{@server}/#{service}",
+				:header => {'user-agent' => 'jrwyper@yahoo.co.uk'})
+			if (r.code == 503) 
+				sleep(5)
+			else
+				puts "#{r.code}: #{service}"
+				sleep(60)
+			end
+		end
+		return r
 	end
 	
 	def mbCachedRequest(service)
@@ -351,7 +365,7 @@ class MusicBrainz
 						if (match)
 							mbtr = Array.new
 							#puts "medium #{med}"
-#							putsh "medels #{med.elements.to_a("track-list/track").to_s}"
+#							puts "medels #{med.elements.to_a("track-list/track").to_s}"
 							med.elements.each("track-list/track") do |tr|
 								#puts "in tr loop"
 								pos = tr.elements["position"].text.to_i
@@ -380,14 +394,14 @@ class MusicBrainz
 							mbtr.sort! {|a,b|  a[0] <=> b[0] }
 							dbtr = @db.getTracksForDiscID(discID)
 							if mbtr.size != dbtr.size
-								puts "OOPS: number of tracks doesn't match #{discID}"
+								puts "OOPS: number of tracks doesn't match for #{discID} XML says #{mbtr.size} db thinks #{dbtr.size}"
 							end
 							mbtr.each_index do |i|
 								dlen = (1000 * dbtr[i][1] ) / dbtr[i][2]
 								#puts "dbtrack #{dbtr[i][0]} | num #{mbtr[i][0]} pos #{mbtr[i][1]} | db #{dbtr[i][3]} mb #{mbtr[i][3]} *** db #{dlen} vs mb #{mbtr[i][2]}"
 								ch = (mbtr[i][2] * 1.0 )/ dlen
 								if (ch > 1.04) || (ch < 0.96)
-									puts "Length mismatch (mb:db) on #{mbtr[i][1]} #{dbtr[i][3]} #{mbtr[i][2]}/#{dlen}"
+									#puts "Length mismatch (mb:db) on #{mbtr[i][1]} #{dbtr[i][3]} #{mbtr[i][2]}/#{dlen}"
 								end
 								@db.storeRecordingForTrack(dbtr[i][4],mbtr[i][5])
 								mbtr[i][4].each { |wk| @db.storeWorkForTrack(dbtr[i][4], wk) }
@@ -437,6 +451,7 @@ class MusicBrainz
 				end
 			end
 		end
+		puts "#{title} / #{type} / #{key}"
 		return title, type, key
 	end
 	
@@ -498,17 +513,19 @@ end
 # maybe cross-check track times too
 
 #File.delete("/home/james/test.db")
-d = Database.new("/home/james/testv.db")
+d = Database.new("/home/james/testd.db")
 #d = Database.new(argv[1])
 a = MusicBrainz.new('192.168.0.99:5000',d)
 
 
 
 
-x = TopFolder.new("/media/music/flac/classical/vocal")
+x = TopFolder.new("/media/music/flac/classical/piano/")
 #x = TopFolder.new("/home/james/Music/flac/classical")
 #x = TopFolder.new(argv[0])
 
+
+## Firstly we run a scan on the filesystem and put all the flac metadata into the database
 
 #=begin
 d.resetTables
@@ -516,6 +533,8 @@ d.beginLUW
 x.scan(d)
 d.endLUW
 #=end
+
+## Then we check for each disc that it's not more than 80 minutes long (which usually means 2 CDs have been combined)
 
 dinfo = d.getDiscs
 dinfo.each do |k,v| 	
@@ -525,6 +544,11 @@ dinfo.each do |k,v|
 		end
 	end
 end
+
+## Then for each disc we try to find and store a valid MusicBrainz discID
+## If we can't find one we store the details in another table
+
+
 d.beginLUW
 dinfo.each do |k,v|
 	v.each do |w|
@@ -555,6 +579,12 @@ d.endLUW
 
 10.times {|n| puts }
 
+## For all the discs with valid disc ID we now store track and work details
+## For discs without a valid discID we should (using path and discnumber as a key always)
+## check against fixfile, if there's a different discID call a modified getDiscByID with that
+## if there's a release / medium number call a further modified getDiscByID with that
+
+
 r = d.getAllMbDiscIDs
 c = 0
 z = r.size
@@ -568,8 +598,10 @@ end
 
 10.times {|n| puts }
 
+## We now get the related works for all the works we have stored
+
 r = d.getDistinctWorks
-s = r.size
+sz = r.size
 ct = 0
 r.each do |w|
 	title, type, key = a.getWorkAttributes(w[0])
@@ -619,33 +651,81 @@ r.each do |w|
 	end
 	
 	ct = ct + 1
-	puts "#{ct} of #{s} works processed"
+	puts "#{ct} of #{sz} works processed"
 end
 
 10.times {|n| puts }
 
+## finally we go through all the tracks that have a work against them and assign a performing work from the work relationships derived earlier
+
+
+
 r = d.getAllTracksWithWorks
 r.each do |t|
-	w = d.getParentWork(t[1])
+	
+	#works may have parents which may have parents etc etc
+	# if a work has a key, treat the highest part with a key as the performing work
+	# if a work does not have a key, treat the first (lowest) part with a type as the performing work
+	# if a work has neither key nor type, treat the highest part as the performing work
+
 	pwfound = false
 	s = 0.0
-	pwt = ""
-	while (w != nil) && (!pwfound)
-		pw = w[0]
-		if w[1]
-			s = w[1] + (s/100)
-		end
-		wd = d.getWorkDetails(w[0])
-		pwt = wd[2]
-		if ((wd[0] != nil) || (wd[1] != nil))
-			pwfound = true
-		end
-		w = d.getParentWork(w[0])
+	highestwithkey = nil
+	lowestwithtype = nil
+
+	tw = t[1] # the lowest work
+	
+	twd = d.getWorkDetails(t[1]) # type, key, title
+	if twd[1]
+		highestwithkey = tw
 	end
-	puts "#{t[2]} is part #{s} of #{pwt}"
-	d.storePerformingWork(t[0],pw,s)
+	if (twd[0]) && (lowestwithtype == nil)
+		lowestwithtype = tw
+	end
+	
+	lpw = tw
+	pw = d.getParentWork(tw)
+
+	while (pw)
+		if pw[1]
+			s = pw[1] + (s/100)
+		end
+		
+		twd = d.getWorkDetails(pw[0]) # type, key, title
+		if twd[1]
+			highestwithkey = pw[0]
+		end
+		if (twd[0]) && (lowestwithtype == nil)
+			lowestwithtype = pw[0]
+		end
+		lpw = pw[0]
+		pw = d.getParentWork(pw[0])
+	end
+	
+	if highestwithkey
+		perfwork = highestwithkey
+	else
+		if lowestwithtype
+			perfwork = lowestwithtype
+		else
+			perfwork = lpw
+		end
+	end
+	
+	perfworkname = d.getWorkDetails(perfwork)[2]
+
+	
+	puts "#{t[2]} is part #{s} of #{perfworkname}"
+	
+	d.storePerformingWork(t[0],perfwork,s)
 end
 
 
 
 # upsert work details
+
+# col c has discID that can't be found
+# col d has substitute disc id
+# col e and f has release and medium
+
+
