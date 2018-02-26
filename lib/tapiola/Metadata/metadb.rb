@@ -67,12 +67,49 @@ class Database
 		end
 	end
 	
+	def addTrack(tr)
+		i = getID("md_track")
+		@db.execute('insert into 
+				md_track(id , filename , 
+						pathname ) values (?,?,?)',
+			i,tr.filename,tr.pathname)
+		return i
+	end
+	
+	def updateTrack(tr)
+
+		@db.execute('update md_track set artist = ?, composer = ?, album_artist = ?, album = ?, 
+				track = ?, title = ?,  mb_recording_id = ?, md_disc_id = ?, samplerate = ?, genre = ?,
+				samples = ?, discnumber = ?, comment =? where id = ?',tr.artist, tr.composer, tr.albumArtist, tr.album,
+				tr.track, tr.title, tr.recordingMbid, tr.discId, tr.sampleRate, tr.genre, tr.samples, (tr.discNumber || 0), tr.comment, tr.id)
+	end
+	
 	def beginLUW
 		@db.transaction
 	end
 	
 	def endLUW
 		@db.commit
+	end
+	
+	def addTag(tr,t,v)
+		@db.execute("insert into md_track_tags(md_track_id, tag, value) values (?,?,?)",
+		tr.id,t,v)
+	end
+	
+	def getCachedMbQuery(r)
+		rows = @db.execute("select code, body from mb_cache where request = ?",r)
+		if rows
+			code = rows[0][0]
+			body = rows[0][1]
+			return code, body
+		else
+			return nil, nil
+		end
+	end
+	
+	def storeCachedMbQuery(r,c,b)
+		@db.execute("insert into mb_cache (request, code, body) values (?,?,?)", r,c,b)
 	end
 	
 end
