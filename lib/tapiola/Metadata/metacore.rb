@@ -42,6 +42,12 @@ class Track < Primitive
 	def store
 		@@db.updateTrack(self)
 	end
+	def fetch(id)
+		@@db.selectById(id,self)
+	end
+	def addWork(work)
+		@@db.insertTrack2Work(@id,work)
+	end
 	
 end
 
@@ -53,11 +59,41 @@ end
 
 
 class Disc < Primitive
-	attr_reader :tracks, :pathname, :discNumber
+	attr_accessor :tracks, :pathname, :discNumber, :mbDiscID, :mbReleaseId, :id
+	
 	def initialize
 		@tracks = Hash.new
 	end
+	
+	def fetchTracks
+		@@db.selectTracksForDisc(self)
+	end
+	
+	def calcMbDiscID(offset)
+
+		s = sprintf("%02X",1)
+		s << sprintf("%02X",@tracks.size)
+		
+		lo = offset
+		@tracks.keys.sort.each {|k| lo = lo + ((@tracks[k].samples * 75) / @tracks[k].sampleRate) }
+		s << sprintf("%08X",lo)
+
+		fo = offset
+		@tracks.keys.sort.each do |k|
+			s << sprintf("%08X",fo)
+			fo = fo + ((@tracks[k].samples * 75) / @tracks[k].sampleRate)
+		end
+		if @tracks.size < 99 
+			((@tracks.size + 1)..99).each  {|i| s << sprintf("%08X",0) }
+		end
+		t = ::Digest::SHA1.digest(s)
+		b = ::Base64.strict_encode64(t).gsub('+','.').gsub('/','_').gsub('=','-')
+		return b
+	end
+	
 end	
+
+
 
 end
 
