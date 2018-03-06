@@ -26,7 +26,8 @@ class Release < Primitive
 		if code == 200
 			xroot = REXML::Document.new(body)
 			xroot.elements.each("metadata/disc/release-list/release") do |r| 
-				if r.elements["medium-list"].elements["medium"].elements["format"].text == "CD"
+				if (!r.elements["medium-list"].elements["medium"].elements["format"]) ||
+				   (r.elements["medium-list"].elements["medium"].elements["format"].text == "CD")
 					@title = r.elements["title"].text
 					@mbid = r.attributes["id"]
 					getFromXML(r)
@@ -53,7 +54,7 @@ class Release < Primitive
 	
 	def getFromXML(xml)
 		xml.elements.each("medium-list/medium") do |m|
-			if m.elements["format"].text == "CD"
+			if (!m.elements["format"]) || (m.elements["format"].text == "CD")
 				pos = m.elements["position"].text.to_i
 				@media[pos]  = Medium.new(m)
 			end
