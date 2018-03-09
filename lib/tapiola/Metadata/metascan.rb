@@ -96,9 +96,12 @@ discs.each do |disc|
 	
 	rel = Meta::MusicBrainz::Release.new	
 	dID = nil
+	#puts "Seeking details for #{disc.pathname},#{disc.discNumber}"
+
 	disc.fetchTracks
 	[150,182,183,178,180,188,190].each do |offset|
 		dID = disc.calcMbDiscID(offset)
+		#puts "Attempting offset #{offset} and discID #{dID}"
 		if (rel.getFromDiscID(dID))
 			found += 1
 			break

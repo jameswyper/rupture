@@ -136,7 +136,11 @@ class Database
 		rows = @db.execute('select id from md_track where md_disc_id = ?',disc.id)
 		rows.each do |row|
 			tr = self.selectById(row[0],Meta::Core::Track.new)
-			disc.tracks[tr.track.split("/")[0]] = tr
+			if (tr.track.is_a?(Numeric))
+				disc.tracks[tr.track] = tr
+			else
+				disc.tracks[tr.track.split("/")[0].to_i] = tr
+			end
 		end
 	end
 	
