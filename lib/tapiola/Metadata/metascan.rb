@@ -4,7 +4,7 @@ require_relative 'metamb'
 require_relative 'metadb'
 require 'optparse'
 
-
+#require 'profile'
 
 class TopFolder
 	def initialize(t)
@@ -52,20 +52,48 @@ class TopFolder
 	end
 end
 
+
+class ManualEntries
+	def initialize(f)
+		@entries = Hash.new
+		File.open(f).each_line do |l|
+			fields = l.chomp.split("\t")
+			5.times {|x| fields << nil}
+			@entries[fields[0..1]] = fields[2..4]
+		end
+	end
+	def getEntry(path,disc)
+		e = @entries[[path,disc]]
+		if e
+			return e[0],e[1],e[2]
+		else
+			return nil,nil,nil
+		end
+	end
+end
+
 STDOUT.sync = true
 
-topfolder = '/media/music/flac/classical/c20/'
+topfolder = '/media/music/flac/classical/c20'
 ws = 'musicbrainz.org'
+notFound = '/home/james/notfound.txt'
+found = '/home/james/found.txt'
+
 
 OptionParser.new { |opts|
-	opts.banner = "Usage: #{File.basename($0)} -d directory -w web service url"
+	opts.banner = "Usage: #{File.basename($0)} -d directory -w web service url -f filename"
 	opts.on('-d', '--dir DIRNAME', 'Directory to scan for flac files') do |arg|
 		topfolder = arg
 	end
 	opts.on('-w','--web-service host:port','host and (optional) port of MusicBrainz server') do |arg|
 		ws = arg
 	end
+	opts.on('-n','--not-found filename','file to write discs that couldn\'t be found') do |arg|
+		notFound = arg
+	end
 }.parse!
+
+manual = ManualEntries.new(found)
 
 db = Meta::Database.new('/home/james/metascan.db')
 db.resetTables
@@ -88,6 +116,8 @@ count = 0
 found = 0
 total = discs.size
 started = Time.now
+nf = File::new(notFound,"w")
+nf.puts("Path\tDisc Number\tDiscID\tRelease ID\tMedium number")
 puts "Stage 2: #{total} discs to get MusicBrainz data for"
 
 discs.each do |disc|
@@ -96,6 +126,7 @@ discs.each do |disc|
 	
 	rel = Meta::MusicBrainz::Release.new	
 	dID = nil
+	med  = nil
 	#puts "Seeking details for #{disc.pathname},#{disc.discNumber}"
 
 	disc.fetchTracks
@@ -104,35 +135,43 @@ discs.each do |disc|
 		#puts "Attempting offset #{offset} and discID #{dID}"
 		if (rel.getFromDiscID(dID))
 			found += 1
+			med = rel.mediumByDiscID(dID)
 			break
 		end
 	end
 	
 	unless (rel.mbid)
-		#puts "No disc found for #{disc.pathname},#{disc.discNumber}"
-		#find by release or discid on input
+		mDid, mRel, mMed = manual.getEntry(disc.pathname,disc.discNumber)
+		if (mDid)
+			med = rel.mediumByDiscID(mDid)
+		else
+			if (mRel)
+				med = rel.getFromMbid(mRel).medium(mMed)
+			else
+				nf.puts "#{disc.pathname}\t#{disc.discNumber}\t\t\t"
+			end
+		end
 	end
 	
-	if (rel.mbid)
-		#puts "Found #{rel.title} #{rel.mbid}"
-		#med = rel.media[(disc.discNumber == 0) ? 1 : disc.discNumber] #need to replace this with search for discID
-		med = rel.mediumByDiscID(dID)
-		if med
-			i = 1
-			lasttr = 0
-			disc.tracks.keys.sort.each do |track|
-				if (track != (lasttr + 1)) && (lasttr != 0)
-					puts "Tracks not contiguous #{disc.pathname} #{disc.discNumber} this:#{track}, last: #{lasttr}"
-				end
-				if med.tracks[i]
-					rec = med.tracks[i].recording
-					rec.works.each {|work| disc.tracks[track].addWork(work.mbid)}
-				else
-					puts "No track #{i} for #{rel.mbid} #{rel.title} #{disc.discNumber}"
-				end
-				i += 1
+
+	
+	if med
+		i = 1
+		lasttr = 0
+		disc.tracks.keys.sort.each do |track|
+			if (track != (lasttr + 1)) && (lasttr != 0)
+				puts "Tracks not contiguous #{disc.pathname} #{disc.discNumber} this:#{track}, last: #{lasttr}"
 			end
-		else
+			if med.tracks[i]
+				rec = med.tracks[i].recording
+				rec.works.each {|work| disc.tracks[track].addWork(work.mbid)}
+			else
+				puts "No track #{i} for #{rel.mbid} #{rel.title} #{disc.discNumber}"
+			end
+			i += 1
+		end
+	else
+		if (rel.mbid)
 			puts "#{rel.mbid} medium #{disc.discNumber} not found?"
 		end
 	end
@@ -149,6 +188,7 @@ discs.each do |disc|
 	db.endLUW
 end
 
+nf.close
 puts "Stage 2: 100% complete #{found} of #{total} discs found"
 
 
@@ -163,6 +203,9 @@ puts "Stage 3: #{total} works to find details for"
 
 works.each do |work|
 	
+	wchain = Array.new
+	seq = 0.0
+	
 	db.beginLUW
 
 	lowestWithType = nil
@@ -171,6 +214,7 @@ works.each do |work|
 	
 	mbWork = Meta::MusicBrainz::Work.new(work)
 	mbWork.getFullDetails
+	wchain << mbWork
 	db.insertWork(mbWork)
 	this = mbWork
 	if (this.type)
@@ -182,6 +226,7 @@ works.each do |work|
 	while (this.parent)
 		par = Meta::MusicBrainz::Work.new(this.parent)
 		par.getFullDetails
+		wchain << par
 		db.insertWork(par)
 		this = par
 		if (this.type && !lowestWithType)
@@ -202,8 +247,14 @@ works.each do |work|
 		end
 	end
 	
+	wchain.each do |w|
+		if perfWork == w
+			break
+		end
+		seq = (w.parentSeq ? w.parentSeq : 0.0) + (seq/100)
+	end
 	
-
+	db.setPerformingWork(wchain[0].mbid,perfWork.mbid,seq)
 
 	count = count + 1
 	if ((count % 10) == 0) 
@@ -219,3 +270,5 @@ works.each do |work|
 end
 
 puts "Stage 3: 100% complete"
+
+

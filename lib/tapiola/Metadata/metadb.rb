@@ -168,6 +168,10 @@ class Database
 		return w
 	end
 	
+	def setPerformingWork(work,perfWork,sequence)
+		@db.execute('update md_track2work set performing_work_mb_id = ?, performing_work_sequence = ? where work_mb_id = ?',perfWork,sequence,work)
+	end
+	
 	def beginLUW
 		@db.transaction
 	end
