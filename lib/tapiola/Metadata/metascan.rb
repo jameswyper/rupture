@@ -81,7 +81,7 @@ found = '/home/james/found.txt'
 
 
 OptionParser.new { |opts|
-	opts.banner = "Usage: #{File.basename($0)} -d directory -w web service url -f filename"
+	opts.banner = "Usage: #{File.basename($0)} -d directory -w web service url -m filename -n filename"
 	opts.on('-d', '--dir DIRNAME', 'Directory to scan for flac files') do |arg|
 		topfolder = arg
 	end
@@ -91,6 +91,10 @@ OptionParser.new { |opts|
 	opts.on('-n','--not-found filename','file to write discs that couldn\'t be found') do |arg|
 		notFound = arg
 	end
+	opts.on('-m','--manual filename','file of manual links to discIDs and releases') do |arg|
+		found = arg
+	end
+	
 }.parse!
 
 manual = ManualEntries.new(found)
