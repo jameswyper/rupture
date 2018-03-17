@@ -74,7 +74,7 @@ end
 
 STDOUT.sync = true
 
-topfolder = '/media/music/flac/classical/c20'
+topfolder = '/home/james/Music/flac/classical/vocal'
 ws = 'musicbrainz.org'
 notFound = '/home/james/notfound.txt'
 found = '/home/james/found.txt'
@@ -100,7 +100,9 @@ OptionParser.new { |opts|
 manual = ManualEntries.new(found)
 
 db = Meta::Database.new('/home/james/metascan.db')
+puts "Resetting Database.."
 db.resetTables
+puts "..Done!"
 Meta::Core::Primitive.setDatabase(db)
 w = Meta::MusicBrainz::Service.new(ws,db,:getCachedMbQuery,:storeCachedMbQuery)
 Meta::MusicBrainz::Primitive.setService(w)
@@ -109,7 +111,9 @@ Meta::MusicBrainz::Primitive.setService(w)
 top = TopFolder.new(topfolder)
 db.beginLUW
 top.scan
+puts "Creating Discs #{Time.now.strftime("%b-%d %H:%M.%S")}"
 db.insertDiscsFromTracks
+puts "Committing #{Time.now.strftime("%b-%d %H:%M.%S")}"
 db.endLUW
 
 
@@ -131,12 +135,12 @@ discs.each do |disc|
 	rel = Meta::MusicBrainz::Release.new	
 	dID = nil
 	med  = nil
-	#puts "Seeking details for #{disc.pathname},#{disc.discNumber}"
+	puts "Seeking details for #{disc.pathname},#{disc.discNumber} #{Time.now.strftime("%b-%d %H:%M.%S")}"
 
 	disc.fetchTracks
 	[150,182,183,178,180,188,190].each do |offset|
 		dID = disc.calcMbDiscID(offset)
-		#puts "Attempting offset #{offset} and discID #{dID}"
+		puts "Attempting offset #{offset} and discID #{dID}"
 		if (rel.getFromDiscID(dID))
 			found += 1
 			med = rel.mediumByDiscID(dID)

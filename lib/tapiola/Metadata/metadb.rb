@@ -48,7 +48,16 @@ class Database
 		create table if not exists mb_cache (request text, code integer, body text);
 		
 		drop index if exists i_mb_cache;
+		drop index if exists i_md_track1;
+		drop index if exists i_md_track2;
+		drop index if exists i_md_track3;
+		drop index if exists i_md_track2work1;
 		create unique index i_mb_cache on mb_cache(request);
+		create unique index i_md_track1 on md_track(id);
+		create index i_md_track2 on md_track(md_disc_id);
+		create index i_md_track3 on md_track(pathname, discnumber);
+		create index i_md_track2work1 on md_track2work(work_mb_id);
+		vacuum;
 		")
 		
 	end
@@ -136,6 +145,7 @@ class Database
 		rows = @db.execute('select id from md_track where md_disc_id = ?',disc.id)
 		rows.each do |row|
 			tr = self.selectById(row[0],Meta::Core::Track.new)
+			tr.id = row[0]
 			if (tr.track.is_a?(Numeric))
 				disc.tracks[tr.track] = tr
 			else

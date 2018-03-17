@@ -277,6 +277,8 @@ a result for caching
 			#puts "cache hit for #{service}"
 		end
 		
+		#puts body
+		
 		return code, body
 
 	end
