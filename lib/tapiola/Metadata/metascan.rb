@@ -3,6 +3,7 @@ require_relative 'metacore'
 require_relative 'metamb'
 require_relative 'metadb'
 require 'optparse'
+require 'pathname'
 
 #require 'profile'
 
@@ -54,18 +55,24 @@ end
 
 
 class ManualEntries
+	attr_reader :entries
 	def initialize(f)
 		@entries = Hash.new
 		File.open(f).each_line do |l|
 			fields = l.chomp.split("\t")
 			5.times {|x| fields << nil}
+			fields[0] = Pathname.new(fields[0]).cleanpath.to_s
 			@entries[fields[0..1]] = fields[2..4]
 		end
 	end
 	def getEntry(path,disc)
-		e = @entries[[path,disc]]
+		a = Array.new
+		a << Pathname.new(path).cleanpath.to_s
+		a << disc.to_s
+		#e = @entries[[Pathname.new(path).cleanpath,disc.to_s]]
+		e = @entries[a]
 		if e
-			return e[0],e[1],e[2]
+			return e[0],e[1],e[2].to_i
 		else
 			return nil,nil,nil
 		end
@@ -122,6 +129,7 @@ discs = db.selectAllDiscs
 
 count = 0
 found = 0
+foundFromFile = 0
 total = discs.size
 started = Time.now
 nf = File::new(notFound,"w")
@@ -135,12 +143,12 @@ discs.each do |disc|
 	rel = Meta::MusicBrainz::Release.new	
 	dID = nil
 	med  = nil
-	puts "Seeking details for #{disc.pathname},#{disc.discNumber} #{Time.now.strftime("%b-%d %H:%M.%S")}"
+	#puts "Seeking details for #{disc.pathname},#{disc.discNumber} #{Time.now.strftime("%b-%d %H:%M.%S")}"
 
 	disc.fetchTracks
 	[150,182,183,178,180,188,190].each do |offset|
 		dID = disc.calcMbDiscID(offset)
-		puts "Attempting offset #{offset} and discID #{dID}"
+		#puts "Attempting offset #{offset} and discID #{dID}"
 		if (rel.getFromDiscID(dID))
 			found += 1
 			med = rel.mediumByDiscID(dID)
@@ -150,11 +158,18 @@ discs.each do |disc|
 	
 	unless (rel.mbid)
 		mDid, mRel, mMed = manual.getEntry(disc.pathname,disc.discNumber)
-		if (mDid)
-			med = rel.mediumByDiscID(mDid)
+		binding.pry
+		if (mDid && mDid != "")
+			if (rel.getFromDiscID(mDid))
+				med = rel.mediumByDiscID(mDid)
+				foundFromFile += 1
+			else
+				puts "Hmm couldn't find discID in lookup file for #{disc.pathname}/#{disc.discNumber}"
+			end
 		else
 			if (mRel)
 				med = rel.getFromMbid(mRel).medium(mMed)
+				foundFromFile += 1
 			else
 				nf.puts "#{disc.pathname}\t#{disc.discNumber}\t\t\t"
 			end
@@ -197,7 +212,7 @@ discs.each do |disc|
 end
 
 nf.close
-puts "Stage 2: 100% complete #{found} of #{total} discs found"
+puts "Stage 2: 100% complete #{found} of #{total} discs found via discID lookup and #{foundFromFile} with manual lookup file"
 
 
 works = db.selectDistinctWorkIDs
@@ -265,7 +280,7 @@ works.each do |work|
 	db.setPerformingWork(wchain[0].mbid,perfWork.mbid,seq)
 
 	count = count + 1
-	if ((count % 10) == 0) 
+	if ((count % 100) == 0) 
 		now = Time.now
 		rate = (count * 1.0) / (now - started)
 		eta = started + (total / rate)
@@ -279,4 +294,5 @@ end
 
 puts "Stage 3: 100% complete"
 
-
+#TODO - manal entries - test and check types of discnumber etc
+#Update mb recording id on md_track

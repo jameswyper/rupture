@@ -6,7 +6,7 @@ $stdout.sync = true
 
 
 
-db = SQLite3::Database.new("/home/james/test.db")
+db = SQLite3::Database.new("/home/james/metascan.db")
 
 rows = db.execute("select distinct a.pathname " + 
 	"from md_track a, md_track2work b, mb_work c where a.id = b.track_id and b.performing_work_mb_id = c.work_mb_id ")

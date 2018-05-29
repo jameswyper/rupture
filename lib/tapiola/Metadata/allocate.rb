@@ -1,7 +1,8 @@
 
 require 'sqlite3'
+require 'shellwords'
 
-db = SQLite3::Database.new("/home/james/test.db")
+db = SQLite3::Database.new("/home/james/metascan.db")
 
 db.execute("create table if not exists md_chosen (pathname text)")
 db.execute("delete from md_chosen")
@@ -119,7 +120,7 @@ class Container
 end
 
 containers = Array.new
-10.times {containers << Container.new(3900)}
+10.times {containers << Container.new(4200)}
 30.times {containers << Container.new(3600)}
 30.times {containers << Container.new(3000)}
 30.times {containers << Container.new(2700)}
@@ -153,3 +154,19 @@ candidates.each do |c|
 end
 
 puts "#{nt} candidate works unused totalling #{t}"
+
+dest = "/media/whatever"
+l1s = Hash.new
+commands = ""
+
+containers.each do |c|
+	level1 = c.inittime.to_s.sprintf("%3d")
+	if (!l1s[c.inittime])
+		l1s[c.inittime] = 0
+		commands << "mkdir #{shellwords.escape(dest + level1)} \n"
+	else
+		l1s[c.inittime] += 1
+	end
+	level2 = l1s[c.inittime].to_s.sprintf("%2d")
+end
+
