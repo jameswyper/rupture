@@ -158,7 +158,7 @@ discs.each do |disc|
 	
 	unless (rel.mbid)
 		mDid, mRel, mMed = manual.getEntry(disc.pathname,disc.discNumber)
-		binding.pry
+		#binding.pry
 		if (mDid && mDid != "")
 			if (rel.getFromDiscID(mDid))
 				med = rel.mediumByDiscID(mDid)
