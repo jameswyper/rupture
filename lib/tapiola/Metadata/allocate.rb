@@ -25,7 +25,7 @@ end
 
 rows = db.execute ("select distinct a.pathname, a.filename, a.artist, a.album,a.track, a.title, (a.samples / a.samplerate), 
 c.title as perfwork, c.composer,
-d.title as work
+d.title as work, a.id
 from
 md_track a,
 md_track2work b,
@@ -49,6 +49,7 @@ class CandTrack
 		@title = r[5]
 		@time = r[6]
 		@work = r[9]
+		@id = r[10]
 	end
 end
 
@@ -75,6 +76,9 @@ class Candidate
 	end
 	def addTrack(t)
 		@tracks << t
+	end
+	def each_track
+		@tracks.each {|t| yield t}
 	end
 end
 
@@ -117,13 +121,17 @@ class Container
 	def printContents
 		@works.each {|w| puts "#{w.perfwork} / #{w.artist} / #{w.time}"}
 	end
+	def each_work
+		@works.each {|w| yield w}
+	end
 end
 
 containers = Array.new
-10.times {containers << Container.new(4200)}
-30.times {containers << Container.new(3600)}
-30.times {containers << Container.new(3000)}
+20.times {containers << Container.new(4200)}
+50.times {containers << Container.new(3600)}
+40.times {containers << Container.new(3000)}
 30.times {containers << Container.new(2700)}
+30.times {containers << Container.new(2100)}
 
 
 
@@ -138,9 +146,9 @@ end
 
 containers.each do |c|
 	c.orderWorks
-	puts ""
-	puts "Container, #{c.time}/#{c.inittime} remaining"
-	c.printContents
+#	puts ""
+#	puts "Container, #{c.time}/#{c.inittime} remaining"
+#	c.printContents
 end
 
 t = 0
@@ -155,18 +163,47 @@ end
 
 puts "#{nt} candidate works unused totalling #{t}"
 
-dest = "/media/whatever"
+dest = "/tmp/alloc/"
 l1s = Hash.new
 commands = ""
 
 containers.each do |c|
-	level1 = c.inittime.to_s.sprintf("%3d")
+	level1 = sprintf("%03d",c.inittime/60)
 	if (!l1s[c.inittime])
 		l1s[c.inittime] = 0
-		commands << "mkdir #{shellwords.escape(dest + level1)} \n"
+		commands << "mkdir #{Shellwords.escape(dest + '/' + level1)} \n"
 	else
 		l1s[c.inittime] += 1
 	end
-	level2 = l1s[c.inittime].to_s.sprintf("%2d")
+	level2 = sprintf("%02d",l1s[c.inittime])
+	commands << "mkdir #{Shellwords.escape(dest + '/' + level1 + '/' + level2)} \n"
+	track = 0
+	c.each_work do |w|
+		w.each_track do |t|
+			track = track + 1
+			prefix = String.new
+			j = 0
+			w.perfwork.each_char.to_a.each_index do |i|
+				if w.perfwork[i] != t.work[i]
+					break
+				else
+					j = j + 1
+				end
+			end
+			abbrwork = t.work[j+1..-1]
+			ifile = w.pathname + '/' + t.filename
+			ofile = dest + '/' +  level1 + '/' + level2 +'/' + sprintf("%02d",track) + '.' + t.work + ".mp3"
+			title = abbrwork
+			artist = w.composer + '/' + w.artist
+			album = w.perfwork
+			commands << "flac -d -o /tmp/temp.wav #{Shellwords.escape(ifile)} \n"
+			commands << "lame -V 5 --tl #{Shellwords.escape(album)} --ta #{Shellwords.escape(artist)} --tn #{Shellwords.escape(track.to_s)} --tt #{Shellwords.escape(title)} /tmp/temp.wav #{Shellwords.escape(ofile)} \n"
+			commands << "rm /tmp/temp.wav\n"
+		end
+	end
 end
+
+
+a = File.open("/home/james/allocate.sh","w")
+a.puts commands
 
