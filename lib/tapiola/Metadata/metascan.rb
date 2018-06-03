@@ -4,6 +4,7 @@ require_relative 'metamb'
 require_relative 'metadb'
 require 'optparse'
 require 'pathname'
+#require_relative 'acoustid'
 
 #require 'profile'
 
