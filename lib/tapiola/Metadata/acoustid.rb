@@ -18,15 +18,15 @@ require 'pathname'
 def getAcoustDataFromFile(f)
 	
 	res = Array.new
-	stdout, stderr, status = Open3.capture3('/home/james/Downloads/chromaprint-fpcalc-1.4.2-linux-x86_64/fpcalc ' + Shellwords.escape(f))
+	stdout, stderr, status = Open3.capture3('fpcalc ' + Shellwords.escape(f))
 	if status != 0 then raise RuntimeError, "fpcalc failed #{stderr} on file #{f}" end
 	out = stdout.split("\n")
-	if (m = /DURATION=(\d+)$/.match(out[0]))
+	if (m = /^DURATION=(\d+)$/.match(stdout))
 		dur = m[1].to_i
 	else
 		raise RuntimeError ,"can't parse duration from #{out[0]}"
 	end
-	if (m = /FINGERPRINT=(.*)$/.match(out[1]))
+	if (m = /^FINGERPRINT=(.*)$/.match(stdout))
 		fp = m[1]
 	else
 		raise RuntimeError, "can't parse fingerprint from #{out[1]}"
@@ -34,6 +34,8 @@ def getAcoustDataFromFile(f)
 	
 	
 	h = HTTPClient.new
+	h.ssl_config.ssl_version = :SSLv23
+	h.ssl_config.add_trust_ca("/etc/ssl/certs")
 	h.receive_timeout = 300
 	 #puts "https://api.acoustid.org/v2/lookup?client=I66oWRwcLj&duration=#{dur}&meta=recordings+releases&fingerprint=#{fp}"
 	 
@@ -46,24 +48,25 @@ def getAcoustDataFromFile(f)
 	#puts j
 	h = JSON.parse(j)
 	r =  h["results"]
-	if r[0]["recordings"]
-		r.each do |s| 
-			#puts "acoustid #{s['id']}"
-			t = s["recordings"]
-			if (t)
-				t.each do |u|
-					#puts "recording #{u['id']}"
-					u['releases'].each do |v|
-						res << [u["id"],v["id"]]
-						#puts "release #{v['id']}"
+	if r.size > 0
+		if r[0]["recordings"]
+			r.each do |s| 
+				#puts "acoustid #{s['id']}"
+				t = s["recordings"]
+				if (t)
+					t.each do |u|
+						#puts "recording #{u['id']}"
+						u['releases'].each do |v|
+							res << [u["id"],v["id"]]
+							#puts "release #{v['id']}"
+						end
 					end
 				end
 			end
+		#else
+			#r.each {|i| puts i["id"]}
 		end
-	#else
-		#r.each {|i| puts i["id"]}
 	end
-	
 	return res
 end
 
