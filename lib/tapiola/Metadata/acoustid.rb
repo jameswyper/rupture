@@ -14,8 +14,10 @@ require 'optparse'
 require 'pathname'
 #require 'acoustid'
 
-
-def getAcoustDataFromFile(f)
+module Meta
+module AcoustID
+class AcoustID
+	attr_accessor :fpalc, :url, :tokendef getAcoustDataFromFile(f)
 	
 	res = Array.new
 	stdout, stderr, status = Open3.capture3('fpcalc ' + Shellwords.escape(f))
@@ -39,13 +41,24 @@ def getAcoustDataFromFile(f)
 	h.receive_timeout = 300
 	 #puts "https://api.acoustid.org/v2/lookup?client=I66oWRwcLj&duration=#{dur}&meta=recordings+releases&fingerprint=#{fp}"
 	 
-	
-	r = h.request('GET',"https://api.acoustid.org/v2/lookup?client=I66oWRwcLj&fingerprint=#{fp}&duration=#{dur}&meta=recordings+releases")
+	 tries = 0
+	begin
+		r = h.request('GET',"https://api.acoustid.org/v2/lookup?client=I66oWRwcLj&fingerprint=#{fp}&duration=#{dur}&meta=recordings+releases")
+	rescue
+		tries += 1
+		if (tries > 5)
+			raise
+		else
+			puts "Problem with http request, retrying"
+			sleep 300
+			retry
+		end
+	end
 	j = r.body
 	if r.code != 200
 		raise RuntimeError ,"acoustid returned #{r.code} #{j}"
 	end
-	#puts j
+	puts j
 	h = JSON.parse(j)
 	r =  h["results"]
 	if r.size > 0
@@ -56,9 +69,20 @@ def getAcoustDataFromFile(f)
 				if (t)
 					t.each do |u|
 						#puts "recording #{u['id']}"
-						u['releases'].each do |v|
-							res << [u["id"],v["id"]]
-							#puts "release #{v['id']}"
+						if u['releases']
+							u['releases'].each do |v|
+								tit = v['title']
+								arts = v['artists']
+								art  = ""
+								if (arts)
+									arts.each do |a|
+										art << "#{a['name']}/"
+									end
+								end
+								art.chop!
+								res << [u["id"],v["id"],tit,art]
+								#puts "release #{v['id']}"
+							end
 						end
 					end
 				end
@@ -71,33 +95,61 @@ def getAcoustDataFromFile(f)
 end
 
 
-def getAcoustDataForDisc(d)
-	rels = Hash.new
 
-	
-	#store all the releases
-	#create a combo of all permutations of recordings
-	d.fetchTracks
-	
-	c = 0
-	d.tracks.keys.sort.each do |tr|
-		c = c  + 1
-		ad = getAcoustDataFromFile(d.pathname+'/'+d.tracks[tr].filename)
-#		recs[tr.track] = Hash.new
-		ad.each do |a|
-			rels[a[1]] = Hash.new unless (rels[a[1]]) 
-			rels[a[1]][c] = a[0]
-#			recs[tr.track][a[0]] = a[1]
-		end
-#		s ="track #{tr.track} recordings "
-#		recs[tr.track].each_key {|k| s << (k + " ") }
-#		puts s
+
+
+	def getRecordingsFromFile(f)
 	end
+	def getReleasesForDisc(d)
+
+		rels = Hash.new
+		c = 0
+		d.tracks.keys.sort.each do |tr|
+			c = c  + 1
+			ad = getAcoustDataFromFile(d.pathname+'/'+d.tracks[tr].filename)
+			ad.each do |a|
+				rels[a.release_id] = Hash.new unless (rels[a.release_id]) 
+				rels[a.release_id][c] = a
+
+			end
+		end
 	
-	#puts "releases #{rels.to_s}"
-	return rels
+		return rels
 	
+	end
+
 end
+class Recording
+	attr_reader :id, :release_id, :release_title, :release_artists
+	def initialise(id,relid,title)
+		@id = id
+		@release_id = relid
+		@release_title = title
+		@release_artists = Array.new
+	end
+	def add_artist(art)
+		@release_artists << art
+	end
+	def all_artists
+		a = String.new
+		@release_artist.each{ |r| a << "#{r}/" }
+		a.chop!
+	end
+end
+class Release
+	attr_reader :artist, :title
+	attr_accessor :recordings
+	def initialize(art,tit)
+		@artist = art
+		@title = tit
+		:recordings = Array.new
+	end
+end
+
+end
+end
+
+
 
 ws = 'musicbrainz.org'
 db = Meta::Database.new('/home/james/metascan.db')
@@ -108,10 +160,13 @@ Meta::MusicBrainz::Primitive.setService(w)
 discs = db.selectAllDiscs
 puts discs.size
 discs.each do |d|
+#d = discs[1]
 	puts d.id
 	puts "#{d.pathname}/#{d.discNumber}"
-
+	d.fetchTracks
 	rels = getAcoustDataForDisc(d)
+	
+	scored = Array.new
 	rels.each_key do |cand|
 		candrel = Meta::MusicBrainz::Release.new	
 		candrel.getFromMbid(cand)
@@ -128,7 +183,17 @@ discs.each do |d|
 					end
 				end
 			end
-			puts "score for #{cand} medium #{mk} is #{trackYes}/#{trackNo}/#{trackCount}"
+#			puts "score for #{cand} medium #{mk} is #{trackYes}/#{trackNo}/#{trackCount}"
+			scored << [cand, mk,(100.0 * (trackYes - (3 *trackNo)) / trackCount), d.tracks.size == mv.tracks.size]
+			#binding.pry
+		end
+		scored.sort! {|x,y| if (y[2] == x[2]) then x[1] <=> y[1] else y[2] <=> x[2] end}
+	end
+	scored.each_index do |s|
+		if (s>9)
+			break
+		else
+			puts "release #{scored[s][0]}/#{scored[s][1]} scored #{scored[s][2]}% match #{scored[s][3]}" unless scored[s][2] <= 0
 		end
 	end
 end

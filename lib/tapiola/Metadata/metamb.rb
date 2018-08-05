@@ -249,15 +249,29 @@ a result for caching
 		if @server.include?("musicbrainz.org")  
 			sleep(1.1)
 		end
-		r = c.request('GET',"http://#{@server}/#{service}",
+
+		begin
+			r = c.request('GET',"http://#{@server}/#{service}",
 			:header => {'user-agent' => 'tapiola https://github.com/jameswyper/tapiola'})
+		rescue
+			tries += 1
+			if (tries > 5)
+				raise
+			else
+				puts "Problem with http request, retrying"
+				sleep 300
+				retry
+			end
+		end
+		
+		
 		while (r.code == 503) || (r.code == 500)
 			r = c.request('GET',"http://#{@server}/#{service}",
 				:header => {'user-agent' => 'tapiola https://github.com/jameswyper/tapiola'})
 			if (r.code == 503) 
 				sleep(5)
 			else
-				puts "#{r.code}: #{service}"
+				#puts "#{r.code}: #{service}"
 				sleep(60)
 			end
 		end
