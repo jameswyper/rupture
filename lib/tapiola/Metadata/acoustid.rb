@@ -17,7 +17,9 @@ require 'pathname'
 module Meta
 module AcoustID
 class AcoustID
-	attr_accessor :fpalc, :url, :tokendef getAcoustDataFromFile(f)
+	attr_accessor :fpalc, :url, :token
+	
+def getAcoustDataFromFile(f)
 	
 	res = Array.new
 	stdout, stderr, status = Open3.capture3('fpcalc ' + Shellwords.escape(f))
@@ -136,13 +138,14 @@ class Recording
 		a.chop!
 	end
 end
+
 class Release
 	attr_reader :artist, :title
 	attr_accessor :recordings
 	def initialize(art,tit)
 		@artist = art
 		@title = tit
-		:recordings = Array.new
+		@recordings = Array.new
 	end
 end
 
