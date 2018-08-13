@@ -77,6 +77,10 @@ class MBBase
 		end
 
 	end
+	
+	def cached?
+		@cached
+	end
 
 end
 
@@ -99,9 +103,7 @@ class Release < MBBase
 		end
 	end
 	
-	def cached?
-		@cached
-	end
+
 	
 	def getFromDB(mbid)
 		r = @@db.execute('select mbid,title from release where mbid = ?',mbid)
@@ -110,6 +112,9 @@ class Release < MBBase
 		else
 			@mbid = r[0][0]
 			@title = r[0][1]
+			Medium.getByRelease(mbid).each do |p|
+				@media[p] = Medium.new(self,p)
+			end
 		end
 	end
 	
@@ -121,24 +126,18 @@ class Release < MBBase
 			@mbid = mbid
 			xroot = REXML::Document.new(body)
 			@title = xroot.elements["metadata"].elements["release"].elements["title"].text
-			#xroot.elements.each("metadata/release") do |r| 
-			#	getFromXML(r)
-			#end
+			xroot.elements.each("/metadata/release/medium-list/medium") do |m|
+				if (!m.elements["format"]) || (m.elements["format"].text == "CD")
+					pos = m.elements["position"].text.to_i
+					@media[pos]  = Medium.new(self,pos,m)
+				end
+			end
 		else
 			@mbid = nil
 		end
 		return @mbid
 	end
 
-	def getFromXML(xml)
-		xml.elements.each("medium-list/medium") do |m|
-			if (!m.elements["format"]) || (m.elements["format"].text == "CD")
-				pos = m.elements["position"].text.to_i
-				@media[pos]  = Medium.new(m)
-			end
-		end
-		return self
-	end
 
 	def store
 		if (@@db.execute('select mbid,title from release where mbid = ?',@mbid).size > 0)
@@ -146,6 +145,10 @@ class Release < MBBase
 		else
 			@@db.execute('insert into release (mbid,title) values (?,?)',@mbid,@title)
 		end
+	end
+	
+	def medium(i)
+		@media[i]
 	end
 	
 =begin
@@ -189,9 +192,7 @@ class Release < MBBase
 		return self
 	end
 	
-	def medium(i)
-		@media[i]
-	end
+
 	
 	def mediumByDiscID(did)
 		@media.each_value { |m| return m if m.discIDs[did] }
@@ -200,21 +201,58 @@ class Release < MBBase
 =end	
 end
 
-=begin
 
-class Medium < Primitive
+
+class Medium < MBBase
 	
 	attr_reader :tracks, :discIDs
 	
-	def initialize(xml)
+	def initialize(release,pos,xml=nil)
 		@tracks = Hash.new
 		@discIDs = Hash.new
-		xml.elements.each("disc-list/disc") { |d| @discIDs[d.attributes["id"]] = d.attributes["id"] }
-		xml.elements.each("track-list/track") do |t|
-			num = t.elements["position"].text.to_i
-			recid = t.elements["recording"].attributes["id"]
-			rec = Recording.new.getFromMbid(recid)
-			@tracks[num] = Track.new(num,rec)
+		@release = release
+		@position = pos
+		puts "new medium #{release.mbid} #{pos} #{xml}"
+		if xml
+			@cached = false
+			xml.elements.each("disc-list/disc")  do |d| 
+				@discIDs[d.attributes["id"]] = d.attributes["id"] 
+			end
+			xml.elements.each("track-list/track") do |t|
+				num = t.elements["position"].text.to_i
+				recid = t.elements["recording"].attributes["id"]
+				#rec = Recording.new.getFromMbid(recid)
+				@tracks[num] = Track.new(self,num,recid)
+				#@tracks[num] = recid
+			end
+			f = xml.elements["format"]
+			@format = f.text if f
+			store
+		else
+			getFromDB
+			@cached = true
+		end
+	end
+	
+	def self.getByRelease(mbid)
+		r = @@db.execute('select position from medium where release_mbid = ?',mbid)
+		puts "#{mbid} has #{r[0].size} rows"
+		return r[0]
+	end
+	
+	def getFromDB
+		r = @@db.execute('select format from medium where release_mbid = ? and position = ?', @release.mbid,@position)
+		@format = r[0][0]
+	end
+	
+	def store
+		
+		puts "storing #{@release.mbid} #{@position}"
+		
+		if @@db.execute('select release_mbid from medium where release_mbid = ? and position = ?',@release.mbid,@position).size > 0
+			@@db.execute('update medium set format = ? where release_mbid = ? and position = ?',@format, @release.mbid,@position)	
+		else
+			@@db.execute('insert into medium (release_mbid, position, format) values (?,?,?)',@release.mbid,@position,@format)
 		end
 	end
 	
@@ -224,15 +262,18 @@ class Medium < Primitive
 	
 end
 
-class Track < Primitive
+
+
+class Track < MBBase
 	attr_reader :number, :recording
-	def initialize(num,rec)
+	def initialize(medium,num,rec)
+		@medium = medium
 		@number = num
 		@recording = rec
 	end
 end
 
-
+=begin
 class Recording < Primitive
 	
 	attr_reader :works, :artists, :mbid, :title, :length
