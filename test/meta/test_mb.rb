@@ -73,6 +73,19 @@ class TestRelease < Minitest::Test
 	end
 	
 	
+	def test_discIDs
+	end
+	
+	def test_tracks
+		
+		q1 = Meta::MusicBrainz::Release.new('f9dffcec-f9ae-3320-a003-b87c1e995885')
+		assert_equal(10,q1.medium(1).tracks.size,"Killers disc 1 has x tracks")
+		assert_equal(10,q1.medium(2).tracks.size,"Killers disc 2 has y tracks")
+		# check some recording IDs too
+
+		
+	end
+	
 	def teardown
 
 		File.delete(File.expand_path("~/metadbtest.db"))

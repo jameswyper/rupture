@@ -218,39 +218,34 @@ class Medium < MBBase
 			xml.elements.each("disc-list/disc")  do |d| 
 				@discIDs[d.attributes["id"]] = d.attributes["id"] 
 			end
-			xml.elements.each("track-list/track") do |t|
-				num = t.elements["position"].text.to_i
-				recid = t.elements["recording"].attributes["id"]
-				#rec = Recording.new.getFromMbid(recid)
-				@tracks[num] = Track.new(self,num,recid)
-				#@tracks[num] = recid
+			xml.elements.each("track-list/track") do |txml|
+				num = txml.elements["position"].text.to_i
+				@tracks[num] = Track.new(self,num,txml)
 			end
 			f = xml.elements["format"]
 			@format = f.text if f
 			store
 		else
-			getFromDB
+			r = @@db.execute('select format from medium where release_mbid = ? and position = ?', @release.mbid,@position)
+			@format = r[0][0]
+			Track.getByMedium(@release.mbid,@position).each do |t|
+				@tracks[t] = Track.new(self,t)
+			end
 			@cached = true
 		end
 	end
 	
 	def self.getByRelease(mbid)
 		r = @@db.execute('select position from medium where release_mbid = ?',mbid)
-		puts "#{mbid} has #{r[0].size} rows"
-		return r[0]
+		q = Array.new
+		r.each {|s| q << s[0] }
+		return q
 	end
-	
-	def getFromDB
-		r = @@db.execute('select format from medium where release_mbid = ? and position = ?', @release.mbid,@position)
-		@format = r[0][0]
-	end
+
 	
 	def store
-		
-		puts "storing #{@release.mbid} #{@position}"
-		
 		if @@db.execute('select release_mbid from medium where release_mbid = ? and position = ?',@release.mbid,@position).size > 0
-			@@db.execute('update medium set format = ? where release_mbid = ? and position = ?',@format, @release.mbid,@position)	
+			@@db.execute('update medium set format = ? where release_mbid = ? and position = ?',@format, @release.mbid,@position)
 		else
 			@@db.execute('insert into medium (release_mbid, position, format) values (?,?,?)',@release.mbid,@position,@format)
 		end
@@ -265,16 +260,42 @@ end
 
 
 class Track < MBBase
-	attr_reader :number, :recording
-	def initialize(medium,num,rec)
+	attr_reader :number, :recording, :medium
+	
+	def initialize(medium,pos,xml = nil)
 		@medium = medium
-		@number = num
-		@recording = rec
+		@number = pos
+		if xml
+			@recording = xml.elements["recording"].attributes["id"]
+			@cached = false
+		else
+			@cached = true
+			r = @@db.execute('select recording_mbid from track where release_mbid = ? and medium_position = ? and position = ?',
+				@medium.release.mbid, @medium.position, @number)
+			@recording = r[0][0]
+		end
+		
 	end
+	
+	def self.getByMedium(mbid,pos)
+		r = @@db.execute('select recording_mbid from track where release_mbid = ? and medium_position = ?', mbid,pos)
+		q = Array.new
+		r.each {|s| q << s[0] }
+		return q
+	end
+
+	def store
+		if @@db.execute('select recording_mbid from track where release_mbid = ? and medium_position = ? and position = ?',@medium.release.mbid,@medium.position,@position).size > 0
+			@@db.execute('update track set recording_mbid = ? where release_mbid = ? and medium_position = ? and position = ?',@recording, @medium.release.mbid,@medium.position,@position)
+		else
+			@@db.execute('insert into track (release_mbid, medium_position, position, recording_mbid) values (?,?,?,?)',@medium.release.mbid,@medium.position,@position,@recording)
+		end
+	end
+
 end
 
-=begin
-class Recording < Primitive
+
+class Recording < MBBase
 	
 	attr_reader :works, :artists, :mbid, :title, :length
 	
@@ -285,6 +306,7 @@ class Recording < Primitive
 		@works = Array.new
 		@artists = Array.new
 	end
+	
 	def getFromMbid(mbid)
 		code,body = @@mbWS.mbRequest("/ws/2/recording/#{mbid}?inc=work-rels%20artist-rels")
 		if code == 200
@@ -326,7 +348,7 @@ class Recording < Primitive
 		return self
 	end
 end
-
+=begin
 class Work < Primitive
 	attr_reader :mbid, :title, :type, :key, :parent, :parentSeq, :alias, :artists
 	
