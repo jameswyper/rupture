@@ -79,8 +79,12 @@ class TestRelease < Minitest::Test
 	def test_tracks
 		
 		q1 = Meta::MusicBrainz::Release.new('f9dffcec-f9ae-3320-a003-b87c1e995885')
-		assert_equal(10,q1.medium(1).tracks.size,"Killers disc 1 has x tracks")
-		assert_equal(10,q1.medium(2).tracks.size,"Killers disc 2 has y tracks")
+		assert_equal(13,q1.medium(1).tracks.size,"Killers disc 1 has 13 tracks")
+		assert_equal(9,q1.medium(2).tracks.size,"Killers disc 2 has 9 tracks")
+		
+		
+		assert_equal('4540b827-cce0-4f45-b3b9-f7cc09489584',q1.medium(1).track(10).recording)
+		
 		# check some recording IDs too
 
 		

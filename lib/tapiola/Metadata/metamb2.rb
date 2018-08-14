@@ -212,7 +212,7 @@ class Medium < MBBase
 		@discIDs = Hash.new
 		@release = release
 		@position = pos
-		puts "new medium #{release.mbid} #{pos} #{xml}"
+		#puts "new medium #{release.mbid} #{pos} #{xml}"
 		if xml
 			@cached = false
 			xml.elements.each("disc-list/disc")  do |d| 
