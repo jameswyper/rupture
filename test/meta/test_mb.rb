@@ -69,6 +69,11 @@ class TestRelease < Minitest::Test
 		refute(q1.medium(2).cached?,"Live killers xml not cached")
 		assert(q3.medium(2).cached?,"Live killers database cached")
 		
+		assert_equal(q1.mbid,q1.medium(1).release.mbid,'Killers from xml: walking backwards works medium 1')
+		assert_equal(q1.mbid,q1.medium(2).release.mbid,'Killers from xml: walking backwards works medium 2')
+		assert_equal(q2.mbid,q2.medium(1).release.mbid,'Opera from xml: walking backwards works medium 1')
+		assert_equal(q3.mbid,q3.medium(1).release.mbid,'Killers from db: walking backwards works medium 1')
+		assert_equal(q3.mbid,q3.medium(2).release.mbid,'Killers from db: walking backwards works medium 2')
 		
 	end
 	
@@ -79,15 +84,24 @@ class TestRelease < Minitest::Test
 	def test_tracks
 		
 		q1 = Meta::MusicBrainz::Release.new('f9dffcec-f9ae-3320-a003-b87c1e995885')
-		assert_equal(13,q1.medium(1).tracks.size,"Killers disc 1 has 13 tracks")
-		assert_equal(9,q1.medium(2).tracks.size,"Killers disc 2 has 9 tracks")
-		
-		
-		assert_equal('4540b827-cce0-4f45-b3b9-f7cc09489584',q1.medium(1).track(10).recording)
-		
-		# check some recording IDs too
+		q2 = Meta::MusicBrainz::Release.new('f9dffcec-f9ae-3320-a003-b87c1e995885')
 
-		
+		assert_equal(13,q1.medium(1).tracks.size,"Killers disc 1 has 13 tracks - xml")
+		assert_equal(9,q1.medium(2).tracks.size,"Killers disc 2 has 9 tracks - xml")
+		assert_equal('4540b827-cce0-4f45-b3b9-f7cc09489584',q1.medium(1).track(10).recording)
+		assert_equal('5f5879b4-78d5-481f-a007-b9eb34cba750',q1.medium(1).track(1).recording)
+		assert_equal('6960710a-5120-420a-8e6e-acfa98db690f',q1.medium(2).track(5).recording)
+		assert_equal(q1.mbid,q1.medium(1).track(1).medium.release.mbid)
+		assert_equal(q1.mbid,q1.medium(2).track(2).medium.release.mbid)
+
+
+		assert_equal(13,q2.medium(1).tracks.size,"Killers disc 1 has 13 tracks - db")
+		assert_equal(9,q2.medium(2).tracks.size,"Killers disc 2 has 9 tracks - db")
+		assert_equal('4540b827-cce0-4f45-b3b9-f7cc09489584',q2.medium(1).track(10).recording)
+		assert_equal('5f5879b4-78d5-481f-a007-b9eb34cba750',q2.medium(1).track(1).recording)
+		assert_equal('6960710a-5120-420a-8e6e-acfa98db690f',q2.medium(2).track(5).recording)
+		assert_equal(q2.mbid,q2.medium(1).track(1).medium.release.mbid)
+		assert_equal(q2.mbid,q2.medium(2).track(2).medium.release.mbid)		
 	end
 	
 	def teardown
