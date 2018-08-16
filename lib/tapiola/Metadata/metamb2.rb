@@ -218,7 +218,6 @@ class Medium < MBBase
 			r = @@db.execute('select format from medium where release_mbid = ? and position = ?', @release.mbid,@position)
 			@format = r[0][0]
 			Track.getByMedium(@release.mbid,@position).each do |t|
-				puts "making track #{t} from database for #{@release.mbid}/#{@position}"
 				@tracks[t] = Track.new(self,t)
 			end
 			@cached = true
@@ -261,11 +260,8 @@ class Track < MBBase
 			store
 		else
 			@cached = true
-			puts @@db.execute('select release_mbid, medium_position, position, recording_mbid from track').to_s
 			r = @@db.execute('select recording_mbid from track where release_mbid = ? and medium_position = ? and position = ?',
-				@medium.release.mbid, @medium.position, @poisition)
-			puts "selecting track #{@medium.release.mbid}/#{@medium.position}/#{@position}"
-			puts r.size	
+				@medium.release.mbid, @medium.position, @position)
 			@recording = r[0][0]
 		end
 		
@@ -283,7 +279,6 @@ class Track < MBBase
 			@@db.execute('update track set recording_mbid = ? where release_mbid = ? and medium_position = ? and position = ?',@recording, @medium.release.mbid,@medium.position,@position)
 		else
 			@@db.execute('insert into track (release_mbid, medium_position, position, recording_mbid) values (?,?,?,?)',@medium.release.mbid,@medium.position,@position,@recording)
-			#puts "inserting track #{@medium.release.mbid}/#{@medium.position}/#{@position}"
 		end
 	end
 
