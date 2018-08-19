@@ -19,11 +19,23 @@ class MBBase
 			create table if not exists medium (release_mbid text, position integer, format text);
 			create table if not exists track (release_mbid text, medium_position integer, position integer, recording_mbid text);
 			create table if not exists recording (mbid text, title text, length integer);
+			create table if not exists medium2discid (release_mbid text, position integer, discid text);
+			create table if not exists discid (discid text);
 			create unique index if not exists release_ix1 on release(mbid);
 			create unique index if not exists medium_ix1 on medium(release_mbid, position);
 			create unique index if not exists track_ix1 on track(release_mbid, medium_position, position);
 			create unique index if not exists recording_ix1 on recording(mbid);
+			create index if not exists medium2discid_ix1 on medium2discid(release_mbid, position);
+			create index if not exists medium2discid_ix2 on medium2discid(discid);
+			create unique index if not exists discid_ix1 on discid(discid);
+			create table if not exists artist (mbid text, name text, sortname text);
+			create unique index if not exists artist_idx1 on artist(mbid);
+			create table if not exists release2artist (release_mbid text, seq integer, artist_mbid text, joinphrase text);
+			create unique index if not exists release2artist_ix1 on release2artist(release_mbid,seq);
+			create index if not exists release2artist_ix2 on release2artist(artist_mbid);
 		')
+		# add recording to artist, recording to work, work, work to work
+		
 	end
 	def self.clearDatabase
 		@@db.execute_batch('
@@ -88,16 +100,17 @@ end
 
 class Release < MBBase
 	
-	attr_reader :mbid, :media, :title, :cached
+	attr_reader :mbid, :media, :title, :cached, :artists
 	
-	def initialize(mbid)
+	def initialize(mbid,xml = nil)
 		@media = Hash.new
+		@artists = Array.new
 		
 		if (getFromDB(mbid))
 			@cached = true
 		else
 			@cached = false
-			if (getFromMB(mbid))
+			if (getFromMB(mbid,xml))
 				store
 			end
 		end
@@ -115,12 +128,17 @@ class Release < MBBase
 			Medium.getByRelease(mbid).each do |p|
 				@media[p] = Medium.new(self,p)
 			end
+			linkArtists
 		end
 	end
 	
-	def getFromMB(mbid)
+	def getFromMB(mbid,xml)
 
-		body = self.mbRequest("/ws/2/release/#{mbid}?inc=recordings")
+		if xml
+			body = xml
+		else
+			body = self.mbRequest("/ws/2/release/#{mbid}?inc=recordings%2Bdiscids%2Bartist-credits")
+		end
 
 		if (body)
 			@mbid = mbid
@@ -132,6 +150,7 @@ class Release < MBBase
 					@media[pos]  = Medium.new(self,pos,m)
 				end
 			end
+			linkArtists(xroot)
 		else
 			@mbid = nil
 		end
@@ -145,43 +164,51 @@ class Release < MBBase
 		else
 			@@db.execute('insert into release (mbid,title) values (?,?)',@mbid,@title)
 		end
+
+
+		@artists.each do |a|
+			@@db.execute('delete from release2artist where release_mbid = ?',@mbid)
+			@artists.each_index do |i|
+				@@db.execute('insert into release2artist (release_mbid, seq, artist_mbid, joinphrase) values (?,?,?,?)',
+					@mbid,i,artists[i][0].mbid,artists[i][1])
+			end
+		end
+
+
 	end
 	
 	def medium(i)
 		@media[i]
 	end
 	
-=begin
-	def self.getFromDiscID(discid)
-		code,body = @@mbWS.mbRequest("/ws/2/discid/#{discid}?inc=recordings")
-		if code == 200
-			xroot = REXML::Document.new(body)
-			xroot.elements.each("metadata/disc/release-list/release") do |r| 
-				if (!r.elements["medium-list"].elements["medium"].elements["format"]) ||
-				   (r.elements["medium-list"].elements["medium"].elements["format"].text == "CD")
-					@title = r.elements["title"].text
-					@mbid = r.attributes["id"]
-					getFromXML(r)
-				end
-			end
-			return self
-		else
-			return nil
-		end
+	def artist(i)
+		@artists[i][0]
 	end
+	
+	def each_artist
+		@artists.each { |a| yield a[0]}
+	end
+	
 
-	
-	def getFromXML(xml)
-		xml.elements.each("medium-list/medium") do |m|
-			if (!m.elements["format"]) || (m.elements["format"].text == "CD")
-				pos = m.elements["position"].text.to_i
-				@media[pos]  = Medium.new(m)
+	def linkArtists(xml=nil)
+		if xml
+			#puts xml
+			xml.elements.each("*/release/artist-credit/name-credit")  do |a| 
+				#puts a
+				jp= a.attributes["joinphrase"]
+				@artists << [ Artist.new(a.elements["artist"].attributes["id"],a) , jp ]
+			end
+		else
+			#puts "getting artists from database #{@mbid}"
+			r = @@db.execute('select seq, artist_mbid, joinphrase from release2artist where release_mbid = ?',@mbid)
+			r.each do |d|
+				#puts "got artist #{d[0]}/#{d[1]}/#{d[2]}"
+				@artists[d[0]] = [Artist.new(d[1]), d[2]]
 			end
 		end
-		return self
 	end
 	
-=end	
+
 	
 	def mediumByDiscID(did)
 		@media.each_value { |m| return m if m.discIDs[did] }
@@ -204,15 +231,13 @@ class Medium < MBBase
 		#puts "new medium #{release.mbid} #{pos} #{xml}"
 		if xml
 			@cached = false
-			xml.elements.each("disc-list/disc")  do |d| 
-				@discIDs[d.attributes["id"]] = d.attributes["id"] 
-			end
 			xml.elements.each("track-list/track") do |txml|
 				num = txml.elements["position"].text.to_i
 				@tracks[num] = Track.new(self,num,txml)
 			end
 			f = xml.elements["format"]
 			@format = f.text if f
+			linkDiscIDs(xml)
 			store
 		else
 			r = @@db.execute('select format from medium where release_mbid = ? and position = ?', @release.mbid,@position)
@@ -220,6 +245,7 @@ class Medium < MBBase
 			Track.getByMedium(@release.mbid,@position).each do |t|
 				@tracks[t] = Track.new(self,t)
 			end
+			linkDiscIDs
 			@cached = true
 		end
 	end
@@ -231,12 +257,32 @@ class Medium < MBBase
 		return q
 	end
 
+	def linkDiscIDs(xml=nil)
+		if xml
+			xml.elements.each("disc-list/disc")  do |d| 
+				id = d.attributes["id"]
+				@discIDs[id] = DiscID.new(id)
+			end
+		else
+			r = @@db.execute('select discid from medium2discid where release_mbid = ? and position = ?',@release.mbid,@position)
+			r.each do |d|
+				@discIDs[d[0]] = DiscID.new(d[0])
+			end
+		end
+	end
 	
+
 	def store
 		if @@db.execute('select release_mbid from medium where release_mbid = ? and position = ?',@release.mbid,@position).size > 0
 			@@db.execute('update medium set format = ? where release_mbid = ? and position = ?',@format, @release.mbid,@position)
 		else
 			@@db.execute('insert into medium (release_mbid, position, format) values (?,?,?)',@release.mbid,@position,@format)
+		end
+		@discIDs.each_key do |k|
+			#puts "checking / storing #{@release.mbid}/#{@position}/#{k}"
+			unless @@db.execute('select discid from medium2discid where release_mbid = ? and position = ? and discid = ?',@release.mbid,@position,k).size > 0
+				@@db.execute('insert into medium2discid (release_mbid, position, discid) values (?,?,?)',@release.mbid,@position,k)
+			end
 		end
 	end
 	
@@ -246,6 +292,34 @@ class Medium < MBBase
 	
 end
 
+
+class DiscID < MBBase
+	attr_reader :discid, :releases
+	
+	def initialize(did)
+		@releases = Array.new
+		@discid = did
+		store
+	end
+
+	def store
+		unless @@db.execute('select discid from discid where discid = ?',@discid).size > 0
+			@@db.execute('insert into discid (discid) values (?)',@discid)
+		end
+	end
+	# need to add a method to get relesases from db
+	def findReleases
+
+		body = self.mbRequest("/ws/2/discid/#{@discid}?inc=recordings%2Bartist-credits")
+		if body
+			xml = REXML::Document.new(body)
+			xml.elements.each("metadata/disc/release-list/release") do  |r|
+				@releases << Release.new(r.attributes["id"])
+			end
+		end
+
+	end
+end
 
 
 class Track < MBBase
@@ -338,6 +412,37 @@ class Recording < MBBase
 		return self
 	end
 end
+
+
+class Artist < MBBase
+	attr_reader :mbid, :name, :sortname
+	
+	def initialize(mbid,xml=nil)
+		@mbid = mbid
+		if xml
+			if (xml.elements["artist"].attributes["id"] != mbid)
+				puts "artist mbid mismatch"
+			end
+			@name = xml.elements["artist"].elements["name"].text
+			@sortname = xml.elements["artist"].elements["sort-name"].text
+			store
+		else
+			r = @@db.execute('select name, sortname from artist where mbid = ?',mbid)
+			@name = r[0][0]
+			@sortname = r[0][1]
+		end
+	end
+	
+	def store
+		if @@db.execute('select mbid from artist where mbid = ?',@mbid).size > 0
+			@@db.execute('update artist set name = ?, sortname = ? where mbid = ?',@name,@sortname,@mbid)
+		else
+			@@db.execute('insert into artist (mbid,name,sortname) values (?,?,?)',@mbid,@name,@sortname)
+		end
+	end
+end
+
+
 =begin
 class Work < Primitive
 	attr_reader :mbid, :title, :type, :key, :parent, :parentSeq, :alias, :artists

@@ -17,7 +17,7 @@ require_relative '../../lib/tapiola/Metadata/metamb2.rb'
 
 
 
-class TestRelease < Minitest::Test
+class Testmb < Minitest::Test
 	
 			
 	def setup
@@ -79,6 +79,20 @@ class TestRelease < Minitest::Test
 	
 	
 	def test_discIDs
+		q1 = Meta::MusicBrainz::Release.new('f9dffcec-f9ae-3320-a003-b87c1e995885')
+		q2 = Meta::MusicBrainz::Release.new('f9dffcec-f9ae-3320-a003-b87c1e995885')
+		
+		assert_equal(8,q1.medium(1).discIDs.size,'Killers 1 has 8 discids - xml')
+		assert_equal(9,q1.medium(2).discIDs.size,'Killers 2 has 9 discids - xml')
+		assert_equal(8,q2.medium(1).discIDs.size,'Killers 1 has 8 discids - db')
+		assert_equal(9,q2.medium(2).discIDs.size,'Killers 2 has 9 discids - db')
+
+		assert_equal("GEODiAH9glH00PEByHsRze9gifs-",q1.medium(1).discIDs["GEODiAH9glH00PEByHsRze9gifs-"].discid)
+		assert_equal("GEODiAH9glH00PEByHsRze9gifs-",q2.medium(1).discIDs["GEODiAH9glH00PEByHsRze9gifs-"].discid)
+		assert_equal("5oQBp7zOGQTqL9m_liQz1Yb8Dxo-",q1.medium(2).discIDs["5oQBp7zOGQTqL9m_liQz1Yb8Dxo-"].discid)
+		assert_equal("5oQBp7zOGQTqL9m_liQz1Yb8Dxo-",q2.medium(2).discIDs["5oQBp7zOGQTqL9m_liQz1Yb8Dxo-"].discid)
+
+
 	end
 	
 	def test_tracks
@@ -102,6 +116,53 @@ class TestRelease < Minitest::Test
 		assert_equal('6960710a-5120-420a-8e6e-acfa98db690f',q2.medium(2).track(5).recording)
 		assert_equal(q2.mbid,q2.medium(1).track(1).medium.release.mbid)
 		assert_equal(q2.mbid,q2.medium(2).track(2).medium.release.mbid)		
+	end
+	
+
+	
+	def test_artists
+		q1 = Meta::MusicBrainz::Release.new('f9dffcec-f9ae-3320-a003-b87c1e995885')
+		q2 = Meta::MusicBrainz::Release.new('f9dffcec-f9ae-3320-a003-b87c1e995885')
+		r1 = Meta::MusicBrainz::Release.new('a135b237-db5c-3769-a38a-ffdd929a37c3')
+		r2 = Meta::MusicBrainz::Release.new('a135b237-db5c-3769-a38a-ffdd929a37c3')
+		n1 = Meta::MusicBrainz::Release.new('07971e8a-9b1a-31a0-a111-f69955974138')
+		
+		assert_equal("Queen",q1.artist(0).name,"Killers artist xml")
+		assert_equal("Queen",q2.artist(0).name,"Killers artist db")
+		assert_equal(1,q1.artists.size)
+		assert_equal(1,q2.artists.size)
+		assert_equal(2,r1.artists.size)
+		assert_equal(2,r2.artists.size)
+		assert_equal(1,n1.artists.size)
+		assert_equal("Various Artists",n1.artist(0).name)
+		 
+		x = ""
+		r1.each_artist {|a| x << a.sortname}
+		assert_equal("Plant, RobertKrauss, Alison",x)
+		
+		assert_equal(" & ",r1.artists[0][1])
+		assert_nil(q1.artists[0][1])
+
+	end
+	
+	def test_discid_search
+		d1 = Meta::MusicBrainz::DiscID.new("HnFqD3.p6hwybQz9HFT_g84Ko4g-")
+		d2 = Meta::MusicBrainz::DiscID.new("3lfQrHqZFJwduQjNIEZFUBCEocM-")
+		
+		d1.findReleases
+		
+		assert_equal(4,d1.releases.size)
+		assert_equal("Blue",d1.releases[0].title)
+		assert_equal("Joni Mitchell",d1.releases[0].artist(0).name)
+		
+		# need to test getting 2nd from cache
+
+	end
+	
+	def test_works
+	end
+	
+	def test_recordings
 	end
 	
 	def teardown
