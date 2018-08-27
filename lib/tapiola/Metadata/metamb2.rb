@@ -33,8 +33,25 @@ class MBBase
 			create table if not exists release2artist (release_mbid text, seq integer, artist_mbid text, joinphrase text);
 			create unique index if not exists release2artist_ix1 on release2artist(release_mbid,seq);
 			create index if not exists release2artist_ix2 on release2artist(artist_mbid);
+			create table if not exists recording2artist (recording_mbid text, seq integer, artist_mbid text, joinphrase text);
+			create unique index if not exists recording2artist_ix1 on recording2artist(recording_mbid,seq);
+			create index if not exists recording2artist_ix2 on recording2artist(artist_mbid);
+			create table if not exists recording2work (recording_mbid text, work_mbid text);
+			create unique index if not exists recording2work_ix1 on recording2work(recording_mbid,work_mbid);
+			create index if not exists recording2work_ix1 on recording2work(work_mbid);
+			create table if not exists recording2release (recording_mbid text, release_mbid text);
+			create unique index if not exists recording2release_ix1 on recording2release(recording_mbid,release_mbid);
+			create table if not exists work (mbid text, title text, composer text, type text, key text, performing_work_mbid text, performing_work_title text, performing_work_type text);
+			create unique index if not exists work_ix1 on work(mbid);
+			create index if not exists work_ix2 on work(performing_work_mbid);
+			create table if not exists work2artist (work_mbid text, artist_mbid text, role text);
+			create index if not exists work2artist_ix1 on work2artist(work_mbid);
+			create index if not exists work2artist_ix2 on work2artist(artist_mbid);
+			create table if not exists work2work (work_mbid text, parent_work_mbid text);
+			create unique index if not exists work2work_ix1 on work2work(work_mbid,parent_work_mbid);
+			create index if not exists work2work_ix2 on work2work(parent_work_mbid);
 		')
-		# add recording to artist, recording to work, work, work to work
+
 		
 	end
 	def self.clearDatabase
@@ -329,14 +346,14 @@ class Track < MBBase
 		@medium = medium
 		@position = pos
 		if xml
-			@recording = xml.elements["recording"].attributes["id"]
+			@recording = Recording.new(xml.elements["recording"].attributes["id"])
 			@cached = false
 			store
 		else
 			@cached = true
 			r = @@db.execute('select recording_mbid from track where release_mbid = ? and medium_position = ? and position = ?',
 				@medium.release.mbid, @medium.position, @position)
-			@recording = r[0][0]
+			@recording = Recording.new(r[0][0])
 		end
 		
 	end
@@ -350,9 +367,9 @@ class Track < MBBase
 
 	def store
 		if @@db.execute('select recording_mbid from track where release_mbid = ? and medium_position = ? and position = ?',@medium.release.mbid,@medium.position,@position).size > 0
-			@@db.execute('update track set recording_mbid = ? where release_mbid = ? and medium_position = ? and position = ?',@recording, @medium.release.mbid,@medium.position,@position)
+			@@db.execute('update track set recording_mbid = ? where release_mbid = ? and medium_position = ? and position = ?',@recording.mbid, @medium.release.mbid,@medium.position,@position)
 		else
-			@@db.execute('insert into track (release_mbid, medium_position, position, recording_mbid) values (?,?,?,?)',@medium.release.mbid,@medium.position,@position,@recording)
+			@@db.execute('insert into track (release_mbid, medium_position, position, recording_mbid) values (?,?,?,?)',@medium.release.mbid,@medium.position,@position,@recording.mbid)
 		end
 	end
 
@@ -361,56 +378,114 @@ end
 
 class Recording < MBBase
 	
-	attr_reader :works, :artists, :mbid, :title, :length
+	attr_reader :works, :artists, :mbid, :title, :length, :releases
 	
-	def initialize
-		@mbid = nil
-		@title = nil
-		@length = nil
+	def initialize(mbid)
+		@mbid = mbid
 		@works = Array.new
 		@artists = Array.new
+		@releases = Hash.new
+		if getFromDB
+			@cached = true
+		else
+			@cached = false
+			getFromMB
+			store
+		end
+	end
+
+	
+	def getFromDB
+
+		r = @@db.execute('select title, length from recording where mbid = ?',@mbid)
+		#puts "query on #{@mbid} returned #{r.size} rows"
+		if r.size == 0 
+			return nil
+		else
+			@title = r[0][0]
+			@length = r[0][1]
+		end
+		r = @@db.execute('select artist_mbid, joinphrase from recording2artist where recording_mbid = ? order by seq',@mbid)
+		r.each do |a|
+			linkArtist(a[0],a[1])
+		end
+		r = @@db.execute('select work_mbid from recording2work where recording_mbid = ?',@mbid)
+		r.each do |w|
+			linkWork(w[0])
+		end
+		r = @@db.execute('select release_mbid from recording2release where recording_mbid = ?',@mbid)
+		r.each do |l|
+			linkRelease(l[0])
+		end
+		return true
 	end
 	
-	def getFromMbid(mbid)
-		code,body = @@mbWS.mbRequest("/ws/2/recording/#{mbid}?inc=work-rels%20artist-rels")
-		if code == 200
-			xroot = REXML::Document.new(body)
-			#binding.pry
-			xroot.elements.each("metadata/recording") do |r| 
-				getFromXML(r)
+	def getFromMB
+		
+		body = self.mbRequest("/ws/2/recording/#{mbid}?inc=work-rels%2Bartist-credits%2Breleases")
+
+
+		if (body)
+			xroot = REXML::Document.new(body).elements["metadata"].elements["recording"]
+			@title = xroot.elements["title"].text
+			@length = xroot.elements["length"].text.to_i if xroot.elements["length"]
+			xroot.elements.each("release-list/release") do |r|
+				linkRelease(r.attributes["id"])
 			end
+			xroot.elements.each("artist-credit/name-credit") do |a|
+				linkArtist(a.elements["artist"].attributes['id'],a.attributes["joinphrase"])
+			end
+			wroot = xroot.elements["relation-list[@target-type='work']"]
+			if wroot #some recordings don't have works
+				wroot.elements.each("relation[@type='performance']") do |w|
+					linkWork(w.elements["work"].attributes["id"])
+				end
+			end
+		else
+			return nil
 		end
-		return self
 	end
-	def getFromXML(xml)
 	
-		@mbid = xml.attributes["id"]
-		@title = xml.elements["title"].text
-		@length = xml.elements["length"].text.to_i if xml.elements["length"]
-		
-		xml.elements.each("//relation-list[@target-type='artist']/relation") do |artrel|
-			relation = artrel.attributes["type"]
-			artdets = artrel.elements["artist"]
-			artid = artdets.attributes["id"]
-			artname = artdets.elements["name"].text
-			artsortname = artdets.elements["sort-name"].text
-			if (artrel.elements["attribute-list"] && artrel.elements["attribute-list"].elements["attribute"] )
-				type = artrel.elements["attribute-list"].elements["attribute"].text 
-			else
-				type = nil
-			end
-			@artists << Artist.new(artid, artname, artsortname, relation,type)
-		end
-		
-		xml.elements.each("//relation-list[@target-type='work']/relation") do |workrel|
-			type = workrel.attributes["type"]
-			if type == "performance"
-				workid = workrel.elements["work"].attributes["id"]
-				@works << Work.new(workid)
-			end
-		end
-		return self
+	
+	def linkWork(mbid)
+		@works << Work.new(mbid)
 	end
+	
+	def linkRelease(mbid)
+		@releases[mbid] = true
+		#@releases[mbid] = Release.new(mbid)
+		# don't create a release object here - too much potential for recursion
+	end
+	
+	def linkArtist(mbid,jp)
+		@artists << [Artist.new(mbid),jp]
+	end
+	
+	def store
+		if  @@db.execute('select mbid from recording where mbid = ?',@mbid).size == 0
+			@@db.execute('insert into recording(mbid,title,length) values (?,?,?)',@mbid,@title,@length)
+		else
+			@@db.execute('update recording set title = ?, length = ? where mbid = ?',@title,@length,@mbid)
+		end
+		@@db.execute('delete from recording2artist where recording_mbid = ?',@mbid)		
+		@@db.execute('delete from recording2work where recording_mbid = ?',@mbid)		
+		@@db.execute('delete from recording2release where recording_mbid = ?',@mbid)	
+		releases.each_key do |r|
+			@@db.execute('insert into recording2release(recording_mbid,release_mbid) values(?,?)',@mbid,r)
+		end
+		works.each do |w|
+			#puts "about to insert #{@mbid}/#{w.mbid}"
+			
+			#occasionally it seems the same recording/work combo can appear more than once
+			if @@db.execute('select recording_mbid from recording2work where recording_mbid = ? and work_mbid = ?',@mbid,w.mbid).size == 0
+				@@db.execute('insert into recording2work(recording_mbid,work_mbid) values (?,?)',@mbid,w.mbid)
+			end
+		end
+		artists.each_index do |i|
+			@@db.execute('insert into recording2artist(recording_mbid,seq,artist_mbid,joinphrase) values(?,?,?,?)',@mbid,i,artists[i][0].mbid, artists[i][1])
+		end
+	end
+
 end
 
 
@@ -419,17 +494,37 @@ class Artist < MBBase
 	
 	def initialize(mbid,xml=nil)
 		@mbid = mbid
-		if xml
-			if (xml.elements["artist"].attributes["id"] != mbid)
-				puts "artist mbid mismatch"
-			end
-			@name = xml.elements["artist"].elements["name"].text
-			@sortname = xml.elements["artist"].elements["sort-name"].text
-			store
-		else
-			r = @@db.execute('select name, sortname from artist where mbid = ?',mbid)
+
+		r = @@db.execute('select name, sortname from artist where mbid = ?',mbid)
+		if r.size > 0
 			@name = r[0][0]
 			@sortname = r[0][1]
+			@cached = true
+		else
+			if xml
+				if (xml.elements["artist"].attributes["id"] != mbid)
+					puts "artist mbid mismatch"
+				end
+				@name = xml.elements["artist"].elements["name"].text
+				@sortname = xml.elements["artist"].elements["sort-name"].text
+			else
+				body = self.mbRequest("/ws/2/artist/#{mbid}")
+				if (body)
+					xroot = REXML::Document.new(body).elements["metadata"].elements["artist"]
+					@name = xroot.elements["name"].text
+					@sortname = xroot.elements["sort-name"].text
+				end
+			end
+			store
+		end
+	end 
+
+	
+	def fileUnder
+		if @name == @sortname
+			return @name
+		else
+			return @sortname.split(",")[0]
 		end
 	end
 	
@@ -442,6 +537,68 @@ class Artist < MBBase
 	end
 end
 
+class Work < MBBase
+	attr_reader :mbid, :title, :type, :key, :parent, :parentSeq, :seq, :alias, :artists
+	
+	def initialize(mbid)
+		@mbid = mbid
+		#puts "creating work for #{mbid}"
+		@artists = Array.new
+		if getFromDB
+			@cached = true
+		else
+			@cached = false
+			body = self.mbRequest("/ws/2/work/#{mbid}?inc=work-rels%2Bartist-rels%2Baliases")
+			if (body)
+				xroot = REXML::Document.new(body).elements["metadata"]
+				
+				@title = xroot.elements["work"].elements["title"].text
+				@type = xroot.elements["work"].attributes["type"]
+				k = xroot.elements.to_a("work/attribute-list/attribute[@type='Key']")
+				@key = k[0].text if k[0]
+				
+				puts "title/type/key #{@title}/#{@type}/#{@key}"
+				#binding.pry
+				xroot.elements.each("work/alias-list/alias") do |a|
+					#puts "in alias list"
+					if (a.attributes["type"] =="Work name") && (a.attributes["locale"] == "en" )
+							@alias = a.text
+							puts "alias #{@alias} found"
+					end
+				end
+				
+				xroot.elements.each("work/relation-list[@target-type='work']/relation") do |workrel|
+					#puts "found a work relation"
+					if workrel.attributes["type"] == "parts"
+						if workrel.elements["direction"]
+							if workrel.elements["direction"].text == "backward"
+								@parentSeq = workrel.elements["ordering-key"].text.to_i if workrel.elements["ordering-key"]
+								@parent = Work.new(workrel.elements["target"].text)
+							end
+						end
+					end
+				end
+				
+				xroot.elements.each("work/relation-list[@target-type='artist']/relation") do |rel|	
+					#puts "found an artist relation"
+					if (rel.attributes["type"] == "composer") || (rel.attributes["type"].include?("arranger"))
+
+						aid = rel.elements["artist"].attributes["id"]
+						at = rel.attributes["type"]
+
+						@artists << [Artist.new(aid),at]
+
+					end
+				end
+			end
+		end
+	
+	end
+	
+	def getFromDB
+		return nil
+	end
+end
 
 =begin
 class Work < Primitive
@@ -503,16 +660,7 @@ class Work < Primitive
 	
 end
 
-class Artist < Primitive
-	attr_reader :mbid, :name, :sortName, :relation, :type
-	def initialize(mbid, name, sortName, relation, type)
-		@mbid = mbid
-		@name = name
-		@sortName = sortName
-		@relation = relation
-		@type = type
-	end
-end
+
 
 =end
 

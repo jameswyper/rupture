@@ -13,8 +13,9 @@ require_relative '../../lib/tapiola/Metadata/metamb2.rb'
 #require  'rexml/document'
 #require 'pry'
 
+require 'i18n'
 
-
+I18n.available_locales = [:en]
 
 
 class Testmb < Minitest::Test
@@ -27,7 +28,7 @@ class Testmb < Minitest::Test
 
 	end
 	
-
+#=begin
 	
 	
 	def test_release
@@ -102,18 +103,18 @@ class Testmb < Minitest::Test
 
 		assert_equal(13,q1.medium(1).tracks.size,"Killers disc 1 has 13 tracks - xml")
 		assert_equal(9,q1.medium(2).tracks.size,"Killers disc 2 has 9 tracks - xml")
-		assert_equal('4540b827-cce0-4f45-b3b9-f7cc09489584',q1.medium(1).track(10).recording)
-		assert_equal('5f5879b4-78d5-481f-a007-b9eb34cba750',q1.medium(1).track(1).recording)
-		assert_equal('6960710a-5120-420a-8e6e-acfa98db690f',q1.medium(2).track(5).recording)
+		assert_equal('4540b827-cce0-4f45-b3b9-f7cc09489584',q1.medium(1).track(10).recording.mbid)
+		assert_equal('5f5879b4-78d5-481f-a007-b9eb34cba750',q1.medium(1).track(1).recording.mbid)
+		assert_equal('6960710a-5120-420a-8e6e-acfa98db690f',q1.medium(2).track(5).recording.mbid)
 		assert_equal(q1.mbid,q1.medium(1).track(1).medium.release.mbid)
 		assert_equal(q1.mbid,q1.medium(2).track(2).medium.release.mbid)
 
 
 		assert_equal(13,q2.medium(1).tracks.size,"Killers disc 1 has 13 tracks - db")
 		assert_equal(9,q2.medium(2).tracks.size,"Killers disc 2 has 9 tracks - db")
-		assert_equal('4540b827-cce0-4f45-b3b9-f7cc09489584',q2.medium(1).track(10).recording)
-		assert_equal('5f5879b4-78d5-481f-a007-b9eb34cba750',q2.medium(1).track(1).recording)
-		assert_equal('6960710a-5120-420a-8e6e-acfa98db690f',q2.medium(2).track(5).recording)
+		assert_equal('4540b827-cce0-4f45-b3b9-f7cc09489584',q2.medium(1).track(10).recording.mbid)
+		assert_equal('5f5879b4-78d5-481f-a007-b9eb34cba750',q2.medium(1).track(1).recording.mbid)
+		assert_equal('6960710a-5120-420a-8e6e-acfa98db690f',q2.medium(2).track(5).recording.mbid)
 		assert_equal(q2.mbid,q2.medium(1).track(1).medium.release.mbid)
 		assert_equal(q2.mbid,q2.medium(2).track(2).medium.release.mbid)		
 	end
@@ -155,16 +156,61 @@ class Testmb < Minitest::Test
 		assert_equal("Blue",d1.releases[0].title)
 		assert_equal("Joni Mitchell",d1.releases[0].artist(0).name)
 		
-		# need to test getting 2nd from cache
-
+		d2.findReleases
+		
+		assert_equal(4,d2.releases.size)
+		assert_equal("Blue",d2.releases[0].title)
+		assert_equal("Joni Mitchell",d2.releases[0].artist(0).name)
+		
+		refute(d1.releases[0].cached?,"1st discid hit not cached")
+		refute(d1.releases[2].cached?,"1st discid hit not cached")
+		assert(d2.releases[0].cached?,"2nd discid hit cached")
+		assert(d2.releases[3].cached?,"2nd discid hit cached")
+		
 	end
 	
+#=end	
 	def test_works
+		w1 = Meta::MusicBrainz::Work.new("19adaa49-b0f6-4a98-9c62-dec279164ec1") # trav act 3
+		
+		w2 = Meta::MusicBrainz::Work.new("6b16c882-3459-44d9-b6f3-6c0020f74525") # vespers
+		
+		w3 = Meta::MusicBrainz::Work.new("4a622b0d-b0c0-405e-b49e-05b70c108284") #hammerklavier
+		
+		assert_equal("La traviata: Atto III",w1.title)
+		assert_equal("La traviata",w1.parent.title)
+		assert_equal(4,w1.parentSeq)
+		assert_equal("Verdi",w1.artists[0][0].fileUnder)
+		
+		assert_equal("All-Night Vigil, op. 37: VIII. Praise the Name of the Lord",w2.alias)
+		assert_equal("B-flat major",w3.key)
+		assert_nil(w3.parent)
+		
 	end
 	
+=begin	
 	def test_recordings
+		rc1 = Meta::MusicBrainz::Recording.new("3cbd2e5c-bfbd-4dc0-9e40-f20ecf692cb3")
+		re1 = Meta::MusicBrainz::Release.new("0c19517e-6309-4dec-92b1-2a411618941b")
+		assert_equal("Cello Concerto in E minor, op. 85: I. Adagio - Moderato",rc1.title)
+		assert_equal(3,rc1.artists.size)
+		assert_equal("Jacqueline du Pre",I18n.transliterate(rc1.artists[0][0].name))
+		assert_equal("Barbirolli",rc1.artists[2][0].fileUnder)
+		assert_equal(", ",rc1.artists[0][1],"artist joinphrase")
+		assert(rc1.releases[re1.mbid])
+		refute(rc1.releases[re1.mbid + "asdg;anvn"])
+		assert_equal(1,rc1.works.size)
+		assert_equal(25,rc1.releases.size)
+		refute(rc1.cached?)
+		assert_equal(rc1.mbid,re1.medium(1).track(1).recording.mbid)
+		
+		rc2 = Meta::MusicBrainz::Recording.new("3cbd2e5c-bfbd-4dc0-9e40-f20ecf692cb3")
+		assert(rc2.cached?)
+		refute(rc1.artists[0][0].cached?)
+		assert(rc2.artists[0][0].cached?)
+		
 	end
-	
+=end	
 	def teardown
 
 		File.delete(File.expand_path("~/metadbtest.db"))
