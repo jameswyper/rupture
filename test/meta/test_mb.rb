@@ -7,7 +7,7 @@ Tests to do
 =end
 
 require 'minitest/autorun'
-require_relative '../../lib/tapiola/Metadata/metamb2.rb'
+require_relative '../../lib/tapiola/Metadata/metamb.rb'
 #require 'nokogiri'
 #require 'net/http'
 #require  'rexml/document'
@@ -28,7 +28,7 @@ class Testmb < Minitest::Test
 
 	end
 	
-#=begin
+=begin
 	
 	
 	def test_release
@@ -169,7 +169,7 @@ class Testmb < Minitest::Test
 		
 	end
 	
-#=end	
+=end	
 	def test_works
 		w1 = Meta::MusicBrainz::Work.new("19adaa49-b0f6-4a98-9c62-dec279164ec1") # trav act 3
 		
@@ -186,6 +186,39 @@ class Testmb < Minitest::Test
 		assert_equal("B-flat major",w3.key)
 		assert_nil(w3.parent)
 		
+		assert_equal(w3,w3.performingWork)
+		assert_equal("La traviata",w1.performingWork.title)
+		assert_equal("All-Night Vigil, Op. 37",w2.performingWork.enTitle)
+		assert_equal(8.0,w2.seq)
+		assert_equal(0.0,w3.seq)
+		assert_equal(4.0,w1.seq)
+		
+		refute(w1.cached?)
+		w4 = Meta::MusicBrainz::Work.new("19adaa49-b0f6-4a98-9c62-dec279164ec1") # trav act 3
+		
+		assert_equal("La traviata: Atto III",w4.title)
+		assert(w4.cached?)
+		
+		assert_equal("La traviata",w4.parent.title)
+		assert_equal(4,w4.parentSeq)
+		assert_equal("Verdi",w4.artists[0][0].fileUnder)
+
+
+		assert(w4.parent.cached?)
+		assert(w4.performingWork.cached?)
+		
+		assert_equal("composer",w1.performingWork.artists[0][1])
+		assert_equal(w1.artists[0][0].mbid,w4.artists[0][0].mbid)
+		assert_equal("composer",w4.performingWork.artists[0][1])
+
+
+		#test composer
+		assert_equal("Verdi",w1.composer.fileUnder)
+		assert_equal("Rachmaninoff",w2.composer.fileUnder)
+		assert_equal("Beethoven",w3.composer.fileUnder)
+		assert_equal("Verdi",w4.composer.fileUnder)
+
+
 	end
 	
 =begin	
