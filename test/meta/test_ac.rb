@@ -16,6 +16,9 @@ class TestAC < Minitest::Test
 	
 	def test_ac
 		
+		dummy = Meta::MusicBrainz::Release.new("2fe766bf-aebb-4f2d-b89b-3924a45063e4")
+		puts "Got release OK #{dummy.title}"
+		
 		tf = Meta::Core::Folder.new('/media/music/flac/classical/opera/Parsifal')
 		tf.scan { |count,total,eta| puts "#{sprintf('%2.1f',(total == 0 ? 100.0 : (count * 100.0) / total))}% complete, ETC #{eta.strftime('%b-%d %H:%M.%S')}"}
 		
@@ -33,7 +36,7 @@ class TestAC < Minitest::Test
 	
 	def teardown
 
-		File.delete(File.expand_path("~/metatest_mb.db"))
+		#File.delete(File.expand_path("~/metatest_mb.db"))
 		File.delete(File.expand_path("~/metatest_db.db"))
 		
 	end	

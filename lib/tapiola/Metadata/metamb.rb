@@ -615,8 +615,12 @@ class Work < MBBase
 		highestWorkWithKey = nil
 		lowestWorkWithType = nil
 		
-		while chain.last.parent
-			chain << parent
+		#puts "root is #{self.mbid}"
+		
+		while (chain.last.parent)  #&& (chain.last.mbid != chain.last.parent.mbid)
+			#puts "parent is #{chain.last.parent.mbid} current is #{chain.last.mbid}"
+			
+			chain << chain.last.parent
 			if (!lowestWorkWithType) && chain.last.type
 				lowestWorkWithType = chain.last
 			end

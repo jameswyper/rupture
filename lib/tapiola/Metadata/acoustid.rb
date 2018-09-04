@@ -110,7 +110,7 @@ class Service
 		
 	class ScoredMedium
 		attr_accessor :release, :medium, :trackCount, :trackMatches, :trackMisses
-		def intialize(release,medium)
+		def initialize(release,medium)
 			@release = release
 			@medium = medium
 		end
@@ -135,12 +135,13 @@ class Service
 		end	
 		
 
-		
+		#puts "#{candidateReleases.size} releases to juggle"
 
 		
-		candidateReleases.each do |candidate_mbid|
+		candidateReleases.each_value do |candidate_mbid|
 			puts "candidate release #{candidate_mbid}"
 			candidate = Meta::MusicBrainz::Release.new(candidate_mbid)
+			puts "got release from MB"
 			candidate.media.each do |mpos,medium|
 				scm = ScoredMedium.new(candidate,medium)
 				medium.tracks.each do |tpos, track| 
