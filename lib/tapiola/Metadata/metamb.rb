@@ -696,7 +696,7 @@ class Work < MBBase
 		else
 			#puts "insert parent=#{(@parent ? @parent.mbid : nil)}"
 			r = @@db.execute("insert into work (mbid,title,composer,type,key,alias,parent_work_mbid,performing_work_mbid,seq,parentSeq) values (?,?,?,?,?,?,?,?,?,?)",
-				@mbid,@title,@composer.mbid,@type,@key,@alias,(@parent ? @parent.mbid : nil),(@performingWork? @performingWork.mbid : nil),@seq,@parentSeq)
+				@mbid,@title,(@composer ? @composer.mbid : nil),@type,@key,@alias,(@parent ? @parent.mbid : nil),(@performingWork? @performingWork.mbid : nil),@seq,@parentSeq)
 		end
 		@@db.execute("delete from work2artist where work_mbid = ?",@mbid)
 		@artists.each do |a|

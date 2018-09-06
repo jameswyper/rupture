@@ -25,7 +25,7 @@ class Service
 		h.ssl_config.add_trust_ca("/etc/ssl/certs")
 		h.receive_timeout = 300
 		 
-		 puts "Fingerprint:#{fp}"
+		 #puts "Fingerprint:#{fp}"
 		 
 		tries = 0
 		begin
@@ -88,7 +88,7 @@ class Service
 		x = Array.new
 
 		fprint, duration = getFingerprint(f)
-		puts "#{f} - duration #{duration}"
+		#puts "#{f} - duration #{duration}"
 		results = JSON.parse(acRequest(fprint,duration))["results"]
 		results.each do |result| 
 			recordings = result["recordings"]
@@ -113,6 +113,8 @@ class Service
 		def initialize(release,medium)
 			@release = release
 			@medium = medium
+			@trackMisses = 0
+			@trackMatches = 0
 		end
 	end
 		
@@ -125,11 +127,13 @@ class Service
 		# call AcoustID for each track on the disc, storing the recording/release combos
 
 		candidateReleases = Hash.new
-
+		
+		discTrack = 0
 		d.tracks.keys.sort.each do |tr|
-			puts "getting from File.."
-			recordings[tr] = getFromFile(d.pathname+'/'+d.tracks[tr].filename)
-			recordings[tr].each do |rec|
+			#puts "getting from File.."
+			discTrack = discTrack + 1
+			recordings[discTrack] = getFromFile(d.pathname+'/'+d.tracks[tr].filename)
+			recordings[discTrack].each do |rec|
 				rec.releases.each { |rel| candidateReleases[rel] = rel } 
 			end
 		end	
@@ -139,20 +143,24 @@ class Service
 
 		
 		candidateReleases.each_value do |candidate_mbid|
-			puts "candidate release #{candidate_mbid}"
+			#puts "candidate release #{candidate_mbid}"
 			candidate = Meta::MusicBrainz::Release.new(candidate_mbid)
-			puts "got release from MB"
+			#puts "got release from MB"
+			#puts "Candidate release is #{candidate.mbid} #{candidate.title}"
 			candidate.media.each do |mpos,medium|
+				#puts "Candidate medium #{medium.position}"
 				scm = ScoredMedium.new(candidate,medium)
-				medium.tracks.each do |tpos, track| 
+				medium.tracks.each do |tpos, track|
+					#puts "Candidate track #{track.position} #{track.recording.mbid} #{track.recording.title}"
 					match_found = false
 					mb_rec_mbid = track.recording.mbid
 					if recordings[tpos]
-						recordings[tpos].each do |ac_recordings|
-							ac_recordings.each do |ac_recording|
-								if ac_recording == mb_rec_mbid
-									match_found = true
-								end
+						#puts "There are acoustID hits for track #{tpos}"
+						recordings[tpos].each do |ac_recording|
+							#puts "checking #{ac_recording.mbid}"
+							if ac_recording.mbid == mb_rec_mbid
+								#puts "we have a match" 
+								match_found = true
 							end
 						end
 						if match_found
@@ -168,12 +176,12 @@ class Service
 		end
 		
 		scores.sort! do |x,y| 
-			xmatch = (x.trackMatches * 1.0 / x.TrackCount) 
-			ymatch = (y.trackMatches * 1.0 / y.TrackCount)
+			xmatch = (x.trackMatches * 1.0 / x.trackCount) 
+			ymatch = (y.trackMatches * 1.0 / y.trackCount)
 			if (xmatch == ymatch)
-				return (x.release.media.size <=> y.release.media.size)  # favour smaller releases over box sets
+				(x.release.media.size <=> y.release.media.size)  # favour smaller releases over box sets
 			else
-				return (xmatch <=> ymatch)
+				(ymatch <=> xmatch)
 			end
 		end
 		

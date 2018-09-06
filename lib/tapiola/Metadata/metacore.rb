@@ -221,7 +221,7 @@ class Disc < DBBase
 			disc.discNumber = row[2]
 			disc.mbDiscID = row[3]
 			disc.mbReleaseId = row[4]
-			puts "fetched disc #{disc.id} #{disc.pathname} #{disc.discNumber}"
+			#puts "fetched disc #{disc.id} #{disc.pathname} #{disc.discNumber}"
 			disc.fetchTracks
 			discs << disc
 		end
