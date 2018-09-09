@@ -126,11 +126,11 @@ class DBBase
 		@db.execute('update md_track2work set performing_work_mb_id = ?, performing_work_sequence = ? where work_mb_id = ?',perfWork,sequence,work)
 	end
 =end	
-	def beginLUW
+	def self.beginLUW
 		@@db.transaction
 	end
 	
-	def endLUW
+	def self.endLUW
 		@@db.commit
 	end
 	

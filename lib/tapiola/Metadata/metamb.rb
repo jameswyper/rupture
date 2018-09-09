@@ -83,18 +83,21 @@ class MBBase
 			end
 		rescue
 			tries += 1
-			if (tries > 5)
+			if (tries > 5) 
 				raise
 			else
-				case r.code
-				when 503
-					sleep 5
-				when 500
-					sleep 60
+				if r
+					case r.code
+					when 503
+						sleep 5
+					when 500
+						sleep 60
+					else
+						sleep 300
+					end
 				else
-					sleep 300
+					sleep 5
 				end
-				
 				retry
 			end
 		end
