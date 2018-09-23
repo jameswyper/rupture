@@ -28,7 +28,7 @@ class Testmb < Minitest::Test
 
 	end
 	
-=begin
+
 	
 	
 	def test_release
@@ -169,7 +169,7 @@ class Testmb < Minitest::Test
 		
 	end
 	
-=end	
+	
 	def test_works
 		w1 = Meta::MusicBrainz::Work.new("19adaa49-b0f6-4a98-9c62-dec279164ec1") # trav act 3
 		
@@ -221,7 +221,7 @@ class Testmb < Minitest::Test
 
 	end
 	
-=begin	
+
 	def test_recordings
 		rc1 = Meta::MusicBrainz::Recording.new("3cbd2e5c-bfbd-4dc0-9e40-f20ecf692cb3")
 		re1 = Meta::MusicBrainz::Release.new("0c19517e-6309-4dec-92b1-2a411618941b")
@@ -243,7 +243,7 @@ class Testmb < Minitest::Test
 		assert(rc2.artists[0][0].cached?)
 		
 	end
-=end	
+
 	def teardown
 
 		File.delete(File.expand_path("~/metadbtest.db"))

@@ -34,7 +34,7 @@ class TestAC < Minitest::Test
 			puts "#{disc.pathname}/#{disc.discNumber}"
 			scores.each do |s|
 				if s.trackMatches > 0
-					puts "#{s.release.title}/#{s.release.mbid}/#{s.medium.position} #{s.trackCount}/#{s.trackMatches}/#{s.trackMisses}"
+					puts "#{s.trackCount}/#{disc.tracks.size}-#{s.trackMatches}/#{s.trackMisses} \t#{s.release.title}/#{s.medium.position}/#{s.release.mbid}"
 				end
 			end
 		end

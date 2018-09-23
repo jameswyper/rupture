@@ -252,14 +252,14 @@ class Disc < DBBase
 	
 end	
 
-class Folder
+class Folder_flac
 	def initialize(t)
 		@top = t
 	end
 	def scan
 		count = 0
 		total = 0
-		eta = DateTime.now + 1
+		eta = nil
 		files = Dir[@top+'/**/*.flac']
 		total = files.size
 		yield count, total, eta

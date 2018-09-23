@@ -5,7 +5,7 @@ class Config
 	
 	attr_reader :directory, :errors, :forceScan, :discid, :acoustid, 
 		:discidFileIn, :discidFileOut, :acoustidFileIn, :acoustidFileOut,
-		:mbserver, :mbdb, :acserver, :acdb, :offsets, :actoken
+		:mbServer, :mbdb, :acServer, :metadb, :offsets, :acToken, :fpcalc
 	
 	def initialize(args = ARGV)
 		
@@ -58,13 +58,18 @@ class Config
 		h = Hash.new
 		hin.each{|k,v| h[k.downcase] = v}
 		
-		if h["musicbrainz_server"] then @mbserver = h["musicbrainz_server"] else @mbserver = "musicbrainz.org" end
-		if h["musicbrainz_db"] then @mbdb = File.expand_path(h["musicbrainz_server"]) else @mbdb = File.expand_path("~/.cache/md.db") end
-		if h["acoustid_server"] then @acserver = h["acoustid_server"] else @acserver = "acoustid.org" end
-		if h["acoustid_token"] then @actoken = h["acoustid_token"] else @actoken = nil end
+		if h["musicbrainz_server"] then @mbServer = h["musicbrainz_server"] else @mbServer = "musicbrainz.org" end
+		if h["musicbrainz_db"] then @mbdb = File.expand_path(h["musicbrainz_db"]) else @mbdb = File.expand_path("~/.cache/md.db") end
+		if h["acoustid_server"] then @acServer = h["acoustid_server"] else @acServer = "https://api.acoustid.org" end
+		if h["acoustid_token"] then @acToken = h["acoustid_token"] else @acToken = nil end
 		if h["metadata_db"] then @metadb = File.expand_path(h["metadata_db"]) else @metadb = File.expand_path("~/.cache/meta.db") end
 		if h["discid_offsets"] then @offsets = h["discid_offsets"] .map {|o| o.to_i} else @offsets = [150,182,183,178,180,188,190] end
-			
+		if h["fpalc"] then @fpcalc = h["fpcalc"] else @fpcalc = "fpcalc" end
+		file_af =  h["acoustid_found"]
+		file_df =  h["discid_found"]			
+		file_ac =  h["acoustid_candiates"]
+		file_dc =  h["discid_candiates"]
+
 		case @cmd_dc
 		when "0", "n", "no"
 			@discid = false
@@ -79,12 +84,12 @@ class Config
 			@acoustid = true
 		end
 
-		@discidFileIn = (@cmd_dc ? File.expand_path(@cmd_dc) : nil)
-		@discidFileOut = (@cmd_df ? File.expand_path(@cmd_df) : nil)
-		@acoustidFileIn = (@cmd_ac ? File.expand_path(@cmd_ac) : nil)
-		@acoustidFileIn = (@cmd_af ? File.expand_path(@cmd_af) : nil)
+		@discidFileIn = (@cmd_dc ? File.expand_path(@cmd_dc) : (file_dc ? File.expand_path(file_dc) : nil) )
+		@discidFileOut = (@cmd_df ? File.expand_path(@cmd_df) : (file_df ? File.expand_path(file_df) : nil) )
+		@acoustidFileIn = (@cmd_ac ? File.expand_path(@cmd_ac) : (file_ac ? File.expand_path(file_ac) : nil) )
+		@acoustidFileIn = (@cmd_af ? File.expand_path(@cmd_af) : (file_af ? File.expand_path(file_af) : nil) )
 		
-		if @cmd_tok then @actoken = @cmd_tok end
+		if @cmd_tok then @acToken = @cmd_tok end
 	end
 	
 	
