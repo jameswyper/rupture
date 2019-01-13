@@ -7,6 +7,11 @@ require 'pathname'
 
 $config = Meta::Config.new
 
+if $config.errors.size > 0
+	$config.errors.each {|e| puts e}
+	Kernel.exit(1)
+end
+
 
 puts "Scanning #{$config.directory}"
 
@@ -77,19 +82,48 @@ Meta::Core::DBBase.endLUW
 discs = top.fetchDiscs
 
 count = 0
-found = 0
+found_exact = 0
+found_many = 0
 foundFromFile = 0
 total = discs.size
 started = Time.now
-nf = File::new(notFound,"w")
+
+nf = File::new($config.notFound,"w")
 nf.puts("Path\tDisc Number\tDiscID\tRelease ID\tMedium number")
+
 puts "Stage 2: #{total} discs to get MusicBrainz data for"
 
 discs.each do |disc|
 	
-	db.beginLUW
+	Meta::Core::DBBase.beginLUW
 	
+
+	rel_mbid, med = di_found.getEntry(disc.pathname,disc.discNumber)
+	unless rel_mbid
+		rel_mbid, med = ac_found.getEntry(disc.pathname, disc.discNumber)
+		unless rel_mbid
+			puts "Seeking details for #{disc.pathname},#{disc.discNumber} #{Time.now.strftime("%b-%d %H:%M.%S")}"
+			disc.fetchTracks
+			$config.offsets.each do |offset|
+				d = disc.calcMbDiscID(offset)
+				di_rels = Meta::MusicBrainz::DiscID.new(d).findReleases
+				if di_rels.size > 0
+					if di_rels.size > 1
+						#write out candidates
+					else
+						#found exact match
+					end
+					#find medium
+					# go back and look at caching code
+					# ensure fuller details are written out e.g. release name
+					break
+				end
+				#CHANGEME - sort out correct method calls here
+			end
+		end
+	end
 	
+
 =begin
 OK, so you have a disc
 Look in the Found files (discID first) for a match
@@ -175,13 +209,13 @@ if we've found a single match, update database (track to track and any other fie
 		perc = (count * 100.0) / total
 		puts "Stage 2: #{sprintf("%2.1f",perc)}% complete, ETC #{eta.strftime("%b-%d %H:%M.%S")} #{found} of #{total} discs found"
 	end
-	
-	db.endLUW
+=end	
+	Meta::Core::DBBase.endLUW
+
 end
 
 nf.close
 
-=end
 
 puts "Stage 2: 100% complete #{found} of #{total} discs found via discID lookup and #{foundFromFile} with manual lookup file"
 
