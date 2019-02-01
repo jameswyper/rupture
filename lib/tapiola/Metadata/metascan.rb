@@ -63,6 +63,8 @@ Meta::MusicBrainz::MBBase.openDatabase($config.mbdb)
 Meta::MusicBrainz::MBBase.setServer($config.mbServer)
 Meta::Core::DBBase.openDatabase($config.metadb)
 Meta::Core::DBBase.clearTables
+acoustid = Meta::AcoustID::Service($config.fpcalc,$config.acToken)
+
 
 ac_found = Found.new($config.acoustidFileIn)
 di_found = Found.new($config.discidFileIn)
@@ -98,6 +100,10 @@ nf.puts("Path\tDisc Number\tDiscID\tRelease ID\tMedium number")
 dfm = File::new($config.discidFileOut,"w")
 dfm.puts("Path\tDisc Number\tRelease Title\tDiscID\tRelease ID\tMedium number")
 
+afm = File::new($config.acoustidFileOut,"w")
+afm.puts("Path\tDisc Number\tRelease Title\tTracks\tHits\tMisses\tMedium number")
+
+
 puts "Stage 2: #{total} discs to get MusicBrainz data for"
 
 discs.each do |disc|
@@ -111,32 +117,54 @@ discs.each do |disc|
 		unless rel_mbid
 			puts "Seeking details for #{disc.pathname},#{disc.discNumber} #{Time.now.strftime("%b-%d %H:%M.%S")}"
 			disc.fetchTracks
+			anyDiscIDFound = false
 			$config.offsets.each do |offset|
 				d = disc.calcMbDiscID(offset)
 				di_rels = Meta::MusicBrainz::DiscID.new(d).findReleases
 				if di_rels.size > 0
+					anyDiscIDFound = true
 					if di_rels.size > 1
+						# found several matches; write out candidates
 						found_many += 1
 						di_rels.each do |rel|
 							puts "#{rel.title} is a candidate #{rel.mbid}"
 							med = rel.mediumByDiscID(d)
-							dfm.puts("#{disc.pathname}\t#{disc.discNumber}\t#{rel.title}\t#{rel.mbid}\t#{med.position}")
-							puts("#{disc.pathname}\t#{disc.discNumber}\t#{rel.title}\t#{rel.mbid}\t#{med.position}")
+							dfm.puts "#{disc.pathname}\t#{disc.discNumber}\t#{rel.title}\t#{rel.mbid}\t#{med.position}"
+							puts "#{disc.pathname}\t#{disc.discNumber}\t#{rel.title}\t#{rel.mbid}\t#{med.position}" 
 						end
-						#write out candidates
 					else
+						#found exact match
 						found_exact += 1
 						rel = di_rels[0]
+						rel_mbid = rel.mbid
 						med = rel.mediumByDiscID(d)
 						puts "#{rel.title} disc #{med.position} is the only candidate #{rel.mbid}"
-						#found exact match
 					end
-					#find medium
+
 					# go back and look at caching code
 					# ensure fuller details are written out e.g. release name
 					break
 				end
-				#CHANGEME - sort out correct method calls here
+			end
+			unless anyDiscIDFound
+				# start looking for AcoustID
+				candidates = acoustid.scoreDisc(disc)
+				if candidates.size > 0
+					if candidates.size > 1
+						# found several matches, write out candidates
+						candidates.each do |cand|
+							afm.puts "#{disc.pathname}\t#{disc.discNumber}\t#{cand.release.title}\t#{cand.trackCount}\t#{cand.trackHits}\t#{cand.trackMisses}\t#{cand.medium.position}"
+						end
+					else
+						# found just one match
+						cand = candidates[0]
+						if (cand.trackMisses == 0) && (cand.trackHits = cand.trackCount)
+							puts "AcoustID match for #{disc.pathname} #{disc.discNumber} on #{cand.release.title} disc #{cand.medium.position}"
+						else
+							# one bad match - now what?
+						end
+					end
+				end
 			end
 		end
 	end
@@ -160,41 +188,6 @@ if we've found a single match, update database (track to track and any other fie
 
 	
 	
-	#rel = Meta::MusicBrainz::Release.new	
-	dID = nil
-	med  = nil
-	#puts "Seeking details for #{disc.pathname},#{disc.discNumber} #{Time.now.strftime("%b-%d %H:%M.%S")}"
-
-	disc.fetchTracks
-	[150,182,183,178,180,188,190].each do |offset|
-		dID = disc.calcMbDiscID(offset)
-		#puts "Attempting offset #{offset} and discID #{dID}"
-		if (rel.getFromDiscID(dID))
-			found += 1
-			med = rel.mediumByDiscID(dID)
-			break
-		end
-	end
-	
-	unless (rel.mbid)
-		mDid, mRel, mMed = manual.getEntry(disc.pathname,disc.discNumber)
-		#binding.pry
-		if (mDid && mDid != "")
-			if (rel.getFromDiscID(mDid))
-				med = rel.mediumByDiscID(mDid)
-				foundFromFile += 1
-			else
-				puts "Hmm couldn't find discID in lookup file for #{disc.pathname}/#{disc.discNumber}"
-			end
-		else
-			if (mRel)
-				med = rel.getFromMbid(mRel).medium(mMed)
-				foundFromFile += 1
-			else
-				nf.puts "#{disc.pathname}\t#{disc.discNumber}\t\t\t"
-			end
-		end
-	end
 	
 
 	
