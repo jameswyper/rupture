@@ -70,8 +70,8 @@ class Config
 		if h["fpalc"] then @fpcalc = h["fpcalc"] else @fpcalc = "fpcalc" end
 		file_af =  h["acoustid_found"]
 		file_df =  h["discid_found"]			
-		file_ac =  h["acoustid_candiates"]
-		file_dc =  h["discid_candiates"]
+		file_ac =  h["acoustid_candidates"]
+		file_dc =  h["discid_candidates"]
 		file_nf = h["not_found"]
 
 		case @cmd_dc
@@ -88,9 +88,9 @@ class Config
 			@acoustid = true
 		end
 
-		@discidFileIn = (@cmd_dc ? File.expand_path(@cmd_dc) : (file_dc ? File.expand_path(file_dc) : nil) )
-		@discidFileOut = (@cmd_df ? File.expand_path(@cmd_df) : (file_df ? File.expand_path(file_df) : nil) )
-		@acoustidFileIn = (@cmd_ac ? File.expand_path(@cmd_ac) : (file_ac ? File.expand_path(file_ac) : nil) )
+		@discidFileOut = (@cmd_dc ? File.expand_path(@cmd_dc) : (file_dc ? File.expand_path(file_dc) : nil) )
+		@discidFileIn = (@cmd_df ? File.expand_path(@cmd_df) : (file_df ? File.expand_path(file_df) : nil) )
+		@acoustidFileOut = (@cmd_ac ? File.expand_path(@cmd_ac) : (file_ac ? File.expand_path(file_ac) : nil) )
 		@acoustidFileIn = (@cmd_af ? File.expand_path(@cmd_af) : (file_af ? File.expand_path(file_af) : nil) )
 		@notFound = (@cmd_nf ? File.expand_path(@cmd_nf) : (file_nf ? File.expand_path(file_nf) : nil) )
 		

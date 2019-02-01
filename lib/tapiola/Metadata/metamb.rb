@@ -338,8 +338,10 @@ class DiscID < MBBase
 			xml.elements.each("metadata/disc/release-list/release") do  |r|
 				@releases << Release.new(r.attributes["id"])
 			end
+			return @releases
+		else
+			return []
 		end
-
 	end
 end
 

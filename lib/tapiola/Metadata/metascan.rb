@@ -29,14 +29,18 @@ class Found
 	
 	def initialize(f)
 		@entries = Hash.new
-		File.open(f).each_line do |l|
-			fields = l.chomp.split("\t")
-			5.times {|x| fields << nil}
-			fields[1] = Pathname.new(fields[1]).cleanpath.to_s
-			if fields[0].downcase == "y"
-				@entries[fields[1..2]] = fields[3..4]
+		if File.exists?(f)
+			File.open(f).each_line do |l|
+				fields = l.chomp.split("\t")
+				5.times {|x| fields << nil}
+				fields[1] = Pathname.new(fields[1]).cleanpath.to_s
+				if fields[0].downcase == "y"
+					@entries[fields[1..2]] = fields[3..4]
+				end
 			end
-		end if f
+		else
+			puts "WARNING: file #{f} not found. Proceeding as if it was empty"
+		end
 	end
 	def getEntry(path,disc)
 		a = Array.new
@@ -58,7 +62,7 @@ STDOUT.sync = true
 Meta::MusicBrainz::MBBase.openDatabase($config.mbdb)
 Meta::MusicBrainz::MBBase.setServer($config.mbServer)
 Meta::Core::DBBase.openDatabase($config.metadb)
-
+Meta::Core::DBBase.clearTables
 
 ac_found = Found.new($config.acoustidFileIn)
 di_found = Found.new($config.discidFileIn)
@@ -91,6 +95,9 @@ started = Time.now
 nf = File::new($config.notFound,"w")
 nf.puts("Path\tDisc Number\tDiscID\tRelease ID\tMedium number")
 
+dfm = File::new($config.discidFileOut,"w")
+dfm.puts("Path\tDisc Number\tRelease Title\tDiscID\tRelease ID\tMedium number")
+
 puts "Stage 2: #{total} discs to get MusicBrainz data for"
 
 discs.each do |disc|
@@ -109,8 +116,19 @@ discs.each do |disc|
 				di_rels = Meta::MusicBrainz::DiscID.new(d).findReleases
 				if di_rels.size > 0
 					if di_rels.size > 1
+						found_many += 1
+						di_rels.each do |rel|
+							puts "#{rel.title} is a candidate #{rel.mbid}"
+							med = rel.mediumByDiscID(d)
+							dfm.puts("#{disc.pathname}\t#{disc.discNumber}\t#{rel.title}\t#{rel.mbid}\t#{med.position}")
+							puts("#{disc.pathname}\t#{disc.discNumber}\t#{rel.title}\t#{rel.mbid}\t#{med.position}")
+						end
 						#write out candidates
 					else
+						found_exact += 1
+						rel = di_rels[0]
+						med = rel.mediumByDiscID(d)
+						puts "#{rel.title} disc #{med.position} is the only candidate #{rel.mbid}"
 						#found exact match
 					end
 					#find medium
@@ -216,6 +234,6 @@ end
 
 nf.close
 
-
+found = found_exact + found_many
 puts "Stage 2: 100% complete #{found} of #{total} discs found via discID lookup and #{foundFromFile} with manual lookup file"
 

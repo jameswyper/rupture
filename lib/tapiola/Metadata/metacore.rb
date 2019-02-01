@@ -27,7 +27,17 @@ class DBBase
 
 	end
 	
-
+	def self.clearTables
+		@@db.execute_batch("
+		delete from md_track;
+		delete from md_disc;
+		delete from xx_id;
+		delete from md_track_tags;
+		delete from md_track2work;
+		delete from md_disc_not_on_mb;
+		vacuum;
+		")
+	end
 	
 	def self.getID( table)
 
