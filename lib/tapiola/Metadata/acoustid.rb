@@ -156,10 +156,10 @@ class Service
 
 		
 		candidateReleases.each_value do |candidate_mbid|
-			#puts "candidate release #{candidate_mbid}"
+			puts "candidate release #{candidate_mbid}"
 			candidate = Meta::MusicBrainz::Release.new(candidate_mbid)
-			#puts "got release from MB"
-			#puts "Candidate release is #{candidate.mbid} #{candidate.title}"
+			puts "got release from MB"
+			puts "Candidate release is #{candidate.mbid} #{candidate.title}"
 			candidate.media.each do |mpos,medium|
 				#puts "Candidate medium #{medium.position}"
 				scm = ScoredMedium.new(candidate,medium)
