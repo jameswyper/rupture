@@ -5,7 +5,7 @@ class Config
 	
 	attr_reader :directory, :errors, :forceScan, :discid, :acoustid, 
 		:discidFileIn, :discidFileOut, :acoustidFileIn, :acoustidFileOut,
-		:mbServer, :mbdb, :acServer, :metadb, :offsets, :acToken, :fpcalc, :notFound
+		:mbServer, :mbdb, :acServer, :metadb, :offsets, :acToken, :fpcalc, :notFound, :acoustIDdb
 	
 	def initialize(args = ARGV)
 		
@@ -66,8 +66,9 @@ class Config
 		if h["acoustid_server"] then @acServer = h["acoustid_server"] else @acServer = "https://api.acoustid.org" end
 		if h["acoustid_token"] then @acToken = h["acoustid_token"] else @acToken = nil end
 		if h["metadata_db"] then @metadb = File.expand_path(h["metadata_db"]) else @metadb = File.expand_path("~/.cache/meta.db") end
+		if h["acoustid_db"] then @acoustIDdb = File.expand_path(h["acoustid_db"]) else @acoustIDdb = File.expand_path("~/.cache/acoustid.db") end			
 		if h["discid_offsets"] then @offsets = h["discid_offsets"] .split(',').map {|o| o.to_i} else @offsets = [150,182,183,178,180,188,190] end
-		if h["fpalc"] then @fpcalc = h["fpcalc"] else @fpcalc = "fpcalc" end
+		if h["fpcalc"] then @fpcalc = h["fpcalc"] else @fpcalc = "fpcalc" end
 		file_af =  h["acoustid_found"]
 		file_df =  h["discid_found"]			
 		file_ac =  h["acoustid_candidates"]

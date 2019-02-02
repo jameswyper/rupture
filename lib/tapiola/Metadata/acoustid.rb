@@ -13,10 +13,13 @@ module AcoustID
 
 class Service
 	
-	def initialize(fpcalc = 'fpcalc', client = 'I66oWRwcLj',service = 'https://api.acoustid.org' )
+	def initialize(fpcalc,client,db, service = 'https://api.acoustid.org' )
 		@fpcalc = fpcalc
 		@service = service
 		@client = client
+		@db = SQLite3::Database.new(db)
+		@db.execute('create table if not exists acoustid_cache (fprint text, response_json text);')
+		@db.execute('create unique index if not exists fprint_ix1 on acoustid_cache(fprint);')
 	end
 	
 	def acRequest(fp,dur)
@@ -29,7 +32,7 @@ class Service
 		 
 		tries = 0
 		begin
-			r = h.request('GET',"https://api.acoustid.org/v2/lookup?client=I66oWRwcLj&fingerprint=#{fp}&duration=#{dur}&meta=recordings+releases")
+			r = h.request('GET',"#{@service}/v2/lookup?client=#{@client}&fingerprint=#{fp}&duration=#{dur}&meta=recordings+releases")
 		rescue
 			tries += 1
 			if (tries > 5)
@@ -83,13 +86,23 @@ class Service
 		return fp,dur
 	end
 	
-	def getFromFile(f)
+	def getAcoustIDResults(f)
 		
 		x = Array.new
 
 		fprint, duration = getFingerprint(f)
-		#puts "#{f} - duration #{duration}"
-		results = JSON.parse(acRequest(fprint,duration))["results"]
+		puts "#{f} - duration #{duration}"
+		r = @db.execute('select response_json from acoustid_cache where fprint = ?',fprint)
+		if r.size > 0
+			results = JSON.parse(r[0][0])["results"]
+			puts "AcoustID cache hit"		
+		else
+			puts "AcoustID cache miss"
+			response = acRequest(fprint,duration)
+			results = JSON.parse(response)["results"]
+			@db.execute('insert into acoustid_cache (fprint,response_json) values (?,?)',fprint,response)
+		end
+
 		results.each do |result| 
 			recordings = result["recordings"]
 			recordings.each do |recording|
@@ -130,16 +143,16 @@ class Service
 		
 		discTrack = 0
 		d.tracks.keys.sort.each do |tr|
-			#puts "getting from File.."
+			puts "AcoustID call (or cache) for Track #{tr}"
 			discTrack = discTrack + 1
-			recordings[discTrack] = getFromFile(d.pathname+'/'+d.tracks[tr].filename)
+			recordings[discTrack] = getAcoustIDResults(d.pathname+'/'+d.tracks[tr].filename)
 			recordings[discTrack].each do |rec|
 				rec.releases.each { |rel| candidateReleases[rel] = rel } 
 			end
 		end	
 		
 
-		#puts "#{candidateReleases.size} releases to juggle"
+		puts "#{candidateReleases.size} releases to juggle"
 
 		
 		candidateReleases.each_value do |candidate_mbid|

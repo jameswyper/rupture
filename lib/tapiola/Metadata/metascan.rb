@@ -63,7 +63,7 @@ Meta::MusicBrainz::MBBase.openDatabase($config.mbdb)
 Meta::MusicBrainz::MBBase.setServer($config.mbServer)
 Meta::Core::DBBase.openDatabase($config.metadb)
 Meta::Core::DBBase.clearTables
-acoustid = Meta::AcoustID::Service($config.fpcalc,$config.acToken)
+acoustid = Meta::AcoustID::Service.new($config.fpcalc,$config.acToken,$config.acoustIDdb)
 
 
 ac_found = Found.new($config.acoustidFileIn)
@@ -148,22 +148,26 @@ discs.each do |disc|
 			end
 			unless anyDiscIDFound
 				# start looking for AcoustID
+				puts "going to try AcoustID"
 				candidates = acoustid.scoreDisc(disc)
 				if candidates.size > 0
 					if candidates.size > 1
 						# found several matches, write out candidates
 						candidates.each do |cand|
-							afm.puts "#{disc.pathname}\t#{disc.discNumber}\t#{cand.release.title}\t#{cand.trackCount}\t#{cand.trackHits}\t#{cand.trackMisses}\t#{cand.medium.position}"
+							afm.puts "#{disc.pathname}\t#{disc.discNumber}\t#{cand.release.title}\t#{cand.trackCount}\t#{cand.trackMatches}\t#{cand.trackMisses}\t#{cand.medium.position}"
+							puts "AcoustID candidates #{disc.pathname}\t#{disc.discNumber}\t#{cand.release.title}\t#{cand.trackCount}\t#{cand.trackMatches}\t#{cand.trackMisses}\t#{cand.medium.position}"
 						end
 					else
 						# found just one match
 						cand = candidates[0]
-						if (cand.trackMisses == 0) && (cand.trackHits = cand.trackCount)
+						if (cand.trackMisses == 0) && (cand.trackMatches = cand.trackCount)
 							puts "AcoustID match for #{disc.pathname} #{disc.discNumber} on #{cand.release.title} disc #{cand.medium.position}"
 						else
-							# one bad match - now what?
+							puts "AcoustID bad match #{disc.pathname} #{disc.discNumber} #{cand.release.title} #{cand.trackCount} #{cand.trackMatches} #{cand.trackMisses} #{cand.medium.position}"
 						end
 					end
+				else
+					puts "No AcoustID matches"
 				end
 			end
 		end
