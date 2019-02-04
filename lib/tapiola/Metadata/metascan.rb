@@ -129,8 +129,12 @@ discs.each do |disc|
 						di_rels.each do |rel|
 							puts "#{rel.title} is a candidate #{rel.mbid}"
 							med = rel.mediumByDiscID(d)
-							dfm.puts "#{disc.pathname}\t#{disc.discNumber}\t#{rel.title}\t#{rel.mbid}\t#{med.position}"
-							puts "#{disc.pathname}\t#{disc.discNumber}\t#{rel.title}\t#{rel.mbid}\t#{med.position}" 
+							if med
+								dfm.puts "#{disc.pathname}\t#{disc.discNumber}\t#{rel.title}\t#{rel.mbid}\t#{med.position}"
+								puts "#{disc.pathname}\t#{disc.discNumber}\t#{rel.title}\t#{rel.mbid}\t#{med.position}" 
+							else
+								puts "no valid medium for #{rel.mbid} (probably an SACD)"
+							end
 						end
 					else
 						#found exact match
@@ -138,7 +142,11 @@ discs.each do |disc|
 						rel = di_rels[0]
 						rel_mbid = rel.mbid
 						med = rel.mediumByDiscID(d)
-						puts "#{rel.title} disc #{med.position} is the only candidate #{rel.mbid}"
+						if med
+							puts "#{rel.title} disc #{med.position} is the only candidate #{rel.mbid}"
+						else
+							puts "no valid medium for #{rel.mbid} (probably an SACD)"
+						end
 					end
 
 					# go back and look at caching code
