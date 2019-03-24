@@ -103,7 +103,11 @@ class DBBase
 			if (tr.track.is_a?(Numeric))
 				disc.tracks[tr.track] = tr
 			else
-				disc.tracks[tr.track.split("/")[0].to_i] = tr
+				begin
+					disc.tracks[tr.track.split("/")[0].to_i] = tr
+				rescue
+					disc.tracks[0] = tr
+				end
 			end
 		end
 	end

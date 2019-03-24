@@ -147,13 +147,27 @@ class Service
 			discTrack = discTrack + 1
 			recordings[discTrack] = getAcoustIDResults(d.pathname+'/'+d.tracks[tr].filename)
 			recordings[discTrack].each do |rec|
-				rec.releases.each { |rel| candidateReleases[rel] = rel } 
+				rec.releases.each do |rel| 
+					if candidateReleases[rel]
+						candidateReleases[rel] = candidateReleases[rel]  + 1
+					else
+						candidateReleases[rel] = 0
+					end
+				end
 			end
 		end	
 		
+		# popular hits can turn up on innumerable compilations.  Drop any releases where we didn't match a substantial fraction of tracks
 
 		puts "#{candidateReleases.size} releases to juggle"
-
+		candidateReleases.each do |rel,rec_count|
+			if rec_count < (d.tracks.size * 0.5)
+				candidateReleases.delete(rel)
+			end
+		end
+		
+		puts "#{candidateReleases.size} releases to juggle after trimming"
+		
 		
 		candidateReleases.each_value do |candidate_mbid|
 			puts "candidate release #{candidate_mbid}"
