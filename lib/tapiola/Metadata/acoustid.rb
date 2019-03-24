@@ -169,7 +169,7 @@ class Service
 		puts "#{candidateReleases.size} releases to juggle after trimming"
 		
 		
-		candidateReleases.each_value do |candidate_mbid|
+		candidateReleases.each_key do |candidate_mbid|
 			puts "candidate release #{candidate_mbid}"
 			candidate = Meta::MusicBrainz::Release.new(candidate_mbid)
 			puts "got release from MB"
