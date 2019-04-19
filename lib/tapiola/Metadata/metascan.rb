@@ -97,7 +97,11 @@ started = Time.now
 nf = File::new($config.notFound,"w")
 nf.puts("Use?\tPath\tDisc Number\tRelease Title\tRelease ID\tMedium number\tDiscID\tTracks\tHits\tMisses")
 
+sf = File::new($config.singles,"w")
+nf.puts("Use?\tPath\tDisc Number\tRelease Title\tRelease ID\tMedium number\tDiscID\tTracks\tHits\tMisses")
 
+mf = File::new($config.multiples,"w")
+nf.puts("Use?\tPath\tDisc Number\tRelease Title\tRelease ID\tMedium number\tDiscID\tTracks\tHits\tMisses")
 
 
 puts "Stage 2: #{total} discs to get MusicBrainz data for"
@@ -106,8 +110,9 @@ discs.each do |disc|
 	
 	Meta::Core::DBBase.beginLUW
 	
-
+	count = count + 1
 	rel_mbid, med = found.getEntry(disc.pathname,disc.discNumber)
+	puts "#{count}/#{total}: #{disc.pathname} / #{disc.discNumber}"
 	unless rel_mbid
 		puts "Seeking details for #{disc.pathname},#{disc.discNumber} #{Time.now.strftime("%b-%d %H:%M.%S")}"
 		disc.fetchTracks
@@ -121,14 +126,15 @@ discs.each do |disc|
 					# found several matches; write out candidates
 					found_many += 1
 					di_rels.each do |rel|
-						puts "#{rel.title} is a candidate #{rel.mbid}"
+						#puts "#{rel.title} is a candidate #{rel.mbid}"
 						med = rel.mediumByDiscID(d)
 						if med
-							nf.puts "\t#{disc.pathname}\t#{disc.discNumber}\t#{rel.title}\t#{rel.mbid}\t#{med.position}\t#{d}"
+							mf.puts "\t#{disc.pathname}\t#{disc.discNumber}\t#{rel.title}\t#{rel.mbid}\t#{med.position}\t#{d}"
 						else
 							puts "no valid medium for #{rel.mbid} (probably an SACD)"
 						end
 					end
+					mf.puts"\t\t\t\t\t\t\t\t\t"
 				else
 					#found exact match
 					found_exact += 1
@@ -136,7 +142,7 @@ discs.each do |disc|
 					rel_mbid = rel.mbid
 					med = rel.mediumByDiscID(d)
 					if med
-						nf.puts "Y\t#{disc.pathname}\t#{disc.discNumber}\t#{rel.title}\t#{rel.mbid}\t#{med.position}\t#{d}"
+						sf.puts "Y\t#{disc.pathname}\t#{disc.discNumber}\t#{rel.title}\t#{rel.mbid}\t#{med.position}\t#{d}"
 					else
 						puts "no valid medium for #{rel.mbid} (probably an SACD)"
 					end
@@ -149,27 +155,28 @@ discs.each do |disc|
 		end
 		unless anyDiscIDFound
 			# start looking for AcoustID
-			puts "going to try AcoustID"
+			#puts "going to try AcoustID"
 			candidates = acoustid.scoreDisc(disc)
 			if candidates.size > 0
 				if candidates.size > 1
 					# found several matches, write out candidates
 					candidates.each do |cand|
-						nf.puts "\t#{disc.pathname}\t#{disc.discNumber}\t#{cand.release.title}\t#{cand.release.mbid}\t#{cand.medium.position}\t\t#{cand.trackCount}\t#{cand.trackMatches}\t#{cand.trackMisses}"
+						mf.puts "\t#{disc.pathname}\t#{disc.discNumber}\t#{cand.release.title}\t#{cand.release.mbid}\t#{cand.medium.position}\t\t#{cand.trackCount}\t#{cand.trackMatches}\t#{cand.trackMisses}"
 #							puts "AcoustID candidates #{disc.pathname}\t#{disc.discNumber}\t#{cand.release.title}\t#{cand.trackCount}\t#{cand.trackMatches}\t#{cand.trackMisses}\t#{cand.medium.position}"
 					end
+					mf.puts"\t\t\t\t\t\t\t\t\t"
 				else
 					# found just one match
 					cand = candidates[0]
 					if (cand.trackMisses == 0) && (cand.trackMatches == cand.trackCount)
 #							puts "AcoustID match for #{disc.pathname} #{disc.discNumber} on #{cand.release.title} disc #{cand.medium.position}"
-						nf.puts "Y\t#{disc.pathname}\t#{disc.discNumber}\t#{cand.release.title}\t#{cand.release.mbid}\t#{cand.medium.position}\t\t#{cand.trackCount}\t#{cand.trackMatches}\t#{cand.trackMisses}"
+						sf.puts "Y\t#{disc.pathname}\t#{disc.discNumber}\t#{cand.release.title}\t#{cand.release.mbid}\t#{cand.medium.position}\t\t#{cand.trackCount}\t#{cand.trackMatches}\t#{cand.trackMisses}"
 					else
 						puts "AcoustID bad match #{disc.pathname} #{disc.discNumber} #{cand.release.title} #{cand.trackCount} #{cand.trackMatches} #{cand.trackMisses} #{cand.medium.position}"
 					end
 				end
 			else
-				puts "No AcoustID matches"
+				nf.puts "Y\t#{disc.pathname}\t#{disc.discNumber}\t\t\t\t\t\t\t"
 			end
 		end
 	end

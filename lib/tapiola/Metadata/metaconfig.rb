@@ -4,7 +4,7 @@ module Meta
 class Config
 	
 	attr_reader :directory, :errors, :forceScan, :discid, :acoustid, 
-		:candidates,
+		:candidates, :singles, :multiples,
 		:mbServer, :mbdb, :acServer, :metadb, :offsets, :acToken, :fpcalc, :notFound, :acoustIDdb
 	
 	def initialize(args = ARGV)
@@ -26,8 +26,14 @@ class Config
 			opts.on('-d','--discid YESNO','enable/disable discid scanning (any value other than 0, n or no enables)') do |arg|
 				@cmd_discid = arg.downcase
 			end			
-			opts.on('-ca','--candidates FILE','path to input file of acoustid candidate matches)') do |arg|
+			opts.on('-ca','--candidates FILE','path to input file of candidate matches)') do |arg|
 				@cmd_cand = arg
+			end
+			opts.on('-m','--choice FILE','path to output file of multiple matches)') do |arg|
+				@cmd_multi = arg
+			end
+			opts.on('-s','--definites FILE','path to output file of single matches)') do |arg|
+				@cmd_sing = arg
 			end
 			opts.on('-t','--token TOKEN','token for AcoustID service') do |arg|
 				@cmd_tok = arg
@@ -62,6 +68,8 @@ class Config
 		if h["fpcalc"] then @fpcalc = h["fpcalc"] else @fpcalc = "fpcalc" end
 		file_cand =  h["candidates"]
 		file_nf = h["not_found"]
+		file_sing = h["single_matches"]
+		file_multi=h["multi_matches"]
 
 		case @cmd_dc
 		when "0", "n", "no"
@@ -79,6 +87,8 @@ class Config
 
 		@candidates = (@cmd_cand ? File.expand_path(@cmd_cand) : (file_cand ? File.expand_path(file_cand) : nil) )
 		@notFound = (@cmd_nf ? File.expand_path(@cmd_nf) : (file_nf ? File.expand_path(file_nf) : nil) )
+		@singles = (@cmd_sing ? File.expand_path(@cmd_sing) : (file_sing ? File.expand_path(file_sing) : nil ))
+		@multiples = (@cmd_multi? File.expand_path(@cmd_multi) : (file_multi ? File.expand_path(file_multi) : nil ))
 		
 		if @cmd_tok
 			@acToken = @cmd_tok
