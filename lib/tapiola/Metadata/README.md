@@ -56,3 +56,7 @@ Complete the workflow for assigning choices from previous runs
 Test on my complete music collection (classical only so far)
 Actually write the tags back
 mp3 support
+
+CONFIG
+
+sudo mount -t cifs \\\\192.168.0.99\\james\\Music /media/Music/ -o user=james,pass=xxx

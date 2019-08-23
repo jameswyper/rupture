@@ -17,7 +17,7 @@ puts "Scanning #{$config.directory}"
 
 
 
-class Found
+class Found_file
 	attr_reader :entries
 	
 	#file format will be tab-separated
@@ -56,6 +56,15 @@ class Found
 	end
 end
 
+class Found_disc
+	attr_accessor :disc, :rel_mbid, :medium
+	def initialize(d,r,m)
+		@disc = d
+		@rel_mbid = r
+		@medium = m
+	end
+end
+
 STDOUT.sync = true
 
 
@@ -66,8 +75,8 @@ Meta::Core::DBBase.clearTables
 acoustid = Meta::AcoustID::Service.new($config.fpcalc,$config.acToken,$config.acoustIDdb)
 
 
-ac_found = Found.new($config.acoustidFileIn)
-di_found = Found.new($config.discidFileIn)
+ac_found = Found_file.new($config.acoustidFileIn)
+di_found = Found_file.new($config.discidFileIn)
 
 top = Meta::Core::Folder_flac.new($config.directory)
 Meta::Core::DBBase.beginLUW
