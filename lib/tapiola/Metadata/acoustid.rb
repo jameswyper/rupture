@@ -91,13 +91,13 @@ class Service
 		x = Array.new
 
 		fprint, duration = getFingerprint(f)
-		puts "#{f} - duration #{duration}"
+		#puts "#{f} - duration #{duration}"
 		r = @db.execute('select response_json from acoustid_cache where fprint = ?',fprint)
 		if r.size > 0
 			results = JSON.parse(r[0][0])["results"]
-			puts "AcoustID cache hit"		
+			#puts "AcoustID cache hit"		
 		else
-			puts "AcoustID cache miss"
+			#puts "AcoustID cache miss"
 			response = acRequest(fprint,duration)
 			results = JSON.parse(response)["results"]
 			@db.execute('insert into acoustid_cache (fprint,response_json) values (?,?)',fprint,response)
@@ -143,23 +143,37 @@ class Service
 		
 		discTrack = 0
 		d.tracks.keys.sort.each do |tr|
-			puts "AcoustID call (or cache) for Track #{tr}"
+			#puts "AcoustID call (or cache) for Track #{tr}"
 			discTrack = discTrack + 1
 			recordings[discTrack] = getAcoustIDResults(d.pathname+'/'+d.tracks[tr].filename)
 			recordings[discTrack].each do |rec|
-				rec.releases.each { |rel| candidateReleases[rel] = rel } 
+				rec.releases.each do |rel| 
+					if candidateReleases[rel]
+						candidateReleases[rel] = candidateReleases[rel]  + 1
+					else
+						candidateReleases[rel] = 0
+					end
+				end
 			end
 		end	
 		
+		# popular hits can turn up on innumerable compilations.  Drop any releases where we didn't match a substantial fraction of tracks
 
 		puts "#{candidateReleases.size} releases to juggle"
-
+		candidateReleases.each do |rel,rec_count|
+			if rec_count < (d.tracks.size * 0.5)
+				candidateReleases.delete(rel)
+			end
+		end
 		
-		candidateReleases.each_value do |candidate_mbid|
-			puts "candidate release #{candidate_mbid}"
+		puts "#{candidateReleases.size} releases to juggle after trimming"
+		
+		
+		candidateReleases.each_key do |candidate_mbid|
+			#puts "candidate release #{candidate_mbid}"
 			candidate = Meta::MusicBrainz::Release.new(candidate_mbid)
-			puts "got release from MB"
-			puts "Candidate release is #{candidate.mbid} #{candidate.title}"
+			#puts "got release from MB"
+			#puts "Candidate release is #{candidate.mbid} #{candidate.title}"
 			candidate.media.each do |mpos,medium|
 				#puts "Candidate medium #{medium.position}"
 				scm = ScoredMedium.new(candidate,medium)
