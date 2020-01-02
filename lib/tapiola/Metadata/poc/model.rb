@@ -2,10 +2,14 @@ require 'active_record'
 
 module Model
 
-ActiveRecord::Base.establish_connection(
-  adapter: 'sqlite3',
-  database: '/tmp/mb.db'
-)
+class DB
+	def self.openDB(file)
+		ActiveRecord::Base.establish_connection(
+  		adapter: 'sqlite3',
+  		database: file	
+		)
+	end
+end
 
 class Artist < ActiveRecord::Base
   has_many :artist_alias
@@ -35,6 +39,24 @@ class Recording < ActiveRecord::Base
 	  w = Array.new
 	  self.work_link.joins(:link_type).merge(LinkType.recordingOf).each { |r| w << r.work }
 	  return w
+  end
+
+  def composers
+	  c = Array.new
+	  works.each {|w| c.append(w.composers)}
+	  return c
+  end
+
+  def performing_works
+	perf_works = Array.new
+	self.works.each do |w|
+		wp = w
+		while (!wp.has_parent_part?) && (!wp.has_key?) do
+			wp = wp.parent_parts[0]
+		end
+		perf_works << wp.dup
+	end
+	return perf_works.uniq
   end
   
 end
@@ -66,6 +88,15 @@ end
 class Release < ActiveRecord::Base
   belongs_to :artist_credit
   has_many :medium
+  has_many :url_link, class_name: 'LReleaseURL', foreign_key: :release_id
+
+  def amazon_urls
+	  us = Array.new
+	  self.url_link.joins(:link_type).merge(LinkType.amazon).each {|u| us << u.url.url}
+	  return us
+  end
+
+
 end
 
 class ReleaseGroup < ActiveRecord::Base
@@ -157,6 +188,7 @@ class LinkType < ActiveRecord::Base
 	scope :composedBy, -> {where('entity_type0 = ? and entity_type1 = ? and name = ?','artist','work','composer') }
 	scope :recordingOf, -> {where('entity_type0 = ? and entity_type1 = ? and name = ?','recording','work','performance') }
 	scope :workParts, -> {where('entity_type0 = ? and entity_type1 = ? and name = ?','work','work','parts') }
+	scope :amazon, -> {where('entity_type0 = ? and entity_type1 = ? and name = ?','release','url','amazon asin')}
 end
 
 class LWorkWork < ActiveRecord::Base
@@ -188,7 +220,16 @@ class LRecordingWork < ActiveRecord::Base
 	has_one :link_type, through: :link
 end
 
+class LReleaseURL < ActiveRecord::Base
+	belongs_to :release
+	belongs_to :url, class_name: 'URL'
+	belongs_to :link
+	has_one :link_type, through: :link
+end
 
+class URL < ActiveRecord::Base
+	has_many :release_link, class_name: 'LReleaseURL', foreign_key: :url_id
+end
 
 end
 

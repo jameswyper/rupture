@@ -1,8 +1,11 @@
 #!/bin/bash
 
-dlfile=/tmp/mb.tar.bz2
 
-database=/tmp/mb.db
+# lbzip2 needs to be installed!
+
+dlfile="$1"/mb.tar.bz2
+
+database="$1"/mb.db
 
 function load {
 srcfile=$1
@@ -83,16 +86,19 @@ load l_artist_work l_artist_works 'id integer primary key, link_id integer, arti
 load l_work_work  l_work_works 'id integer primary key, link_id, work0_id integer, work1_id integer, link_order integer' '$1,$2,$3,$4,$6' id 'link_id work0_id work1_id'
 load link_type  link_types 'id integer primary key, link_type_id integer, child_order integer, gid text, entity_type0 text, entity_type1 text, name text, description text, link_phrase text, reverse_link_phrase text, long_link_phrase text' '$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11' id link_type_id
 load l_release_group_url l_release_group_urls 'id integer primary key, link_id integer, release_group_id integer, url_id integer,link_order integer' '$1,$2,$3,$4,$6' id 'link_id release_group_id'
-load l_release_url l_release_urls 'id integer primary key, link_id integer, release_id integer, url_id integer,link_order integer' '$1,$2,$3,$4,$6' id 'link_id release_id'
+load l_release_url l_release_urls 'id integer primary key, link_id integer, release_id integer, url_id integer,link_order integer' '$1,$2,$3,$4,$7' id 'link_id release_id'
 load l_recording_work l_recording_works 'id integer primary key, link_id integer, recording_id integer, work_id integer' '$1,$2,$3,$4' id 'recording_id'
 load url urls 'id integer primary key, url text' '$1,$3' id
-#load release_coverart release_coverarts 'release_id integer, url text' '$1,$3' id
 load link_attribute link_attributes 'link_id integer, link_attribute_type_id integer' '$1,$2'
-load link_attribute_type link_attribute_types 'id integer primary key, parent_id integer, root_id integer, child_order integer, gid text, name text, description text' '$1,$2,$3,$4,$5,$6' id
+load link_attribute_type link_attribute_types 'id integer primary key, parent_id integer, root_id integer, child_order integer, gid text, name text, description text' '$1,$2,$3,$4,$5,$6,$7' id
 
 load work_attribute work_attributes 'id integer primary key,work_id integer, work_attribute_type_id integer, work_attribute_type_allowed_value_id integer,work_attribute_text text' '$1,$2,$3,$4,$5' id
 load work_attribute_type_allowed_value  work_attribute_type_allowed_values 'id integer primary key, work_attribute_type_id integer, value text' '$1,$2,$3' id
 load work_attribute_type work_attribute_types 'id integer primary key, name text, parent integer, gid text' '$1,$2,$5,$8' id 'parent'
+
+# not doing these next two as they are in a separate download and we can live without them
+#load release_meta releases_meta 'id integer primary key, amazon_asin text, amazon_store text, coverart_presence text' '$1,$4,$5,$6' id 
+#load release_coverart releases_coverart 'id integer primary key, url text' '$1,$3' id
 
 echo `date` - all loads complete
 # create some extra indexes that the function couldn't handle
@@ -127,6 +133,6 @@ sqlite3 $database "analyze;"
 
 echo `date` - extra indexes complete
 
-ruby ./offsetfix.rb /tmp/mb.db
+ruby ./offsetfix.rb "$1"/mb.db
 
 echo `date` - discIds fixed up

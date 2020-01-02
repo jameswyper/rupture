@@ -9,4 +9,4 @@ lat=${lis:10}
 # download
 
 
-curl ${srv}${lat}/mbdump.tar.bz2 -o /tmp/mb.tar.bz2
+curl ${srv}${lat}/mbdump.tar.bz2 -o $1/mb.tar.bz2
