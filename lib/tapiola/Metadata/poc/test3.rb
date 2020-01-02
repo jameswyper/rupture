@@ -1,6 +1,7 @@
 require_relative 'musicfiles'
 require 'pry'
 require 'logger'
+require_relative 'amazon'
 
 STDOUT.sync = true
 if  ($log == nil)  
@@ -20,9 +21,6 @@ r.track.each  {|t| rels << t.medium.release }
 
 rels.each do |e| 
 	puts e.name
-	e.url_link.each do |u|
-		puts u.id
-		puts u.url.url
-	end
-	e.amazon_urls.each {|u| puts u}
+	#e.amazon_urls.each {|u| puts u}
+	ca = CoverArt.new(e)
 end

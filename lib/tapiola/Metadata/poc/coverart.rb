@@ -32,7 +32,6 @@ class CoverArt
 			end
 		end
 		
-		puts "CAA URL is #{@url}" if @url
 
 		unless @url
 			if rel.amazon_urls.size > 0
@@ -54,7 +53,6 @@ class CoverArt
 					end
 				end
 				@url = "https://images-na.ssl-images-amazon.com/images/I/#{ids.keys[0]}.jpg"
-				puts "amazon URL is #{@url}"
 			end
 		end
 	end
