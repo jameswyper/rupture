@@ -1,0 +1,105 @@
+grammar Predicate
+
+rule searchCrit
+    (searchExp | asterisk)
+end
+
+rule asterisk
+    '*' { true }
+end
+
+rule searchExp
+    (relExp | logSearchExpLeft | bracketedSearchExp )
+end
+
+rule bracketedSearchExp
+    openBracket wCharS searchExp wCharS closeBracket
+end
+
+rule logSearchExpLeft
+    searchExp logSearchExpRight+
+end
+
+rule logSearchExpRight
+    wCharP logOp wCharP searchExp
+end
+
+rule relExp
+    property wCharP binOp wChar+ quotedVal
+    | property wCharP 'exists' wCharP boolVal
+end
+
+rule boolVal
+    true | false
+end
+
+rule true  
+    'true'
+end
+
+rule false
+    'false'
+end
+
+rule quotedVal
+    dQuote string dQuote
+end
+
+rule property
+    'name' | 'title'
+end
+
+rule string
+    '^(\\\\|\\"|(?!\\)(?!\").)*$'
+end
+
+rule binOp
+    (relOp | stringOp)
+end
+
+
+rule stringOp
+    'contains' | 'doesNotContain' | 'derivedfrom'
+end
+
+
+
+rule logOp
+    and | or
+end
+
+rule and
+    'and'
+end
+
+rule or
+    'or'
+end
+
+rule dQuote
+    '"'
+end
+
+
+
+rule openBracket
+    '('
+end 
+
+rule closeBracket
+    ')'
+end
+
+rule wCharP
+    wChar +
+end
+
+rule wCharS
+    wChar *
+end
+
+rule wChar
+    '\\s'
+end
+
+end

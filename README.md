@@ -27,5 +27,10 @@ The rough plan of attack is
 - create the virtual container hierarchy
 - get the specialised classes to use that..
 
+## Installation
 
+(Based on a recent move to a new Ubuntu 19.04 VM)
+apt install build-essential ruby2.5-dev zlib1g-dev
+gem install nokogiri pry httpclient
+if using Visualstudio Code install the ruby extension
 
