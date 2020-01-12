@@ -116,9 +116,9 @@ sqlite3 $database "create index xlinka2 on link_attributes (link_attribute_type_
 #sqlite3 $database "create index xworkspid on worksp(id);"
 #sqlite3 $database "create index xworkspparentid on worksp(parent_id);"
 
-sqlite3 $database "create table files (id integer primary key, disc_id integer, basename text, pathname test, track integer, disc integer);"
+sqlite3 $database "create table files (scangroup text, id integer primary key, disc_id integer, basename text, pathname test, track integer, disc integer);"
 sqlite3 $database "create unique index xfileid on files(id); create index xfilediscid on files(disc_id);"
-sqlite3 $database "create table discs (id integer primary key, pathname text, number integer)"
+sqlite3 $database "create table discs (scangroup text, id integer primary key, pathname text, number integer)"
 sqlite3 $database "create unique index xdiscid on discs(id);"
 sqlite3 $database "create table tags (id integer primary key, file_id integer, name text, value text);"
 sqlite3 $database "create unique index xtagid on tags(id); create index xtagfileid on tags(file_id);"

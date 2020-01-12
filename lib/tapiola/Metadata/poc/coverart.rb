@@ -3,7 +3,12 @@ require_relative 'model'
 require 'json'
 #require 'pry'
 
+STDOUT.sync = true
+$log = Logger.new(STDOUT) unless $log
+$log.level = Logger::INFO
+
 class CoverArt
+	attr_reader :url
 	def initialize(rel)
 		@rel = rel
 		@url = nil		
@@ -42,6 +47,7 @@ class CoverArt
 				res = Net::HTTP.start(uri.hostname, uri.port,:use_ssl => uri.scheme == 'https') {|http|
 				http.request(req)
 				}
+				sleep (rand * 2)
 				m = res.body.scan(/(https:\/\/.+?\.jpg)/)
 				ids = Hash.new(Array.new)
 				m.each do |ms|

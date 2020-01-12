@@ -5,13 +5,14 @@ require_relative 'model'
 require_relative 'coverart'
 require 'logger'
 
+
 STDOUT.sync = true
 if  ($log == nil)  
 	$log = Logger.new(STDOUT) 
 end
 $log.level = Logger::INFO
 
-# Y / path / disc / release / position / gid
+# Y / path / disc / release / position / gid / image
 
 
 class MatchCandidate
@@ -49,7 +50,7 @@ class MatchDisc
 		@path = nil
 	end
 	def read(lines)
-		puts "#{lines.size} lines for this disc"
+		#puts "#{lines.size} lines for this disc"
 		@path = lines[0].split("\t")[1]
 		@disc = lines[0].split("\t")[2]
 		lines.each do |l|
@@ -70,6 +71,8 @@ class MatchDisc
 end
 
 class MatchReport
+
+	attr_reader :discs
 
 	def initialize
 		@discs = Array.new
@@ -99,5 +102,22 @@ end
 
 m = MatchReport.new
 m.read("/home/james/matchreport.txt")
+Model::DB::openDB('/media/james/data/mb.db')
 
 puts ""
+
+lastgid = nil
+m.discs.each do |d|
+	d.candidates.each do |c|
+		if (lastgid != c.gid) && (c.gid != nil)
+			r = Model::Release.where(gid: c.gid)[0]
+			if r
+				ca = CoverArt.new(r)
+				puts "#{c.gid} #{ca.url}"
+			else
+				puts "--- Release not found in database #{c.gid} #{d.path} ---"
+			end
+			lastgid = c.gid
+		end
+	end
+end

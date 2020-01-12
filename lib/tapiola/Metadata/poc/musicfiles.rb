@@ -19,13 +19,14 @@ class File
 	
 	attr_reader :basename, :pathname, :tags, :track, :disc, :sampleRate, :samples
 	
-	def initialize(f)
+	def initialize(f,g)
 		p = Pathname.new(f)
 		@basename = p.basename.to_s
 		@pathname = p.dirname.to_s
 		@tags = Hash.new
 		@track = 0
 		@disc = 0
+		@group = g
 	end
 	
 	def filename
@@ -73,15 +74,16 @@ class File
 end
 
 class Directory
-	def initialize(d)
+	def initialize(d,g)
 		@pathname = d
 		@files = Array.new
 		@discs = Array.new
+		@group = g
 	end
-	attr_reader :files, :discs, :pathname
+	attr_reader :files, :discs, :pathname, :group
 	def scan
 		Dir.glob(@pathname + '/*.flac').each do |f| 
-			@files << File.new(f).getMetadata
+			@files << File.new(f,@group).getMetadata
 		end
 		@discs = Disc::discsFromDirectory(self)
 		self
@@ -101,18 +103,19 @@ class Disc
 				end
 			end
 			if (!found)
-				ds << Disc.new(f.disc,d.pathname)
+				ds << Disc.new(f.disc,d.pathname,d.group)
 				ds[-1].tracks[f.track] = f.dup
 			end
 		end
 		ds.each {|x| x.calculateOffsets}
 		return ds
 	end
-	def initialize(n,p)
+	def initialize(n,p,g)
 		@number = n
 		@tracks = Hash.new
 		@offsets = Array.new
 		@pathname = p
+		@group = g
 	end
 	def trackTotal
 		@tracks.size
@@ -133,9 +136,9 @@ class Disc
 			cdt.medium.each { |cm| @mediumCandidatesOffsets << cm}
 		end
 	end
-	def findMediumCandidatesByAcoustID
+	def findMediumCandidatesByAcoustID(fpcalc,token)
 		@mediumCandidatesAcoustID = Array.new
-		as = Meta::AcoustID::Service.new('/home/james/Downloads/fpcalc','I66oWRwcLj')
+		as = Meta::AcoustID::Service.new(fpcalc,token)
 		candidates = Hash.new(0)
 		firstTrack = @tracks[@tracks.keys.sort[0]].track
 		@tracks.keys.sort.each do |ts|
@@ -176,7 +179,7 @@ end
 
 class Tree
 	attr_reader :top, :directories, :notFoundDiscs, :foundDiscsViaOffsets, :foundDiscsViaAcoustID, :foundDiscsViaInput
-	def initialize(t)
+	def initialize(t,g)
 		@top = t
 		$log.info "Starting directory search at #{t}"
 		d = Dir.glob(@top+'/**//')
@@ -186,11 +189,12 @@ class Tree
 		@foundDiscsViaOffsets = Array.new
 		@foundDiscsViaInput = Array.new
 		@foundDiscsViaAcoustID = Array.new
+		@group = g
 		
 		c = 1
 		d.each do |dir| 
 			$log.info "Scanning #{c}/#{d.size}" if (c%50 == 0) 
-			nd = Directory.new(dir)
+			nd = Directory.new(dir,@group)
 			@directories << nd.scan
 			nd.discs.each do |ndd| 
 #				puts "adding #{ndd.pathname}/#{ndd.number} to list"
@@ -215,13 +219,13 @@ class Tree
 		$log.info "Track Offset matching complete"
 		@notFoundDiscs = @notFoundDiscs - @foundDiscsViaOffsets
 	end
-	def findByAcoustID
+	def findByAcoustID(fpcalc,token)
 		$log.info "Starting AcoustID matching for #{@notFoundDiscs.size} discs"
 		c = 1
 		@notFoundDiscs.each do |nf|
 			#puts "AcoustID Processing #{nf.pathname}/#{nf.number}"
 			$log.info "Processing #{c}/#{@notFoundDiscs.size}" if (c%10 == 0)
-			nf.findMediumCandidatesByAcoustID
+			nf.findMediumCandidatesByAcoustID(fpcalc,token)
 			if nf.mediumCandidatesAcoustID.size > 0
 				@foundDiscsViaAcoustID << nf
 			end
