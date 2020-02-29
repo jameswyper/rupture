@@ -24,6 +24,13 @@ module GenericTag
                 return nil
             end
         end
+        def set(values)
+            if values.is_a? Array
+                @values = values
+            else
+                @values = [values]   
+            end
+        end
         def to_s
             self.value
         end
@@ -33,7 +40,8 @@ module GenericTag
     end
 
     class TagSet
-        
+
+               
         @@mappingsall = <<~IMDONE
         album,TALB,ALBUM
         albumsort,TSOA,ALBUMSORT
@@ -106,14 +114,19 @@ module GenericTag
     
 
         @@int2flac = @@mappings[:flac]
+        
+        def self.int2flac
+            @@int2flac
+        end
+        
         @@flac2int = @@mappings[:flac].invert
 
         @@int2flac.each_key do |k| 
             define_method "#{k}".to_sym do 
-                @tags[k] 
+                @tags[k].values 
             end
-            define_method "set_#{k}".to_sym do |t| 
-                @tags[k] = t 
+            define_method "#{k}=".to_sym do |t| 
+                @tags[k].set(t) 
             end
         end
 
@@ -132,6 +145,9 @@ module GenericTag
         def each
             @tags.each {|k,v| yield(k,v)}
         end
+        def each_tag
+            @tags.each_value {|v| yield(v)}
+        end
         def self.from_flac(file)
             ts = TagSet.new
             TagLib::FLAC::File.open(file) do |f|
@@ -141,12 +157,27 @@ module GenericTag
             end
             return ts
         end
+        def to_flac(file)
+            f = TagLib::FLAC::File.open(file) do |f| 
+                self.each_tag do |tag|
+                    flac_name = @@int2flac[tag.name].to_s
+                    if flac_name 
+                        f.xiph_comment.remove_fields(flac_name)
+                        tag.values.each do |value|
+                            f.xiph_comment.add_field(flac_name,value)
+                        end
+                    end
+                end
+                f.save
+            end
+        end
     end
 end
 
-z = GenericTag::TagSet.from_flac("/media/james/karelia/Music/flac/heather/KT_Tunstall-Eye_to_the_Telescope/09.Suddenly_I_See.flac")
-z.each do |k,v|
-    puts k.to_s, v.to_s
+class MusicFile
+    
 end
 
-puts z.get(:album)
+z = GenericTag::TagSet.from_flac("/media/james/karelia/Music/flac/heather/KT_Tunstall-Eye_to_the_Telescope/09.Suddenly_I_See.flac")
+z.album = z.album[0].reverse
+z.to_flac("/home/james/test.flac")
