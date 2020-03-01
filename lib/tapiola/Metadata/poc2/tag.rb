@@ -113,25 +113,23 @@ module GenericTag
         end
     
 
-        @@int2flac = @@mappings[:flac]
+        #@@int2flac = @@mappings[:flac]
         
-        def self.int2flac
-            @@int2flac
-        end
-        
-        @@flac2int = @@mappings[:flac].invert
+      
+        #@@flac2int = @@mappings[:flac].invert
 
         @@int2flac.each_key do |k| 
             define_method "#{k}".to_sym do 
-                @tags[k].values 
+                @tags[@mappings[@type][k]].values 
             end
             define_method "#{k}=".to_sym do |t| 
-                @tags[k].set(t) 
+                @tags[@mappings[@type][k]].set(t) 
             end
         end
 
-        def initialize
+        def initialize(type)
             @tags = Hash.new
+            @type = type.to_sym
         end
         def set(t)
             @tags[t.name] = t
@@ -149,10 +147,10 @@ module GenericTag
             @tags.each_value {|v| yield(v)}
         end
         def self.from_flac(file)
-            ts = TagSet.new
+            ts = TagSet.new(:flac)
             TagLib::FLAC::File.open(file) do |f|
                 f.xiph_comment.field_list_map.each do |tag,value|
-                    ts.add(@@flac2int[tag.to_sym],value)
+                    ts.add(tag.to_sym,value)
                 end
             end
             return ts
@@ -160,7 +158,7 @@ module GenericTag
         def to_flac(file)
             f = TagLib::FLAC::File.open(file) do |f| 
                 self.each_tag do |tag|
-                    flac_name = @@int2flac[tag.name].to_s
+                    flac_name = tag.name.to_s
                     if flac_name 
                         f.xiph_comment.remove_fields(flac_name)
                         tag.values.each do |value|
@@ -178,6 +176,6 @@ class MusicFile
     
 end
 
-z = GenericTag::TagSet.from_flac("/media/james/karelia/Music/flac/heather/KT_Tunstall-Eye_to_the_Telescope/09.Suddenly_I_See.flac")
+z = GenericTag::TagSet.from_flac("/media/james/jdrive/Music/flac/heather/KT_Tunstall-Eye_to_the_Telescope/09.Suddenly_I_See.flac")
 z.album = z.album[0].reverse
 z.to_flac("/home/james/test.flac")
