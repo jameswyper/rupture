@@ -31,6 +31,9 @@ module GenericTag
                 @values = [values]   
             end
         end
+        def append(value)
+            @values << value
+        end
         def to_s
             self.value
         end
@@ -39,7 +42,17 @@ module GenericTag
         end
     end
 
-    class TagSet
+
+    class Picture
+        def initialize
+            @type = t
+
+            ## get relevant data types from documentation
+        end
+    end
+
+
+    class Metadata
 
                
         @@mappingsall = <<~IMDONE
@@ -113,29 +126,34 @@ module GenericTag
         end
     
 
-        #@@int2flac = @@mappings[:flac]
+        @@int2flac = @@mappings[:flac]
         
       
         #@@flac2int = @@mappings[:flac].invert
 
         @@int2flac.each_key do |k| 
             define_method "#{k}".to_sym do 
-                @tags[@mappings[@type][k]].values 
+                @tags[@@mappings[@type][k]].values 
             end
             define_method "#{k}=".to_sym do |t| 
-                @tags[@mappings[@type][k]].set(t) 
+                @tags[@@mappings[@type][k]].set(t) 
             end
         end
 
         def initialize(type)
             @tags = Hash.new
             @type = type.to_sym
+            @pics = Hash.new
         end
         def set(t)
             @tags[t.name] = t
         end
         def add(n,v)
-            @tags[n] = SingleTag.new(n,v)
+            if @tags[n]
+                @tags[n].append(v)
+            else
+                @tags[n] = SingleTag.new(n,v)
+            end
         end
         def get(t)
             @tags[t]
@@ -147,7 +165,7 @@ module GenericTag
             @tags.each_value {|v| yield(v)}
         end
         def self.from_flac(file)
-            ts = TagSet.new(:flac)
+            ts = Metadata.new(:flac)
             TagLib::FLAC::File.open(file) do |f|
                 f.xiph_comment.field_list_map.each do |tag,value|
                     ts.add(tag.to_sym,value)
@@ -162,7 +180,7 @@ module GenericTag
                     if flac_name 
                         f.xiph_comment.remove_fields(flac_name)
                         tag.values.each do |value|
-                            f.xiph_comment.add_field(flac_name,value)
+                           f.xiph_comment.add_field(flac_name,value,false)
                         end
                     end
                 end
@@ -176,6 +194,6 @@ class MusicFile
     
 end
 
-z = GenericTag::TagSet.from_flac("/media/james/jdrive/Music/flac/heather/KT_Tunstall-Eye_to_the_Telescope/09.Suddenly_I_See.flac")
+z = GenericTag::Metadata.from_flac("/media/james/karelia/Music/flac/heather/KT_Tunstall-Eye_to_the_Telescope/09.Suddenly_I_See.flac")
 z.album = z.album[0].reverse
 z.to_flac("/home/james/test.flac")
