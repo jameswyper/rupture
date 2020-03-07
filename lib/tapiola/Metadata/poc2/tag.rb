@@ -1,5 +1,5 @@
 require 'taglib'
-
+require 'digest'
 
 
 
@@ -44,10 +44,19 @@ module GenericTag
 
 
     class Picture
-        def initialize
+        attr_reader :type, :description, :mimetype, :data, :colordepth, :width, :height, :numcolors, :md5sum
+        def initialize(t,d,m,data = nil, c = nil, w = nil, h = nil, n = nil, md5only = true)
             @type = t
-
-            ## get relevant data types from documentation
+            @description = d
+            @mimetype = m
+            @data = data unless md5only
+            @colordepth = c 
+            @width = w 
+            @height = h 
+            @numcolors = n 
+        end
+        def create_md5sum(data)
+            @md5sum = Digest::SHA1.hexdigest(data)
         end
     end
 
@@ -132,13 +141,16 @@ module GenericTag
         #@@flac2int = @@mappings[:flac].invert
 
         @@int2flac.each_key do |k| 
-            define_method "#{k}".to_sym do 
-                @tags[@@mappings[@type][k]].values 
+            define_method "#{k}".to_sym do
+                v = @tags[@@mappings[@type][k]]
+                v ? v.values : []
             end
             define_method "#{k}=".to_sym do |t| 
                 @tags[@@mappings[@type][k]].set(t) 
             end
         end
+        
+        attr_accessor :pics
 
         def initialize(type)
             @tags = Hash.new
@@ -164,11 +176,20 @@ module GenericTag
         def each_tag
             @tags.each_value {|v| yield(v)}
         end
-        def self.from_flac(file)
+        def self.from_flac(file, md5only = true)
             ts = Metadata.new(:flac)
             TagLib::FLAC::File.open(file) do |f|
                 f.xiph_comment.field_list_map.each do |tag,value|
                     ts.add(tag.to_sym,value)
+                end
+                f.picture_list.each do |p|
+                    px = Picture.new(p.type,p.description,p.mime_type,p.data,p.color_depth,p.width,p.height,p.num_colors,md5only)
+                    px.create_md5sum(p.data)
+                    if ts.pics[p.type]
+                        ts.pics[p.type] << px
+                    else
+                        ts.pics[p.type] = [px]
+                    end
                 end
             end
             return ts
@@ -190,10 +211,5 @@ module GenericTag
     end
 end
 
-class MusicFile
-    
-end
 
-z = GenericTag::Metadata.from_flac("/media/james/karelia/Music/flac/heather/KT_Tunstall-Eye_to_the_Telescope/09.Suddenly_I_See.flac")
-z.album = z.album[0].reverse
-z.to_flac("/home/james/test.flac")
+
