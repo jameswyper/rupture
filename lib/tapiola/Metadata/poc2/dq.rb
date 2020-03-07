@@ -68,12 +68,12 @@ dir.scan do |file,count,total|
     #puts "#{count}/#{total} #{file}"
     if (count % 20 == 0) then puts "#{count}/#{total}" end
 end
-#=begin
+=begin
 dir.scan do |file,count,total|
     #puts "#{count}/#{total} #{file}"
     if (count % 20 == 0) then puts "#{count}/#{total}" end
 end
-#=end
+=end
 
 puts "Scanning done and #{dir.files.length} files found"
 

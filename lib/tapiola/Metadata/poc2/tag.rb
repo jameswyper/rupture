@@ -180,15 +180,15 @@ module GenericTag
             ts = Metadata.new(:flac)
             TagLib::FLAC::File.open(file) do |f|
                 f.xiph_comment.field_list_map.each do |tag,value|
-                    ts.add(tag.to_sym,value)
+                    ts.add(tag.to_sym,value.dup)
                 end
                 f.picture_list.each do |p|
-                    px = Picture.new(p.type,p.description,p.mime_type,p.data,p.color_depth,p.width,p.height,p.num_colors,md5only)
-                    px.create_md5sum(p.data)
-                    if ts.pics[p.type]
-                        ts.pics[p.type] << px
+                    px = Picture.new(p.type.dup,p.description.dup,p.mime_type.dup,p.data.dup,p.color_depth.dup,p.width.dup,p.height.dup,p.num_colors.dup,md5only)
+                    px.create_md5sum(p.data.dup)
+                    if ts.pics[p.type.dup]
+                        ts.pics[p.type.dup] << px
                     else
-                        ts.pics[p.type] = [px]
+                        ts.pics[p.type.dup] = [px]
                     end
                 end
             end
