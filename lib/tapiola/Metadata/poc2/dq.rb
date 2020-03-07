@@ -62,18 +62,18 @@ class Release
     end
 end
 
-dir = Directory.new("/media/james/karelia/Music/flac/classical/piano")
+dir = Directory.new("/media/james/karelia/Music/flac/classical/c20/Michael Nyman")
 puts "Scanning"
 dir.scan do |file,count,total|
     #puts "#{count}/#{total} #{file}"
     if (count % 20 == 0) then puts "#{count}/#{total}" end
 end
-=begin
+#=begin
 dir.scan do |file,count,total|
     #puts "#{count}/#{total} #{file}"
     if (count % 20 == 0) then puts "#{count}/#{total}" end
 end
-=end
+#=end
 
 puts "Scanning done and #{dir.files.length} files found"
 
@@ -95,9 +95,10 @@ puts "Check 2: No duplicate release/recording combinations"
 root.each_value do |rel|
     rel.tracks.each_value do |tr|
         if tr.files.length > 1
-            puts "Group of duplicates"
+
+            puts "Group of duplicates for #{tr.files[0].release}/#{tr.files[0].recording}"
             tr.files.each do |f|
-                puts f.name
+                puts "#{f.name} #{f.release}/#{f.recording}"
             end
         end unless tr.nil?
     end
