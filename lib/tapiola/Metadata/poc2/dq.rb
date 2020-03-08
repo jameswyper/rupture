@@ -33,6 +33,15 @@ class MusicFile
     def recording
         @metadata.musicbrainz_recordingid[0] 
     end 
+    def track
+        @metadata.tracknumber[0]
+    end
+    def artist
+        @metadata.artist[0]
+    end
+    def albumartist
+        @metadata.albumartist[0]
+    end
 end
 
 class Track
@@ -100,8 +109,49 @@ root.each_value do |rel|
             tr.files.each do |f|
                 puts "#{f.name} #{f.release}/#{f.recording}"
             end
-        end unless tr.nil?
+        end unless tr.files[0].release.nil?
     end
 end
 
+puts "Check 3/4: Track number format and contiguity"
 
+root.each_value do |rel|
+    alb = Array.new
+    rel.tracks.each_value do |tr|
+        alb << tr.files[0]
+    end
+    alb.sort! {|a,b| a.track.to_i <=> b.track.to_i }
+    last = 0
+    alb.each do |f|
+        unless f.track =~ /^\d+$/
+            puts "#{f.name} has track |#{f.track}|"
+        end
+        this = f.track.to_i
+        unless this == last + 1
+            unless this % 100 == 1
+                puts "#{f.name} track jump this:#{this} last:#{last}"
+            end
+        end
+        last = this
+    end
+end
+
+puts "Check 5: Artist / Album Artist"
+
+root.each_value do |rel|
+    thisart = nil
+    rel.tracks.each_value do |tr|
+      
+        tr.files.each do |f|
+            thisart = f.artist unless thisart
+            albart = f.albumartist
+            if (thisart != f.artist) && (albart != "Various Artists")
+                puts "#{f.name} artist inconsistency (#{f.artist}/#{thisart})"
+            end
+            if (f.artist != albart) && (albart != "Various Artists")
+                puts "#{f.name} album artist #{albart} but artist #{f.artist}"
+            end
+        end
+        
+    end 
+end

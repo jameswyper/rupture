@@ -2,9 +2,9 @@ require 'taglib'
 
 def trigger(file)
     TagLib::FLAC::File.open(file) do |f|
-        #f.picture_list.each do |p|
+        f.picture_list.each do |p|
             #p.data
-        #end
+        end
         f.xiph_comment.field_list_map.each do |tag,value|
             tag
             value

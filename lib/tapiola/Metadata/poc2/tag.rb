@@ -182,6 +182,7 @@ module GenericTag
                 f.xiph_comment.field_list_map.each do |tag,value|
                     ts.add(tag.to_sym,value.dup)
                 end
+=begin
                 f.picture_list.each do |p|
                     px = Picture.new(p.type.dup,p.description.dup,p.mime_type.dup,p.data.dup,p.color_depth.dup,p.width.dup,p.height.dup,p.num_colors.dup,md5only)
                     px.create_md5sum(p.data.dup)
@@ -191,6 +192,7 @@ module GenericTag
                         ts.pics[p.type.dup] = [px]
                     end
                 end
+=end
             end
             return ts
         end
