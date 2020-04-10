@@ -34,5 +34,10 @@ build/
 
 # unless supporting rvm < 1.11.0 or doing something fancy, ignore this:
 .rvmrc
+
 lib/tapiola/Metadata/poc2/mappings.csv.old
 lib/tapiola/Metadata/poc2/tag.rb.old
+
+*.flac
+*.wav
+*.mp3

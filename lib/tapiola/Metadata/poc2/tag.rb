@@ -53,10 +53,11 @@ module GenericTag
             @colordepth = c 
             @width = w 
             @height = h 
-            @numcolors = n 
+            @numcolors = n
+            #self.create_md5sum(data) 
         end
         def create_md5sum(data)
-            @md5sum = Digest::SHA1.hexdigest(data)
+            @md5sum = Digest::MD5.hexdigest(data)
         end
     end
 
@@ -149,8 +150,19 @@ module GenericTag
                 @tags[@@mappings[@type][k]].set(t) 
             end
         end
-        
-        attr_accessor :pics
+
+        @@picnum2name = {
+            0 => :other,1 => :file_icon,2 => :other_file_icon,3 => :front_cover,
+            4 => :back_cover,5 => :leaflet,6 => :media,7 => :lead_artist,8 => :artist,
+            9 => :conductor,10 => :band,11 => :composer,12 => :lyricist,
+            13 => :recording_location,14 => :during_recording,15 => :during_performance,
+            16 => :screen_capture,17 => :bright_fish,18 => :illustration,
+            19 => :artist_logotype,20 => :publisher_studio_logotype
+        }
+
+        @@picname2num = @@picnum2name.invert
+
+        attr_accessor :pics, :tags
 
         def initialize(type)
             @tags = Hash.new
@@ -182,21 +194,19 @@ module GenericTag
                 f.xiph_comment.field_list_map.each do |tag,value|
                     ts.add(tag.to_sym,value.dup)
                 end
-=begin
                 f.picture_list.each do |p|
-                    px = Picture.new(p.type.dup,p.description.dup,p.mime_type.dup,p.data.dup,p.color_depth.dup,p.width.dup,p.height.dup,p.num_colors.dup,md5only)
-                    px.create_md5sum(p.data.dup)
-                    if ts.pics[p.type.dup]
-                        ts.pics[p.type.dup] << px
+                    px = Picture.new(p.type,p.description,p.mime_type,p.data,p.color_depth,p.width,p.height,p.num_colors,md5only)
+                    px.create_md5sum(p.data)
+                    if ts.pics[@@picnum2name[p.type]]
+                        ts.pics[@@picnum2name[p.type]] << px
                     else
-                        ts.pics[p.type.dup] = [px]
+                        ts.pics[@@picnum2name[p.type]] = [px]
                     end
                 end
-=end
             end
             return ts
         end
-        def to_flac(file)
+        def to_flac(file, art=false)
             f = TagLib::FLAC::File.open(file) do |f| 
                 self.each_tag do |tag|
                     flac_name = tag.name.to_s
@@ -207,8 +217,16 @@ module GenericTag
                         end
                     end
                 end
+                if (art)
+                #TODO add picture saving code
+                #only save if data isn't nil
+                end
                 f.save
             end
+        end
+        def self.from_mp3(file,md5only = true)
+        end
+        def to_mp3(file,art = false)
         end
     end
 end

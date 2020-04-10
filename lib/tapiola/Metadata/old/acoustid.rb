@@ -6,16 +6,20 @@ require 'shellwords'
 require 'httpclient'
 require 'json'
 
+require_relative 'metamb'
 
 module Meta
 module AcoustID
 
 class Service
 	
-	def initialize(fpcalc = 'fpcalc', client = 'I66oWRwcLj',service = 'https://api.acoustid.org' )
+	def initialize(fpcalc,client,db, service = 'https://api.acoustid.org' )
 		@fpcalc = fpcalc
 		@service = service
 		@client = client
+		@db = SQLite3::Database.new(db)
+		@db.execute('create table if not exists acoustid_cache (fprint text, response_json text);')
+		@db.execute('create unique index if not exists fprint_ix1 on acoustid_cache(fprint);')
 	end
 	
 	def acRequest(fp,dur)
@@ -24,9 +28,11 @@ class Service
 		h.ssl_config.add_trust_ca("/etc/ssl/certs")
 		h.receive_timeout = 300
 		 
+		 #puts "Fingerprint:#{fp}"
+		 
 		tries = 0
 		begin
-			r = h.request('GET',"https://api.acoustid.org/v2/lookup?client=I66oWRwcLj&fingerprint=#{fp}&duration=#{dur}&meta=recordings+releases")
+			r = h.request('GET',"#{@service}/v2/lookup?client=#{@client}&fingerprint=#{fp}&duration=#{dur}&meta=recordings+releases")
 		rescue
 			tries += 1
 			if (tries > 5)
@@ -51,32 +57,20 @@ class Service
 		end
 	end
 	
-	class ResultsByRelease
-		
-		class Release
-			def initialize
-				@recordings = Hash.new
-			end
-			def addRecording(rec)
-				@recordings[rec] = rec
-			end
+	
+	class RecordingResult
+		attr_reader :releases, :mbid
+		def initialize(mbid)
+			@mbid = mbid
+			@releases = Array.new
 		end
-		
-		attr_accessor :releases
-		def initialize
-			@releases = Hash.new
-		end
-		
-		def addRecording(rec)
-			rec.releases.each do |rel|
-				@releases[rel] = Release.new unless @releases[rel] 
-				@releases[rel].addRecording(rec.mbid)
-			end
+		def addRelease(rel)
+			@releases << rel
 		end
 	end
 	
 	def getFingerprint(f)
-		stdout, stderr, status = Open3.capture3('fpcalc ' + Shellwords.escape(f))
+		stdout, stderr, status = Open3.capture3(@fpcalc + ' -length 120 ' + Shellwords.escape(f))
 		if status != 0 then raise RuntimeError, "fpcalc failed #{stderr} on file #{f}" end
 		out = stdout.split("\n")
 		if (m = /^DURATION=(\d+)$/.match(stdout))
@@ -92,219 +86,141 @@ class Service
 		return fp,dur
 	end
 	
-	def getFromFile(f)
+	def getAcoustIDResults(f)
 		
-		res = ResultsByRelease.new
-		
+		x = Array.new
+
 		fprint, duration = getFingerprint(f)
-		results = JSON.parse(acRequest(fprint,duration))["results"]
-		results.each do |result| if results
+		#puts "#{f} - duration #{duration}"
+		r = @db.execute('select response_json from acoustid_cache where fprint = ?',fprint)
+		if r.size > 0
+			results = JSON.parse(r[0][0])["results"]
+			#puts "AcoustID cache hit"		
+		else
+			#puts "AcoustID cache miss"
+			response = acRequest(fprint,duration)
+			results = JSON.parse(response)["results"]
+			@db.execute('insert into acoustid_cache (fprint,response_json) values (?,?)',fprint,response)
+		end
+
+		results.each do |result| 
 			recordings = result["recordings"]
-			recordings.each do |recording| if recordings
-				y = Recording.new(recording["id"])
+			recordings.each do |recording|
+				y = RecordingResult.new(recording["id"])
 				releases = recording["releases"]
-				releases.each do |release| if releases
-					y.releases << release["id"]
+				releases.each do |release| 
+					y.addRelease release["id"]
+				end  if releases
+				x << y
+			end if recordings
+		end if results
+		
+		return x
+		
+	end
+	
+
+		
+	class ScoredMedium
+		attr_accessor :release, :medium, :trackCount, :trackMatches, :trackMisses
+		def initialize(release,medium)
+			@release = release
+			@medium = medium
+			@trackMisses = 0
+			@trackMatches = 0
+		end
+	end
+		
+	def scoreDisc(d)
+
+		scores = Array.new
+		
+		recordings = Array.new
+		
+		# call AcoustID for each track on the disc, storing the recording/release combos
+
+		candidateReleases = Hash.new
+		
+		discTrack = 0
+		d.tracks.keys.sort.each do |tr|
+			#puts "AcoustID call (or cache) for Track #{tr}"
+			discTrack = discTrack + 1
+			recordings[discTrack] = getAcoustIDResults(d.pathname+'/'+d.tracks[tr].filename)
+			recordings[discTrack].each do |rec|
+				rec.releases.each do |rel| 
+					if candidateReleases[rel]
+						candidateReleases[rel] = candidateReleases[rel]  + 1
+					else
+						candidateReleases[rel] = 0
+					end
 				end
-				res.addRecording(y)
+			end
+		end	
+		
+		# popular hits can turn up on innumerable compilations.  Drop any releases where we didn't match a substantial fraction of tracks
+
+		puts "#{candidateReleases.size} releases to juggle"
+		candidateReleases.each do |rel,rec_count|
+			if rec_count < (d.tracks.size * 0.5)
+				candidateReleases.delete(rel)
 			end
 		end
 		
-		return res
+		puts "#{candidateReleases.size} releases to juggle after trimming"
 		
-	end
-	
-	class ScoredDisc
 		
-		class ScoredMedium
-			attr_accessor :mbid, :medium, :trackCount, :trackMatches, :trackMisses
-		end
-		
-		def initialize(d)
-			@disc = d
-			candidates = Hash.new
-			c = 0
-			d.tracks.keys.sort.each do |tr|
-				c = c  + 1
-				candidates[c] = getFromFile(d.pathname+'/'+d.tracks[tr].filename)
-			end	
-			
-		end
-	end
-	
-
-	
-end
-
-
-class AcoustID
-	
-	attr_accessor :fpalc, :url, :token
-	
-def getAcoustDataFromFile(f)
-	
-	res = Array.new
-	
-	h = HTTPClient.new
-	h.ssl_config.ssl_version = :SSLv23
-	h.ssl_config.add_trust_ca("/etc/ssl/certs")
-	h.receive_timeout = 300
-	 #puts "https://api.acoustid.org/v2/lookup?client=I66oWRwcLj&duration=#{dur}&meta=recordings+releases&fingerprint=#{fp}"
-	 
-	 tries = 0
-	begin
-		r = h.request('GET',"https://api.acoustid.org/v2/lookup?client=I66oWRwcLj&fingerprint=#{fp}&duration=#{dur}&meta=recordings+releases")
-	rescue
-		tries += 1
-		if (tries > 5)
-			raise
-		else
-			puts "Problem with http request, retrying"
-			sleep 300
-			retry
-		end
-	end
-	j = r.body
-	if r.code != 200
-		raise RuntimeError ,"acoustid returned #{r.code} #{j}"
-	end
-	puts j
-	h = JSON.parse(j)
-	r =  h["results"]
-	if r.size > 0
-		if r[0]["recordings"]
-			r.each do |s| 
-				#puts "acoustid #{s['id']}"
-				t = s["recordings"]
-				if (t)
-					t.each do |u|
-						#puts "recording #{u['id']}"
-						if u['releases']
-							u['releases'].each do |v|
-								tit = v['title']
-								arts = v['artists']
-								art  = ""
-								if (arts)
-									arts.each do |a|
-										art << "#{a['name']}/"
-									end
-								end
-								art.chop!
-								res << [u["id"],v["id"],tit,art]
-								#puts "release #{v['id']}"
+		candidateReleases.each_key do |candidate_mbid|
+			#puts "candidate release #{candidate_mbid}"
+			candidate = Meta::MusicBrainz::Release.new(candidate_mbid)
+			#puts "got release from MB"
+			#puts "Candidate release is #{candidate.mbid} #{candidate.title}"
+			candidate.media.each do |mpos,medium|
+				#puts "Candidate medium #{medium.position}"
+				scm = ScoredMedium.new(candidate,medium)
+				medium.tracks.each do |tpos, track|
+					#puts "Candidate track #{track.position} #{track.recording.mbid} #{track.recording.title}"
+					match_found = false
+					mb_rec_mbid = track.recording.mbid
+					if recordings[tpos]
+						#puts "There are acoustID hits for track #{tpos}"
+						recordings[tpos].each do |ac_recording|
+							#puts "checking #{ac_recording.mbid}"
+							if ac_recording.mbid == mb_rec_mbid
+								#puts "we have a match" 
+								match_found = true
 							end
+						end
+						if match_found
+							scm.trackMatches += 1
+						else 
+							scm.trackMisses += 1
 						end
 					end
 				end
-			end
-		#else
-			#r.each {|i| puts i["id"]}
-		end
-	end
-	return res
-end
-
-
-
-
-
-	def getRecordingsFromFile(f)
-	end
-	def getReleasesForDisc(d)
-
-		rels = Hash.new
-		c = 0
-		d.tracks.keys.sort.each do |tr|
-			c = c  + 1
-			ad = getAcoustDataFromFile(d.pathname+'/'+d.tracks[tr].filename)
-			ad.each do |a|
-				rels[a.release_id] = Hash.new unless (rels[a.release_id]) 
-				rels[a.release_id][c] = a
-
+				scm.trackCount = medium.tracks.size
+				scores << scm
 			end
 		end
-	
-		return rels
-	
-	end
-
-end
-class Recording
-	attr_reader :id, :release_id, :release_title, :release_artists
-	def initialise(id,relid,title)
-		@id = id
-		@release_id = relid
-		@release_title = title
-		@release_artists = Array.new
-	end
-	def add_artist(art)
-		@release_artists << art
-	end
-	def all_artists
-		a = String.new
-		@release_artist.each{ |r| a << "#{r}/" }
-		a.chop!
-	end
-end
-
-class Release
-	attr_reader :artist, :title
-	attr_accessor :recordings
-	def initialize(art,tit)
-		@artist = art
-		@title = tit
-		@recordings = Array.new
-	end
-end
-
-end
-end
-
-
-
-ws = 'musicbrainz.org'
-db = Meta::Database.new('/home/james/metascan.db')
-Meta::Core::Primitive.setDatabase(db)
-w = Meta::MusicBrainz::Service.new(ws,db,:getCachedMbQuery,:storeCachedMbQuery)
-Meta::MusicBrainz::Primitive.setService(w)
-
-discs = db.selectAllDiscs
-puts discs.size
-discs.each do |d|
-#d = discs[1]
-	puts d.id
-	puts "#{d.pathname}/#{d.discNumber}"
-	d.fetchTracks
-	rels = getAcoustDataForDisc(d)
-	
-	scored = Array.new
-	rels.each_key do |cand|
-		candrel = Meta::MusicBrainz::Release.new	
-		candrel.getFromMbid(cand)
-		candrel.media.each do |mk,mv| 
-			trackCount = mv.tracks.size
-			trackYes = 0
-			trackNo = 0
-			mv.tracks.each_key do |tk|
-				if (rels[cand][tk])
-					if (rels[cand][tk] == mv.tracks[tk].recording.mbid)
-						trackYes += 1
-					else
-						trackNo += 1
-					end
-				end
+		
+		scores.sort! do |x,y| 
+			xmatch = (x.trackMatches * 1.0 / x.trackCount) 
+			ymatch = (y.trackMatches * 1.0 / y.trackCount)
+			if (xmatch == ymatch)
+				(x.release.media.size <=> y.release.media.size)  # favour smaller releases over box sets
+			else
+				(ymatch <=> xmatch)
 			end
-#			puts "score for #{cand} medium #{mk} is #{trackYes}/#{trackNo}/#{trackCount}"
-			scored << [cand, mk,(100.0 * (trackYes - (3 *trackNo)) / trackCount), d.tracks.size == mv.tracks.size]
-			#binding.pry
 		end
-		scored.sort! {|x,y| if (y[2] == x[2]) then x[1] <=> y[1] else y[2] <=> x[2] end}
+		
+		return scores
 	end
-	scored.each_index do |s|
-		if (s>9)
-			break
-		else
-			puts "release #{scored[s][0]}/#{scored[s][1]} scored #{scored[s][2]}% match #{scored[s][3]}" unless scored[s][2] <= 0
-		end
+		
+		
 	end
-end
+	
+
+	
+end #AcoustID
+end #Meta
+
+

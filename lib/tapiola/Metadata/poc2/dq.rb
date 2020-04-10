@@ -71,7 +71,7 @@ class Release
     end
 end
 
-dir = Directory.new("/media/james/karelia/Music/flac/classical/c20/Michael Nyman")
+dir = Directory.new(ARGV[0])
 puts "Scanning"
 dir.scan do |file,count,total|
     #puts "#{count}/#{total} #{file}"
