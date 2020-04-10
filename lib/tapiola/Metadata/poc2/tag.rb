@@ -147,7 +147,7 @@ module GenericTag
                 v ? v.values : []
             end
             define_method "#{k}=".to_sym do |t| 
-                @tags[@@mappings[@type][k]].set(t) 
+                self.set(@@mappings[@type][k],t)
             end
         end
 
@@ -169,10 +169,10 @@ module GenericTag
             @type = type.to_sym
             @pics = Hash.new
         end
-        def set(t)
-            @tags[t.name] = t
+        def set(n,v)
+            @tags[n] = SingleTag.new(n,v)
         end
-        def add(n,v)
+        def append(n,v)
             if @tags[n]
                 @tags[n].append(v)
             else
@@ -192,7 +192,7 @@ module GenericTag
             ts = Metadata.new(:flac)
             TagLib::FLAC::File.open(file) do |f|
                 f.xiph_comment.field_list_map.each do |tag,value|
-                    ts.add(tag.to_sym,value.dup)
+                    ts.append(tag.to_sym,value.dup)
                 end
                 f.picture_list.each do |p|
                     px = Picture.new(p.type,p.description,p.mime_type,p.data,p.color_depth,p.width,p.height,p.num_colors,md5only)
