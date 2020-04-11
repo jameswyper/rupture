@@ -188,6 +188,13 @@ module GenericTag
         def each_tag
             @tags.each_value {|v| yield(v)}
         end
+        def add_pic(p)
+            if @pics[@@picnum2name[p.type]]
+                @pics[@@picnum2name[p.type]] << p
+            else
+                @pics[@@picnum2name[p.type]] = [p]
+            end
+        end
         def self.from_flac(file, md5only = true)
             ts = Metadata.new(:flac)
             TagLib::FLAC::File.open(file) do |f|
@@ -197,11 +204,7 @@ module GenericTag
                 f.picture_list.each do |p|
                     px = Picture.new(p.type,p.description,p.mime_type,p.data,p.color_depth,p.width,p.height,p.num_colors,md5only)
                     px.create_md5sum(p.data)
-                    if ts.pics[@@picnum2name[p.type]]
-                        ts.pics[@@picnum2name[p.type]] << px
-                    else
-                        ts.pics[@@picnum2name[p.type]] = [px]
-                    end
+                    ts.add_pic(px)
                 end
             end
             return ts
@@ -218,16 +221,48 @@ module GenericTag
                     end
                 end
                 if (art)
-                #TODO add picture saving code
-                #only save if data isn't nil
+                    @pics.each_value do |pa|
+                        pa.each do |p|
+                            if p.data
+                                pic = TagLib::FLAC::Picture.new
+                                pic.data = p.data
+                                pic.description = p.description    
+                                pic.mime_type = p.mimetype
+                                pic.width = p.width
+                                pic.height = p.height
+                                pic.type = p.type    
+                                f.add_picture(pic)
+                            end
+                        end
+                    end
                 end
                 f.save
             end
         end
+
         def self.from_mp3(file,md5only = true)
+            ts = Metadata.new(:id3v24)
+            TagLib::MPEG::File.open(file) do |f|
+                f.id3v2_tag.frame_list.each do |frame|
+                    if frame.is_a? TagLib::ID3v2::TextIdentificationFrame
+                        frame.field_list.each do |field|
+                            ts.append(frame.frame_id.to_sym,field.dup)
+                        end
+                    else
+                        if frame.is_a? TagLib::ID3v2::AttachedPictureFrame
+                            px = Picture.new(frame.type,frame.description,frame.mime_type,frame.picture,nil,nil,nil,nil,md5only)
+                            px.create_md5sum(frame.picture)
+                            ts.add_pic(px)
+                        end
+                    end
+                end
+            end
+            return ts
         end
         def to_mp3(file,art = false)
+            
         end
+
     end
 end
 
