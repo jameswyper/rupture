@@ -11,7 +11,7 @@
             "type": "Ruby",
             "request": "launch",
             "program": "${file}",
-            "args": ["/media/james/karelia/Music/flac/classical/c20/Michael Nyman"]
+            "args": ["/media/james/karelia/Music/flac/rock/Queen","/tmp"]
         }
     ]
 }

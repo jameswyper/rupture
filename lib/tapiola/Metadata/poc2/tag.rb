@@ -32,7 +32,11 @@ module GenericTag
             end
         end
         def append(value)
-            @values << value
+            if value.is_a? Array
+                @values.concat(value)
+            else
+                @values << value
+            end
         end
         def to_s
             self.value
@@ -91,9 +95,7 @@ module GenericTag
         subtitle,TIT3,SUBTITLE
         discsubtitle,TSST,DISCSUBTITLE
         tracknumber,TRCK,TRACKNUMBER
-        totaltracks,TRCK,TRACKTOTAL
         discnumber,TPOS,DISCNUMBER
-        totaldiscs,TPOS,DISCTOTAL
         compilation,TCMP,COMPILATION
         comment:description,COMM:description,COMMENT
         genre,TCON,GENRE
@@ -127,6 +129,10 @@ module GenericTag
         replaygain_reference_loudness,TXXX:REPLAYGAIN_REFERENCE_LOUDNESS,REPLAYGAIN_REFERENCE_LOUDNESS
         IMDONE
         
+#       removed the following because they mess up the id3 tag
+#       totaldiscs,TPOS,DISCTOTAL
+#       totaltracks,TRCK,TRACKTOTAL
+
         @@mappings = { :flac => Hash.new, :id3v24 => Hash.new}
 
         @@mappingsall.split("\n").each do |line|
@@ -134,7 +140,11 @@ module GenericTag
             @@mappings[:flac][fields[0].to_sym] = fields[2].to_sym
             @@mappings[:id3v24][fields[0].to_sym] = fields[1].to_sym
         end
-    
+        
+        @@mappings_2int = Hash.new
+        @@mappings.each do |type, mapping|
+            @@mappings_2int[type] = @@mappings[type].invert
+        end
 
         @@int2flac = @@mappings[:flac]
         
@@ -163,15 +173,19 @@ module GenericTag
         @@picname2num = @@picnum2name.invert
 
         attr_accessor :pics, :tags
+        attr_reader :type
 
         def initialize(type)
             @tags = Hash.new
             @type = type.to_sym
             @pics = Hash.new
+            raise "incorrect type #{@type}" unless [:flac,:id3v24].include? @type
         end
+        
         def set(n,v)
             @tags[n] = SingleTag.new(n,v)
         end
+        
         def append(n,v)
             if @tags[n]
                 @tags[n].append(v)
@@ -179,15 +193,19 @@ module GenericTag
                 @tags[n] = SingleTag.new(n,v)
             end
         end
+        
         def get(t)
             @tags[t]
         end
+        
         def each
             @tags.each {|k,v| yield(k,v)}
         end
+        
         def each_tag
             @tags.each_value {|v| yield(v)}
         end
+        
         def add_pic(p)
             if @pics[@@picnum2name[p.type]]
                 @pics[@@picnum2name[p.type]] << p
@@ -195,6 +213,22 @@ module GenericTag
                 @pics[@@picnum2name[p.type]] = [p]
             end
         end
+
+        def self.convert(type,old_ts)
+            t = type.to_sym
+            new_ts = Metadata.new(t)
+            new_ts.pics = old_ts.pics.dup
+            old_ts.tags.each do |name,tag|
+                old_int_name = @@mappings_2int[old_ts.type][name]
+                if old_int_name
+                    new_name = @@mappings[new_ts.type][old_int_name]
+                    new_ts.append(new_name,tag.values)
+                end
+            end
+            return new_ts
+        end
+    
+
         def self.from_flac(file, md5only = true)
             ts = Metadata.new(:flac)
             TagLib::FLAC::File.open(file) do |f|
@@ -269,11 +303,12 @@ module GenericTag
                     id3_name = tag.name.to_s
                     if id3_name 
                         frame = TagLib::ID3v2::TextIdentificationFrame.new(id3_name, TagLib::String::UTF8)
-                        frame.text = ""
+                        text = ""
                         tag.values.each do |value|
-                            frame.text << "\n" if frame.text != "" 
-                            frame.text << value
+                            text << "\n" if text != "" 
+                            text << value
                         end
+                        frame.text = text
                         filetag.add_frame(frame)
                     end
                 end

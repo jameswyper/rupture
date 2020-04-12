@@ -1,6 +1,7 @@
 require 'fileutils'
 require_relative 'tag'
 require 'shellwords'
+require 'open3'
 
 # minimal sanity-check on parameters
 
@@ -56,13 +57,43 @@ total = sourcework.size
 puts "#{total} files actually need converting"
 current = 0
 
-sourcework.each do |sourcefile|
-    current += 1
-    puts "Working on file #{current}/#{total}"
-    destfile = (sourcefile[0..-5] + "mp3").sub(source,dest)
-    destdir = destfile[0...(destfile.rindex('/') )]
-    FileUtils.makedirs(destdir)
-    cmd = "flac --decode -c -s --apply-replaygain-which-is-not-lossless #{Shellwords.escape(sourcefile)} | lame --silent #{lameopts} - #{Shellwords.escape(destfile)}"
-    system(cmd)
+log = ""
+
+mut = Mutex.new
+worktodo = true
+
+Thread.abort_on_exception = true
+workers = Array.new
+
+threads.times do
+    workers << Thread.new do
+        sourcefile = nil
+        while worktodo do
+            mut.synchronize do
+                if sourcework.size > 0
+                    sourcefile = sourcework.pop
+                    current += 1
+                else
+                    worktodo = false
+                end
+            end
+            if worktodo
+                puts "Working on file #{current}/#{total} #{sourcefile}"
+                destfile = (sourcefile[0..-5] + "mp3").sub(source,dest)
+                destdir = destfile[0...(destfile.rindex('/') )]
+                mut.synchronize {FileUtils.makedirs(destdir)}
+                cmd = "flac --decode -c -s --apply-replaygain-which-is-not-lossless #{Shellwords.escape(sourcefile)} | lame --silent #{lameopts} - #{Shellwords.escape(destfile)}"
+                stdout,stderr,status = Open3.capture3(cmd)
+                flactag = GenericTag::Metadata.from_flac(sourcefile,false)
+                mp3tag = GenericTag::Metadata.convert(:id3v24,flactag)
+                mp3tag.to_mp3(destfile)
+                log << stderr
+            end
+        end    
+    end
 end
 
+workers.each(&:join)
+
+
+puts log
