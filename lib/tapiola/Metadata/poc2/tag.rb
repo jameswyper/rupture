@@ -209,6 +209,7 @@ module GenericTag
             end
             return ts
         end
+
         def to_flac(file, art=false)
             f = TagLib::FLAC::File.open(file) do |f| 
                 self.each_tag do |tag|
@@ -259,8 +260,39 @@ module GenericTag
             end
             return ts
         end
+
         def to_mp3(file,art = false)
-            
+           f = TagLib::MPEG::File.open(file) do |f| 
+                f.strip
+                filetag = f.id3v2_tag(true)
+                self.each_tag do |tag|
+                    id3_name = tag.name.to_s
+                    if id3_name 
+                        frame = TagLib::ID3v2::TextIdentificationFrame.new(id3_name, TagLib::String::UTF8)
+                        frame.text = ""
+                        tag.values.each do |value|
+                            frame.text << "\n" if frame.text != "" 
+                            frame.text << value
+                        end
+                        filetag.add_frame(frame)
+                    end
+                end
+                if (art)
+                    @pics.each_value do |pa|
+                        pa.each do |p|
+                            if p.data
+                                pic = TagLib::ID3v2::AttachedPictureFrame.new
+                                pic.picture = p.data
+                                pic.description = p.description    
+                                pic.mime_type = p.mimetype
+                                pic.type = p.type    
+                                tag.add_frame(pic)
+                            end
+                        end
+                    end
+                end
+                f.save
+            end            
         end
 
     end
