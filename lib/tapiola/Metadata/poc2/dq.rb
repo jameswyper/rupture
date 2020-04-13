@@ -100,7 +100,7 @@ dir.files.each do |f|
 end
 
 ws1.write(0,0,"Files with no release")
-ws1.write_row(1,0,["Directory","File","Release?","Recording"]
+ws1.write_row(1,0,["Directory","File","Release?","Recording"])
 
 wout = Array.new
 root.each do |rel,rec| 
