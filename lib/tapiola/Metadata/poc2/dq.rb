@@ -1,6 +1,7 @@
 require_relative 'tag'
 require 'fileutils'
 require 'pathname'
+require 'writeexcel'
 
 class Directory
 	def initialize(d)
@@ -42,6 +43,12 @@ class MusicFile
     def albumartist
         @metadata.albumartist[0]
     end
+    def directory
+        File.dirname(@name)
+    end
+    def base
+        File.basename(@name)
+    end
 end
 
 class Track
@@ -77,23 +84,37 @@ dir.scan do |file,count,total|
     #puts "#{count}/#{total} #{file}"
     if (count % 20 == 0) then puts "#{count}/#{total}" end
 end
-=begin
-dir.scan do |file,count,total|
-    #puts "#{count}/#{total} #{file}"
-    if (count % 20 == 0) then puts "#{count}/#{total}" end
-end
-=end
+
 
 puts "Scanning done and #{dir.files.length} files found"
 
-puts "Check 1: Every Track has a Release and a Recording"
+xls = WriteExcel.new('dq.xls')
 
+puts "Check 1: Every Track has a Release and a Recording"
+ws1 = xls.add_worksheet("1 - Rel - rec")
 root = Hash.new
 dir.files.each do |f|
 #    puts "#{f.name} has release #{f.release} and recording #{f.recording}"
     root[f.release] = Release.new unless root[f.release]
     root[f.release].add_track(f)
 end
+
+ws1.write(0,0,"Files with no release")
+ws1.write_row(1,0,["Directory","File","Release?","Recording"]
+
+wout = Array.new
+root.each do |rel,rec| 
+    rec.tracks.each_key do |k|
+        rec.tracks[k].files.each do |f|
+            unless (rel && k)
+                wout << [f.directory,f.base,rel ? "Y" : "",k ? "Y" : ""]
+            end
+        end
+    end
+end
+
+ws1.write_row(2,0,wout.sort_by {|r| [r[0],r[1]] })
+
 
 root[nil] ? nn = root[nil].tracks[nil].files.length : nn = 0
 
@@ -155,3 +176,5 @@ root.each_value do |rel|
         
     end 
 end
+
+xls.close
