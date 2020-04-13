@@ -41,3 +41,5 @@ lib/tapiola/Metadata/poc2/tag.rb.old
 *.flac
 *.wav
 *.mp3
+*.xlsx
+*.xls
