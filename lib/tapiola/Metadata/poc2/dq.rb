@@ -239,7 +239,7 @@ root.each_value do |rel|
             tr.files.each do |f|
                 firstdir = f.directory unless firstdir
                 if (f.directory != firstdir)
-                    wout << [f.album,f.release,firstdir,f.directory,f.base]
+                    wout << [f.album ? f.album : "",f.release ? f.release : "",firstdir,f.directory,f.base]
                 end
             end
         end
@@ -295,7 +295,7 @@ ws8.write(0,0,"Non-Classical don't have composers")
 ws8.write_row(1,0,["Directory","File","Composer"])
 dir.files.each do |f|
     unless f.directory.include?("/classical/")
-        if (f.composer? && f.composer != "")
+        if (f.composer && f.composer != "")
             wout << [f.directory,f.base,f.composer]
         end
     end 
