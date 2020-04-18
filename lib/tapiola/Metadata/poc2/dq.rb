@@ -249,6 +249,8 @@ end
 
 ws5.write_col(2,0,wout.sort_by {|r| [r[1],r[0],r[2],r[3],r[4]] })
 
+puts "Check 6: Multi-albums for Directory"
+
 wout = Array.new
 ws6 = xls.add_worksheet("6 - Dir Album")
 ws6.write(0,0,"Each Directory has only one Album")
@@ -275,6 +277,8 @@ end
 
 ws6.write_col(2,0,wout.sort_by {|r| [r[0],r[1],r[2],r[3]] })
 
+puts "Check 7: Classical tracks have works"
+
 wout = Array.new
 ws7 = xls.add_worksheet("7 - Works")
 ws7.write(0,0,"Classical Tracks have Works")
@@ -288,6 +292,7 @@ dir.files.each do |f|
 end
 ws7.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
 
+puts "Check 8: Non-classical tracks don't have composer"
 
 wout = Array.new
 ws8 = xls.add_worksheet("8 - Composers")
@@ -302,6 +307,8 @@ dir.files.each do |f|
 end
 ws8.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
 
+puts "Check 9: Similar artists"
+
 dl = DamerauLevenshtein
 wout = Array.new
 ws9 = xls.add_worksheet("9 - Similar artists")
@@ -315,17 +322,27 @@ dir.files.each do |f|
         arts[f.artist] = [f]
     end
 end
+as = arts.size
+ac = 0
 arts.each_key do |a1|
     arts.each_key do |a2|
-        d = dl.distance(a1,a2,2)
-        if d < 10
-            arts[a1].each do |f|
-                wout << [a1,a2,f.directory,f.name,d]
+        ac = ac + 1
+        if ((ac % 100) == 0)
+            puts "#{ac} of approximately #{as*as} done"
+        end
+        if (a1 != a2)
+            d = dl.distance(a1,a2,2)
+            if d < 10
+                arts[a1].each do |f|
+                    wout << [a1,a2,f.directory,f.name,d]
+                end
             end
         end
     end
 end
 ws9.write_col(2,0,wout.sort_by {|r| [r[4],r[0],r[1],r[2],r[3]] })
+
+puts "Check 10: Similar composers"
 
 wout = Array.new
 ws10 = xls.add_worksheet("10 - Similar Composers")
@@ -339,12 +356,20 @@ dir.files.each do |f|
         arts[f.composer] = [f]
     end
 end
+as = arts.size
+ac = 0
 arts.each_key do |a1|
     arts.each_key do |a2|
-        d = dl.distance(a1,a2,2)
-        if d < 10
-            arts[a1].each do |f|
-                wout << [a1,a2,f.directory,f.name,d]
+        ac = ac + 1
+        if ((ac % 100) == 0)
+            puts "#{ac} of approximately #{as*as} done"
+        end
+        if (a1 != a2)
+            d = dl.distance(a1,a2,2)
+            if d < 10
+                arts[a1].each do |f|
+                    wout << [a1,a2,f.directory,f.name,d]
+                end
             end
         end
     end
