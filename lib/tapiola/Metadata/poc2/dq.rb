@@ -328,11 +328,11 @@ arts.each_key do |a1|
     arts.each_key do |a2|
         ac = ac + 1
         if ((ac % 100) == 0)
-            puts "#{ac} of approximately #{as*as} done"
+            puts "#{ac} of approximately #{as*as} done; written #{wout.size}"
         end
         if (a1 != a2)
             d = dl.distance(a1,a2,2)
-            if d < 10
+            if d < 5
                 arts[a1].each do |f|
                     wout << [a1,a2,f.directory,f.name,d]
                 end
@@ -362,11 +362,11 @@ arts.each_key do |a1|
     arts.each_key do |a2|
         ac = ac + 1
         if ((ac % 100) == 0)
-            puts "#{ac} of approximately #{as*as} done"
+            puts "#{ac} of approximately #{as*as} done; written #{wout.size}"
         end
         if (a1 != a2)
             d = dl.distance(a1,a2,2)
-            if d < 10
+            if d < 5
                 arts[a1].each do |f|
                     wout << [a1,a2,f.directory,f.name,d]
                 end

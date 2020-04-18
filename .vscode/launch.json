@@ -11,7 +11,7 @@
             "type": "Ruby",
             "request": "launch",
             "program": "${file}",
-            "args": ["/media/james/karelia/Music/flac/classical/baroque/new/Bach"]
+            "args": ["/media/james/karelia/Music/flac/classical/baroque/new/"]
         }
     ]
 }
