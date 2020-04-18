@@ -2,6 +2,7 @@ require_relative 'tag'
 require 'fileutils'
 require 'pathname'
 require 'writeexcel'
+require 'damerau-levenshtein'
 
 class Directory
 	def initialize(d)
@@ -43,8 +44,17 @@ class MusicFile
     def albumartist
         @metadata.albumartist[0]
     end
+    def album
+        @metadata.album[0]
+    end
     def directory
         File.dirname(@name)
+    end
+    def composer
+        @metadata.composer[0]
+    end
+    def work
+        @metadata.musicbrainz_workid[0]
     end
     def base
         File.basename(@name)
@@ -215,20 +225,145 @@ end
 
 ws4.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
 
+puts "Check 5: Multi-directories for album"
+
+wout = Array.new
+ws5 = xls.add_worksheet("5 - Album Dir")
+ws5.write(0,0,"Each Album has only one directory")
+ws5.write_row(1,0,["Album", "Release","First Directory","Directory","File"])
+
+root.each_value do |rel|
+    if rel
+        firstdir = nil
+        rel.tracks.each_value do |tr|
+            tr.files.each do |f|
+                firstdir = f.directory unless firstdir
+                if (f.directory != firstdir)
+                    wout << [f.album,f.release,firstdir,f.directory,f.base]
+                end
+            end
+        end
+    end
+end
+
+
+ws5.write_col(2,0,wout.sort_by {|r| [r[1],r[0],r[3],r[4],r[5]] })
+
+wout = Array.new
+ws6 = xls.add_worksheet("6 - Dir Album")
+ws6.write(0,0,"Each Directory has only one Album")
+ws6.write_row(1,0,["Directory","File","First Album","Other Album"])
+
+dirs = Hash.new
+dir.files.each do |f|
+    if dirs[f.directory]
+        dirs[f.directory] << f
+    else
+        dirs[f.directory] = [f]
+    end
+end
+
+dirs.each_value do |fl|
+    firstalb = nil
+    fl.each do |f|
+        firstalb = f.album unless firstalb
+        if (firstalb != f.album)
+            wout << [f.directory,f.base,firstalb,f.album]
+        end
+    end
+end
+
+ws6.write_col(2,0,wout.sort_by {|r| [r[0],r[1],r[2],r[3]] })
+
+wout = Array.new
+ws7 = xls.add_worksheet("7 - Works")
+ws7.write(0,0,"Classical Tracks have Works")
+ws7.write_row(1,0,["Directory","File"])
+dir.files.each do |f|
+    if f.directory.include?("/classical/")
+        if (f.work == "") || (f.work.nil?)
+            wout << [f.directory,f.base]
+        end
+    end 
+end
+ws7.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
+
+
+wout = Array.new
+ws8 = xls.add_worksheet("8 - Composers")
+ws8.write(0,0,"Non-Classical don't have composers")
+ws8.write_row(1,0,["Directory","File","Composer"])
+dir.files.each do |f|
+    unless f.directory.include?("/classical/")
+        if (f.composer? && f.composer != "")
+            wout << [f.directory,f.base,f.composer]
+        end
+    end 
+end
+ws8.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
+
+dl = DamerauLevenshtein
+wout = Array.new
+ws9 = xls.add_worksheet("9 - Similar artists")
+ws9.write(0,0,"Artist pairs with low edit distance")
+ws9.write_row(1,0,["Artist 1", "Artist 2","Directory","File","Distance"])
+arts = Hash.new
+dir.files.each do |f|
+    if arts[f.artist]
+        arts[f.artist] << f
+    else
+        arts[f.artist] = [f]
+    end
+end
+arts.each_key do |a1|
+    arts.each_key do |a2|
+        d = dl.distance(a1,a2,2)
+        if d < 10
+            arts[a1].each do |f|
+                wout << [a1,a2,f.directory,f.name,d]
+            end
+        end
+    end
+end
+ws9.write_col(2,0,wout.sort_by {|r| [r[4],r[0],r[1],r[2],r[3]] })
+
+wout = Array.new
+ws10 = xls.add_worksheet("10 - Similar Composers")
+ws10.write(0,0,"Composer pairs with low edit distance")
+ws10.write_row(1,0,["Composer 1", "Composer 2","Directory","File","Distance"])
+arts = Hash.new
+dir.files.each do |f|
+    if arts[f.composer]
+        arts[f.composer] << f
+    else
+        arts[f.composer] = [f]
+    end
+end
+arts.each_key do |a1|
+    arts.each_key do |a2|
+        d = dl.distance(a1,a2,2)
+        if d < 10
+            arts[a1].each do |f|
+                wout << [a1,a2,f.directory,f.name,d]
+            end
+        end
+    end
+end
+
+ws10.write_col(2,0,wout.sort_by {|r| [r[4],r[0],r[1],r[2],r[3]] })
+
+
 
 =begin
 To do:
-    
-Classical tracks have works
-Only Classical tracks have composers
-Count of albums split by composer count
-one directory per album
-one album per directory
-moving scheme - create mock-up and check no clashes
-suggest similar artists (low edit distance)
+
 track has exactly one front cover
 same cover for all tracks in album
 
+Count of albums split by composer count
+moving scheme - create mock-up and check no clashes
+
+Multi-valued tags
 =end
 
 
