@@ -247,7 +247,7 @@ root.each_value do |rel|
 end
 
 
-ws5.write_col(2,0,wout.sort_by {|r| [r[1],r[0],r[3],r[4],r[5]] })
+ws5.write_col(2,0,wout.sort_by {|r| [r[1],r[0],r[2],r[3],r[4]] })
 
 wout = Array.new
 ws6 = xls.add_worksheet("6 - Dir Album")
