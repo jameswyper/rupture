@@ -47,6 +47,9 @@ class MusicFile
     def album
         @metadata.album[0]
     end
+    def title
+        @metadata.title[0]
+    end    
     def directory
         File.dirname(@name)
     end
@@ -195,32 +198,37 @@ ws4 = xls.add_worksheet("4 - Artists")
 ws4.write(0,0,"Artist / Album Artist consistency")
 ws4.write_row(1,0,["Directory","File","Artist","Other Artist","Album Artist"])
 
-root.each_value do |rel|
+albs = Hash.new
+dir.files.each do |f|
+    if albs[f.album]
+        albs[f.album] << f
+    else
+        albs[f.album] = [f]
+    end
+end
+
+albs.each_value do |a|
     thisart = nil
-    rel.tracks.each_value do |tr|
-      
-        tr.files.each do |f|
-            issue_artist = ""
-            issue_other_artist = ""
-            issue_album_artist = ""
-            thisart = f.artist unless thisart
-            albart = f.albumartist
-            if (thisart != f.artist) && (albart != "Various Artists")
-                #puts "#{f.name} artist inconsistency (#{f.artist}/#{thisart})"
-                issue_other_artist = thisart
-                issue_artist = f.artist
-            end
-            if (f.artist != albart) && (albart != "Various Artists")
-                issue_artist = f.artist
-                issue_album_artist = albart
-                #puts "#{f.name} album artist #{albart} but artist #{f.artist}"
-            end
-            unless ((issue_album_artist == "") && (issue_artist == "") && (issue_other_artist == ""))
-                wout << [f.directory,f.base,issue_artist,issue_other_artist,issue_album_artist]
-            end
+    a.each do |f|
+        issue_artist = ""
+        issue_other_artist = ""
+        issue_album_artist = ""
+        thisart = f.artist unless thisart
+        albart = f.albumartist
+        if (thisart != f.artist) && (albart != "Various Artists")
+            #puts "#{f.name} artist inconsistency (#{f.artist}/#{thisart})"
+            issue_other_artist = thisart
+            issue_artist = f.artist
         end
-        
-    end 
+        if (f.artist != albart) && (albart != "Various Artists")
+            issue_artist = f.artist
+            issue_album_artist = albart
+            #puts "#{f.name} album artist #{albart} but artist #{f.artist}"
+        end
+        unless ((issue_album_artist == "") && (issue_artist == "") && (issue_other_artist == ""))
+            wout << [f.directory,f.base,issue_artist,issue_other_artist,issue_album_artist]
+        end
+    end
 end
 
 ws4.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
@@ -230,8 +238,29 @@ puts "Check 5: Multi-directories for album"
 wout = Array.new
 ws5 = xls.add_worksheet("5 - Album Dir")
 ws5.write(0,0,"Each Album has only one directory")
-ws5.write_row(1,0,["Album", "Release","First Directory","Directory","File"])
+ws5.write_row(1,0,["Directory", "File","First Directory","Album"])
 
+
+albs = Hash.new
+dir.files.each do |f|
+    if albs[f.album]
+        albs[f.album] << f
+    else
+        albs[f.album] = [f]
+    end
+end
+
+albs.each_value do |a|
+    firstdir = nil
+    a.each do |f|
+        firstdir = f.directory unless firstdir
+        if (firstdir != f.directory)
+            wout << [f.directory,f.base,firstdir,f.album ? f.album : ""]
+        end
+    end
+end
+
+=begin
 root.each_value do |rel|
     if rel
         firstdir = nil
@@ -245,9 +274,10 @@ root.each_value do |rel|
         end
     end
 end
+=end
 
 
-ws5.write_col(2,0,wout.sort_by {|r| [r[1],r[0],r[2],r[3],r[4]] })
+ws5.write_col(2,0,wout.sort_by {|r| [r[1],r[0],r[2],r[3]] })
 
 puts "Check 6: Multi-albums for Directory"
 
@@ -331,8 +361,8 @@ arts.each_key do |a1|
             puts "#{ac} of approximately #{as*as} done; written #{wout.size}"
         end
         if (a1 != a2) && a1 && a2
-            d = dl.distance(a1,a2,2)
-            if d < 5
+            d = dl.distance(a1.downcase,a2.downcase,2)
+            if d < 3
                 arts[a1].each do |f|
                     wout << [a1,a2,f.directory,f.name,d]
                 end
@@ -365,8 +395,8 @@ arts.each_key do |a1|
             puts "#{ac} of approximately #{as*as} done; written #{wout.size}"
         end
         if (a1 != a2)  && a1 && a2
-            d = dl.distance(a1,a2,2)
-            if d < 5
+            d = dl.distance(a1.downcase,a2.downcase,2)
+            if d < 3
                 arts[a1].each do |f|
                     wout << [a1,a2,f.directory,f.name,d]
                 end
@@ -376,6 +406,28 @@ arts.each_key do |a1|
 end
 
 ws10.write_col(2,0,wout.sort_by {|r| [r[4],r[0],r[1],r[2],r[3]] })
+
+puts "Check 11: Leading / trailing spaces"
+
+wout = Array.new
+ws11 = xls.add_worksheet("11 - Spaces")
+ws11.write(0,0,"Tags with leading or trailing spaces")
+ws11.write_row(1,0,["Directory", "File","Artist","Album","Composer","Title"])
+
+dir.files.each do |f|
+    if (f.artist && f.artist.start_with?(" ")) ||
+        (f.artist && f.artist.end_with?(" ")) || 
+        (f.album && f.album.start_with?(" ")) ||
+        (f.album && f.album.end_with?(" ")) || 
+        (f.title && f.title.start_with?(" ")) ||
+        (f.title && f.title.end_with?(" ")) || 
+        (f.composer && f.composer.start_with?(" ")) ||
+        (f.composer && f.composer.end_with?(" "))
+            wout << [f.directory,f.base,"|#{f.artist}|","|#{f.album}|","|#{f.composer}|","|#{f.title}|"]
+    end
+end
+
+ws11.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
 
 
 
