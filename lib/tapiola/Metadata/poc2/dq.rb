@@ -200,10 +200,10 @@ ws4.write_row(1,0,["Directory","File","Artist","Other Artist","Album Artist"])
 
 albs = Hash.new
 dir.files.each do |f|
-    if albs[f.album]
-        albs[f.album] << f
+    if albs[f.album + f.directory]
+        albs[f.album + f.directory] << f
     else
-        albs[f.album] = [f]
+        albs[f.album + f.directory] = [f]
     end
 end
 
@@ -277,7 +277,7 @@ end
 =end
 
 
-ws5.write_col(2,0,wout.sort_by {|r| [r[1],r[0],r[2],r[3]] })
+ws5.write_col(2,0,wout.sort_by {|r| [r[0],r[1],r[2],r[3]] })
 
 puts "Check 6: Multi-albums for Directory"
 
