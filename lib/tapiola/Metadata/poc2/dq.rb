@@ -243,10 +243,10 @@ ws5.write_row(1,0,["Directory", "File","First Directory","Album"])
 
 albs = Hash.new
 dir.files.each do |f|
-    if albs[f.album]
-        albs[f.album] << f
+    if albs[f.album + f.albumartist]
+        albs[f.album + f.albumartist] << f
     else
-        albs[f.album] = [f]
+        albs[f.album + f.albumartist] = [f]
     end
 end
 
@@ -361,10 +361,16 @@ arts.each_key do |a1|
             puts "#{ac} of approximately #{as*as} done; written #{wout.size}"
         end
         if (a1 != a2) && a1 && a2
-            d = dl.distance(a1.downcase,a2.downcase,2)
-            if d < 3
+            c1 = a1.start_with?("The ") ? a1[4..-1].downcase : a1.downcase
+            c2 = a2.start_with?("The ") ? a2[4..-1].downcase : a2.downcase
+            l1 = c1.length
+            l2 = c2.length
+            l = 1.0 * (l1 > l2 ? l2 : l1)
+            d = dl.distance(c1,c2,2) 
+            ds = d / l
+            if (ds < 0.1) || (d < 2)
                 arts[a1].each do |f|
-                    wout << [a1,a2,f.directory,f.name,d]
+                    wout << [a1,a2,f.directory,f.name,ds]
                 end
             end
         end
@@ -434,8 +440,18 @@ ws11.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
 =begin
 To do:
 
+Remove The prefix when checking artist similarities
+Score based on distance / overall length
+
+include artist in check 5
+
+**testing to here**
+
+genre check
+
 track has exactly one front cover
 same cover for all tracks in album
+cover size less than 100k
 
 Count of albums split by composer count
 moving scheme - create mock-up and check no clashes
