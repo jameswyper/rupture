@@ -159,7 +159,7 @@ puts "Check 3: Track number format and contiguity"
 wout = Array.new
 ws3 = xls.add_worksheet("3 - Tracks")
 ws3.write(0,0,"Track numbering issues")
-ws3.write_row(1,0,["Directory","File","This Track","Previous Track"])
+ws3.write_row(1,0,["Directory","File","This Track","Previous Track","Previous Directory","Previous File"])
 
 root.each_value do |rel|
     alb = Array.new
@@ -168,6 +168,7 @@ root.each_value do |rel|
     end
     alb.sort! {|a,b| a.track.to_i <=> b.track.to_i }
     last = 0
+    last_f = nil
     alb.each do |f|
         issue_this = ""
         issue_last = ""
@@ -184,8 +185,9 @@ root.each_value do |rel|
         end
         last = this
         unless ((issue_this == "")  && (issue_last == ""))
-            wout << [f.directory,f.base,issue_this,issue_last]
+            wout << [f.directory,f.base,issue_this,issue_last,last_f ? last_f.directory : "",last_f ? last_f.base : ""]
         end
+        last_f = f
     end
 end
 
