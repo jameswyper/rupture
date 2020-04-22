@@ -242,11 +242,13 @@ ws5.write_row(1,0,["Directory", "File","First Directory","Album"])
 
 
 albs = Hash.new
+
 dir.files.each do |f|
-    if albs[f.album + f.albumartist]
-        albs[f.album + f.albumartist] << f
+    k = (f.album ? f.album : "") + (f.albumartist ? f.albumartist : "")
+    if albs[k]
+        albs[k] << f
     else
-        albs[f.album + f.albumartist] = [f]
+        albs[k] = [f]
     end
 end
 
