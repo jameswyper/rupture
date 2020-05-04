@@ -321,7 +321,7 @@ module GenericTag
                                 pic.description = p.description    
                                 pic.mime_type = p.mimetype
                                 pic.type = p.type    
-                                tag.add_frame(pic)
+                                filetag.add_frame(pic)
                             end
                         end
                     end

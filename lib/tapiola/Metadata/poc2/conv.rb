@@ -86,7 +86,7 @@ threads.times do
                 stdout,stderr,status = Open3.capture3(cmd)
                 flactag = GenericTag::Metadata.from_flac(sourcefile,false)
                 mp3tag = GenericTag::Metadata.convert(:id3v24,flactag)
-                mp3tag.to_mp3(destfile)
+                mp3tag.to_mp3(destfile,true)
                 log << stderr
             end
         end    
