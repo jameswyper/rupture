@@ -48,7 +48,7 @@ module GenericTag
 
 
     class Picture
-        attr_reader :type, :description, :mimetype, :data, :colordepth, :width, :height, :numcolors, :md5sum
+        attr_reader :type, :description, :mimetype, :data, :colordepth, :width, :height, :numcolors, :md5sum, :size
         def initialize(t,d,m,data = nil, c = nil, w = nil, h = nil, n = nil, md5only = true)
             @type = t
             @description = d
@@ -58,6 +58,7 @@ module GenericTag
             @width = w 
             @height = h 
             @numcolors = n
+            @size = data.to_s.size
             #self.create_md5sum(data) 
         end
         def create_md5sum(data)

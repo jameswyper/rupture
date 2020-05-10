@@ -46,6 +46,8 @@ class TestReadFlacPicture < MiniTest::Test
         assert_equal 'ecb1d0aa528309d4c5eefd0d05e27c8e', @flac2.pics[:front_cover][0].md5sum
         assert_equal 'b05088ab5b8c5a1a8d585132652760cf', @flac2.pics[:back_cover][0].md5sum
 
+        assert_equal 46993,@flac2.pics[:front_cover][0].size
+
     end
 
     def teardown
