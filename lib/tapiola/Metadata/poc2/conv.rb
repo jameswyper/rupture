@@ -2,6 +2,7 @@ require 'fileutils'
 require_relative 'tag'
 require 'shellwords'
 require 'open3'
+require 'pathname'
 
 # minimal sanity-check on parameters
 
@@ -26,7 +27,7 @@ lameopts = "--preset standard" unless lameopts
 
 sourcelist = Dir[source + "/**/*.flac"]
 
-puts "#{sourcelist.size} files in source tree"
+$stderr.puts "#{sourcelist.size} files in source tree"
 destlist = Dir[dest + "/**/*.mp3"]
 
 desthash = Hash[destlist.collect{|f| [f,true]}]
@@ -54,7 +55,7 @@ destwork = Array.new
 desthash.each {|k,v| if v then destwork << k end}
 
 total = sourcework.size
-puts "#{total} files actually need converting"
+$stderr.puts "#{total} files actually need converting"
 current = 0
 
 log = ""
@@ -78,7 +79,7 @@ threads.times do
                 end
             end
             if worktodo
-                puts "Working on file #{current}/#{total} #{sourcefile}"
+                $stderr.puts "Working on file #{current}/#{total} #{sourcefile}"
                 destfile = (sourcefile[0..-5] + "mp3").sub(source,dest)
                 destdir = destfile[0...(destfile.rindex('/') )]
                 mut.synchronize {FileUtils.makedirs(destdir)}
@@ -95,5 +96,16 @@ end
 
 workers.each(&:join)
 
+# create a file of stuff to rm
 
-puts log
+destdir = Hash.new
+destwork.each do |f|
+    pn = Pathname.new(f)
+    destdir[pn.dirname] = true
+    puts "rm -f #{Shellwords.escape(f)}"
+end
+destdir.keys.sort.reverse.each do |d|
+    puts "rmdir #{Shellwords.escape(d)}"
+end
+
+#puts log
