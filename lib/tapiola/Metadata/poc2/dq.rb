@@ -62,6 +62,9 @@ class MusicFile
     def base
         File.basename(@name)
     end
+    def covers
+        @metadata.pics[:front_cover]
+    end
 end
 
 class Track
@@ -439,25 +442,87 @@ end
 
 ws11.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
 
+puts "Check 12: Covers"
 
+wout = Array.new
+ws12 = xls.add_worksheet("12 - Covers")
+ws12.write(0,0,"Files with 0 or 2+ front covers, or large covers")
+ws12.write_row(1,0,["Directory", "File","Covers?","Size?","Different?"])
+
+cmd5 = nil
+dir.files.each do |f|
+    ok = true
+    cc = 1
+    cs = 0
+    md = ""
+    cl = f.covers ? f.covers.length : 0
+    if cl != 1
+        ok = false
+        cc = cl
+    end
+    if f.covers
+        f.covers.each do |cv|
+            if cmd5
+                if cv.md5sum != cmd5
+                    md = "Y"
+                end
+            else
+                cmd5 = cv.md5sum.dup
+            end
+            if cv.size > 102400
+                ok = false
+                if (cv.size > cs)
+                    cs = cv.size
+                end
+            end
+        end
+    end
+    wout << [f.directory,f.base,cc,cs,md]  unless ok
+end
+
+ws12.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
+
+puts "Check 13: Multi-composers"
+
+wout = Array.new
+ws13 = xls.add_worksheet("13 Composers")
+ws13.write(0,0,"Composer combinations")
+ws13.write_row(1,0,["Directory", "Combo"])
+
+
+
+albs.each_value do |a|
+    comps = Hash.new(0)
+    a.each do |f|
+        comps[f.composer] += 1
+        dir = f.directory
+    end
+    cs = ""
+    comps.invert.sort.reverse.map do |t,c|
+        cs = cs + "_" + (c ? c : "")
+    end
+    cs = cs[1..-1]  
+    #out[cs] += 1
+    wout << [dir,cs]  
+end
+
+ws13.write_col(2,0,wout.sort_by{|r| [r[0]]})
 
 =begin
 To do:
-
-Remove The prefix when checking artist similarities
-Score based on distance / overall length
-
-include artist in check 5
-
-**testing to here**
-
-genre check
-
 track has exactly one front cover
 same cover for all tracks in album
 cover size less than 100k
 
 Count of albums split by composer count
+
+**testing to here**
+
+genre check
+title has form "composer:"
+
+
+
 moving scheme - create mock-up and check no clashes
 
 Multi-valued tags
