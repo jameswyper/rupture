@@ -59,6 +59,9 @@ class MusicFile
     def work
         @metadata.musicbrainz_workid[0]
     end
+    def genre
+        @metadata.genre[0]
+    end
     def base
         File.basename(@name)
     end
@@ -487,15 +490,20 @@ puts "Check 13: Multi-composers"
 wout = Array.new
 ws13 = xls.add_worksheet("13 Composers")
 ws13.write(0,0,"Composer combinations")
-ws13.write_row(1,0,["Directory", "Combo"])
+ws13.write_row(1,0,["Directory", "Combo","Artist","Album"])
 
 
 
 albs.each_value do |a|
     comps = Hash.new(0)
+    alb = nil
+    art = nil
+    dirx = nil
     a.each do |f|
         comps[f.composer] += 1
-        dir = f.directory
+        dirx = f.directory
+        alb = f.album unless alb
+        art = f.albumartist unless art
     end
     cs = ""
     comps.invert.sort.reverse.map do |t,c|
@@ -503,29 +511,142 @@ albs.each_value do |a|
     end
     cs = cs[1..-1]  
     #out[cs] += 1
-    wout << [dir,cs]  
+    wout << [dirx,cs,alb,art]  
 end
 
 ws13.write_col(2,0,wout.sort_by{|r| [r[0]]})
+
+puts "Check 14: Genres"
+
+wout = Array.new
+ws14 = xls.add_worksheet("14 - Genres")
+ws14.write(0,0,"Files with unwanted genres")
+ws14.write_row(1,0,["Directory", "File","Genre"])
+
+dir.files.each do |f|
+    unless ["Childrens","Classical","Folk","Humour","Jazz","Rock","Spoken","Xmas","Blues","Soundtrack"].include? f.genre 
+        wout << [f.directory,f.base,f.genre]
+    end
+
+end
+
+ws14.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
+
+puts "Check 15: Titles"
+
+wout = Array.new
+ws15 = xls.add_worksheet("15 - Titles")
+ws15.write(0,0,"Files that Picard has previously messed up titles for")
+ws15.write_row(1,0,["Directory", "File","Genre"])
+
+dir.files.each do |f|
+    if f.album=~/^\w*: .*/
+        wout << [f.directory,f.base,f.album]
+    end
+
+end
+
+ws15.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
+
+puts "Check 16: Multi-valued Tags"
+
+
+wout = Array.new
+ws16 = xls.add_worksheet("16 - Multivalued tags")
+ws16.write(0,0,"Files with tags with more than one value")
+ws16.write_row(1,0,["Directory", "File","Tag"])
+
+dir.files.each do |f|
+    
+    f.metadata.tags.each_value do |tag|
+        if tag.values.length > 1
+            wout << [f.directory,f.base,tag.name]
+        end
+    end
+end
+
+ws16.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
+
+
+puts "Check 17: Collisions on new path"
+
+wout = Array.new
+filecount = Hash.new(Array.new)
+ws17 = xls.add_worksheet("17 - Collisions")
+ws17.write(0,0,"Files which will get moved to the same location")
+ws17.write_row(1,0,["Directory", "File","New Location"])
+
+albs.each_value do |a|
+    comps = Hash.new(0)
+    a.each do |f|
+        comps[f.composer] += 1
+    end
+    cs = ""
+    comps.invert.sort.reverse.map do |t,c|
+        cs = cs + "_" + (c ? c : "")
+    end
+    if comps.length > 4
+        cs = "Various"
+    else
+        cs = cs[1..-1]  
+    end
+    a.each do |f|
+        if f.directory=~/\/classical\//
+            newdest = "#{f.genre}/#{cs}/#{f.albumartist}/#{f.album}/#{f.track}_#{f.title.gsub(" ","_")}"
+        else
+            newdest = "#{f.genre}/#{f.albumartist}/#{f.album}/#{f.track}_#{f.title.gsub(" ","_")}"
+        end 
+        filecount[newdest] << f
+    end
+end
+
+filecount.each do |dest, fs|
+    if fs.length > 1
+        fs.each do |f|
+            wout << [f.directory,f.base,newdest]
+        end
+    end
+end
+
+ws17.write_col(2,0,wout.sort_by {|r| [r[2],r[0],r[1]] })
+
+
+
+puts "Check 18: New paths"
+
+wout = Array.new
+ws18 = xls.add_worksheet("18 - New")
+
+newdirs = Hash.new
+filecount.each_key do |k|
+    d = File.dirname(k)
+    newdirs[d] = d
+end
+
+newdirs.each_key { |d| wout << [d] }
+
+ws18.write_col(0,0,wout.sort_by {|r| [r[0]] })
+
+
 
 =begin
 To do:
 track has exactly one front cover
 same cover for all tracks in album
 cover size less than 100k
-
 Count of albums split by composer count
+genre check
+title has form "composer:"
+Multi-valued tags
 
 **testing to here**
 
-genre check
-title has form "composer:"
+
 
 
 
 moving scheme - create mock-up and check no clashes
 
-Multi-valued tags
 =end
 
 
