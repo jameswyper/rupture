@@ -537,14 +537,29 @@ puts "Check 15: Titles"
 wout = Array.new
 ws15 = xls.add_worksheet("15 - Titles")
 ws15.write(0,0,"Files that Picard has previously messed up titles for")
-ws15.write_row(1,0,["Directory", "File","Genre"])
+ws15.write_row(1,0,["Directory", "File","Album"])
 
-dir.files.each do |f|
-    if f.album=~/^\w*: .*/
-        wout << [f.directory,f.base,f.album]
+
+
+albs.each_value do |a|
+    comps = Hash.new
+    a.each do |f|
+        comps[f.composer] = true
     end
-
+    a.each do |f|
+        chg = ""
+        if f.album=~/^\w*: .*/
+            if (comps.size == 1)
+                comp = comps.keys[0]
+                if f.album=~/#{comp}: .*/
+                    chg = f.album.sub(/^\w: /,'')
+                end
+            end
+            wout << [f.directory,f.base,f.album,chg]
+        end
+    end
 end
+
 
 ws15.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
 
