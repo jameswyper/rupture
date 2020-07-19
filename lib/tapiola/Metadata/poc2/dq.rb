@@ -552,7 +552,7 @@ albs.each_value do |a|
             if (comps.size == 1)
                 comp = comps.keys[0]
                 if f.album=~/#{comp}: .*/
-                    chg = f.album.sub(/^\w: /,'')
+                    chg = f.album.sub(/^\w*: /,'')
                 end
             end
             wout << [f.directory,f.base,f.album,chg]
