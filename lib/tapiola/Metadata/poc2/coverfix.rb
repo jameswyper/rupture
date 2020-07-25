@@ -84,6 +84,7 @@ end
 puts "Scanning done and #{dir.files.length} files found"
 
 dir.files.each do |f|
+    wf = nil
     if f.covers
         f.covers.each do |cv|
             if (cv.size > MAXSIZE) || (cv.width > MAXDIM) || (cv.height > MAXDIM)
@@ -105,8 +106,12 @@ dir.files.each do |f|
                         s = wcv.size
                         while (s > MAXSIZE) do
                             q = q - 1
-                            d = ims.to_blob { format = "jpg"; quality = q }
+                            d = ims.to_blob do
+                                 self.format = "jpg" 
+                                 self.quality = q 
+                            end
                             s = d.to_s.size
+                            #puts "q:#{q} s:#{s}"
                         end
                         nh = (wcv.height * scale).to_i
                         nw = (wcv.width * scale).to_i
@@ -116,10 +121,18 @@ dir.files.each do |f|
                         puts "Mimetype   old: #{wcv.mimetype} new: #{nm}"
                         puts "Size       old: #{wcv.size} new: #{s}"
                         puts "Quality    #{q}"
+                        wcv.height = nh
+                        wcv.width = nw
+                        wcv.mimetype = nm
+                        wcv.size = s
+                        wcv.data = d
                     end
                 end
             end
         end
+    end
+    if wf
+        wf.metadata.to_flac(f.name,true)
     end
 end
 

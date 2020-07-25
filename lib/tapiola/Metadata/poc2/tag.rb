@@ -48,7 +48,8 @@ module GenericTag
 
 
     class Picture
-        attr_reader :type, :description, :mimetype, :data, :colordepth, :width, :height, :numcolors, :md5sum, :size
+        attr_accessor :type, :description, :mimetype, :data, :colordepth, :width, :height, :numcolors, :size
+        attr_reader :md5sum
         def initialize(t,d,m,data = nil, c = nil, w = nil, h = nil, n = nil, md5only = true)
             @type = t
             @description = d
@@ -215,6 +216,7 @@ module GenericTag
             end
         end
 
+
         def self.convert(type,old_ts)
             t = type.to_sym
             new_ts = Metadata.new(t)
@@ -257,6 +259,7 @@ module GenericTag
                     end
                 end
                 if (art)
+                    f.remove_pictures
                     @pics.each_value do |pa|
                         pa.each do |p|
                             if p.data
@@ -314,6 +317,7 @@ module GenericTag
                     end
                 end
                 if (art)
+                    filetag.remove_frames("APIC")
                     @pics.each_value do |pa|
                         pa.each do |p|
                             if p.data

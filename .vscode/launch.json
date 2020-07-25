@@ -11,7 +11,8 @@
             "type": "Ruby",
             "request": "launch",
             "program": "${file}",
-            "args": ["/media/james/karelia/Music/flac/classical/orchestral/concerts/karajan"]
+            //"args": ["/media/james/karelia/Music/flac/classical/orchestral/concerts/karajan"]
+            "args" : ["/home/james/Downloads/testmusic"]
         }
     ]
 }
