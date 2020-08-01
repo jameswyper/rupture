@@ -3,6 +3,7 @@ require 'digest'
 
 
 
+
 module GenericTag
 
 
@@ -333,6 +334,40 @@ module GenericTag
                 end
                 f.save
             end            
+        end
+
+        def self.update_tags(file,tags,type = nil)
+
+            unless type
+                type = File.extname(file)
+            end
+            
+            case type
+            when :mp3, "mp3", ".mp3"
+                m = self.from_mp3(file)
+            when :flac, "flac", ".flac"
+                m = self.from_flac(file)
+            else raise "unsupported type (flac/mp3 only) ", type
+            end
+
+            tags.each_key do |k|
+                i = @@mappings[m.type][k]
+                if i
+                    j  = i
+                else    
+                    j = k
+                end
+                m.set(j,tags[k])
+            end
+
+            case type
+            when :mp3, "mp3", ".mp3"
+                m.to_mp3(file)
+            when :flac, "flac", ".flac"
+                m.to_flac(file)
+            else raise "unsupported type (flac/mp3 only) #{type}"
+            end
+
         end
 
     end

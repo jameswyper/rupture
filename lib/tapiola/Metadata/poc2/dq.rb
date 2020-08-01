@@ -1,6 +1,6 @@
 require_relative 'tag'
 require 'fileutils'
-require 'pathname'
+
 require 'writeexcel'
 require 'damerau-levenshtein'
 
