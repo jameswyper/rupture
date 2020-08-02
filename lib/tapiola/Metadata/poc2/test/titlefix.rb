@@ -7,7 +7,8 @@ CSV.foreach("/home/james/Code/titlefix2.txt",{:col_sep => "\t", :external_encodi
     #file.gsub!('/home/james','/media/james/karelia')
     begin
     m = GenericTag::Metadata.from_flac(file)
-    #puts "#{file}|#{newtit}|#{m.album}" 
+    #puts "#{file}|#{newtit}|#{m.album}"
+    GenericTag::Metadata.update(file,:album => newtit) 
     rescue
     puts "#{file}"
     end
