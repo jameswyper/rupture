@@ -97,15 +97,45 @@ class Release
     end
 end
 
-dir = Directory.new(ARGV[0])
-puts "Scanning"
-dir.scan do |file,count,total|
-    #puts "#{count}/#{total} #{file}"
-    if (count % 20 == 0) then puts "#{count}/#{total}" end
+save = false
+restore = false
+
+
+case ARGV.length
+when 1
+    sourcepath = ARGV[0]
+when 2
+    unless ARGV[0] == "-r" then abort "Should specify -r (filename)" end
+    savepath = ARGV[1]
+    restore = true
+when 3
+    unless ARGV[0] == "-d" then abort "Should specify -d (filename) (path)" end
+    savepath = ARGV[1]
+    sourcepath = ARGV[2]
+    save = true
+else
+    abort "Should have max 1-3 arguments"        
 end
 
+if (!restore)
 
-puts "Scanning done and #{dir.files.length} files found"
+    dir = Directory.new(sourcepath)
+    puts "Scanning"
+    dir.scan do |file,count,total|
+        #puts "#{count}/#{total} #{file}"
+        if (count % 20 == 0) then puts "#{count}/#{total}" end
+    end
+    puts "Scanning done and #{dir.files.length} files found"
+end
+
+if (save)
+    File.open(savepath,"w").write(Marshal.dump(dir))
+end
+
+if (restore)
+    puts "Restoring"
+    dir = Marshal.load(File.open(savepath).read)
+end
 
 xls = WriteExcel.new('dq.xls')
 
@@ -215,6 +245,7 @@ dir.files.each do |f|
     end
 end
 
+
 albs.each_value do |a|
     thisart = nil
     a.each do |f|
@@ -259,6 +290,9 @@ dir.files.each do |f|
         albs[k] = [f]
     end
 end
+
+
+
 
 albs.each_value do |a|
     firstdir = nil
@@ -347,6 +381,8 @@ dir.files.each do |f|
 end
 ws8.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
 
+=begin
+
 puts "Check 9: Similar artists"
 
 dl = DamerauLevenshtein
@@ -422,6 +458,8 @@ arts.each_key do |a1|
 end
 
 ws10.write_col(2,0,wout.sort_by {|r| [r[4],r[0],r[1],r[2],r[3]] })
+
+=end
 
 puts "Check 11: Leading / trailing spaces"
 
@@ -563,6 +601,8 @@ end
 
 ws15.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
 
+
+
 puts "Check 16: Multi-valued Tags"
 
 
@@ -586,12 +626,29 @@ ws16.write_col(2,0,wout.sort_by {|r| [r[0],r[1]] })
 puts "Check 17: Collisions on new path"
 
 wout = Array.new
-filecount = Hash.new(Array.new)
+filecount = Hash.new
 ws17 = xls.add_worksheet("17 - Collisions")
 ws17.write(0,0,"Files which will get moved to the same location")
 ws17.write_row(1,0,["Directory", "File","New Location"])
 
+dbgct = 0
+
+albs = Hash.new
+dir.files.each do |f|
+    k = (f.release ? f.release : "") + (f.album ? f.album : "")
+    if albs[k]
+        albs[k] << f
+    else
+        albs[k] = [f]
+    end
+end
+
+puts "We have #{albs.size} albums"
+
 albs.each_value do |a|
+    
+    dbgct = dbgct + 1
+    
     comps = Hash.new(0)
     a.each do |f|
         comps[f.composer] += 1
@@ -606,21 +663,34 @@ albs.each_value do |a|
         cs = cs[1..-1]  
     end
     a.each do |f|
+        newdest = ""
         if f.directory=~/\/classical\//
-            newdest = "#{f.genre}/#{cs}/#{f.albumartist}/#{f.album}/#{f.track}_#{f.title.gsub(" ","_")}"
+            newdest = "#{f.genre}/#{cs}/#{f.albumartist}/#{f.album}/#{f.track}_#{f.title.gsub(" ","_").gsub('/','_')}"
         else
-            newdest = "#{f.genre}/#{f.albumartist}/#{f.album}/#{f.track}_#{f.title.gsub(" ","_")}"
+            newdest = "#{f.genre}/#{f.albumartist}/#{f.album}/#{f.track}_#{f.title.gsub(" ","_").gsub('/','_')}"
         end 
-        filecount[newdest] << f
+        if filecount[newdest] 
+            filecount[newdest.dup] = filecount[newdest.dup] << f.dup
+        else
+            filecount[newdest.dup] = [f.dup]
+        end 
     end
+
+    if (dbgct % 100 == 0) then puts "#{dbgct}/#{albs.size} albums processed" end
 end
 
+puts "#{filecount.size} combinations to process"
+dbgct = 0
+
 filecount.each do |dest, fs|
+    dbgct = dbgct + 1
     if fs.length > 1
         fs.each do |f|
-            wout << [f.directory,f.base,newdest]
+            wout << [f.directory,f.base,dest]
         end
     end
+    if (dbgct % 100 == 0) then puts "#{dbgct}/#{filecount.size} files processed and #{wout.size} duplicates" end
+
 end
 
 ws17.write_col(2,0,wout.sort_by {|r| [r[2],r[0],r[1]] })
@@ -666,3 +736,5 @@ moving scheme - create mock-up and check no clashes
 
 
 xls.close
+
+puts "All done"

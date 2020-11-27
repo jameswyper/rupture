@@ -12,7 +12,8 @@
             "request": "launch",
             "program": "${file}",
             //"args": ["/media/james/karelia/Music/flac/classical/orchestral/concerts/karajan"]
-            "args" : ["/home/james/Downloads/testmusic"]
+            //"args" : ["-d","/home/james/marshal","/media/james/karelia/Music/flac/"]
+            "args" : ["-r","/home/james/marshal"]
         }
     ]
 }
