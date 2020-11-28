@@ -4,6 +4,14 @@ require 'fileutils'
 require 'writeexcel'
 require 'damerau-levenshtein'
 
+String.class_eval do
+
+def sanitise
+    return self.gsub(" ","_").gsub('/','-').gsub(":","_").gsub('-',"_")
+end
+
+end
+
 class Directory
 	def initialize(d)
 		@pathname = d
@@ -44,12 +52,21 @@ class MusicFile
     def albumartist
         @metadata.albumartist[0]
     end
+    def albumartist=(x)
+        @metadata.albumartist[0] = x
+    end
     def album
         @metadata.album[0]
     end
+    def album=(x)
+        @metadata.album[0] = x
+    end
     def title
         @metadata.title[0]
-    end    
+    end
+    def title=(x)
+        @metadata.title[0] = x
+    end
     def directory
         File.dirname(@name)
     end
@@ -654,20 +671,55 @@ albs.each_value do |a|
         comps[f.composer] += 1
     end
     cs = ""
-    comps.invert.sort.reverse.map do |t,c|
+    compsa = comps.to_a
+    compsa.sort_by{|e| e[0]}.sort_by{|e| -e[1]}.each do |f|
+        c = f[0]
         cs = cs + "_" + (c ? c : "")
     end
     if comps.length > 4
         cs = "Various"
     else
-        cs = cs[1..-1]  
+        cs = cs[1..-1]
+        cs = "" unless cs
+        if cs[0] == "_" then cs = cs[1..-1]  end
+        if cs[-1] == "_" then cs = cs[0..-2] end
     end
+
     a.each do |f|
         newdest = ""
-        if f.directory=~/\/classical\//
-            newdest = "#{f.genre}/#{cs}/#{f.albumartist}/#{f.album}/#{f.track}_#{f.title.gsub(" ","_").gsub('/','_')}"
+        topdir = f.directory.match("flac\/+(.+?)\/")[1]
+        nextdir = f.directory.match("flac\/+(.+?)\/+(.+?)\/")[2]
+
+        unless f.genre 
+            puts ("#{f.directory}/#{f.base} genre missing")
+            f.genre = ""
+        end
+    
+        unless f.album 
+            puts ("#{f.directory}/#{f.base} album missing") 
+            f.album = "" 
+        end
+        unless f.title 
+            puts ("#{f.directory}/#{f.base} title missing") 
+            f.title = "" 
+        end
+        unless f.albumartist 
+            puts ("#{f.directory}/#{f.base} albumartist missing") 
+            f.albumartist = "" 
+        end
+        unless f.track 
+            puts ("#{f.directory}/#{f.base} track missing")
+            f.track = "" 
+        end
+
+        if topdir == "classical"
+            if nextdir == "boxsets"
+                newdest == "#{topdir}/#{nextdir}/#{f.album.sanitise}/#{f.track.sanitise}_#{f.title.sanitise}"
+            else
+                newdest = "#{topdir}/#{cs.sanitise}/#{f.albumartist.sanitise}/#{f.album.sanitise}/#{f.track.sanitise}_#{f.title.sanitise}"
+            end
         else
-            newdest = "#{f.genre}/#{f.albumartist}/#{f.album}/#{f.track}_#{f.title.gsub(" ","_").gsub('/','_')}"
+            newdest = "#{topdir}/#{f.albumartist.sanitise}/#{f.album.sanitise}/#{f.track.sanitise}_#{f.title.sanitise}"
         end 
         if filecount[newdest] 
             filecount[newdest.dup] = filecount[newdest.dup] << f.dup
@@ -689,7 +741,7 @@ filecount.each do |dest, fs|
             wout << [f.directory,f.base,dest]
         end
     end
-    if (dbgct % 100 == 0) then puts "#{dbgct}/#{filecount.size} files processed and #{wout.size} duplicates" end
+    #if (dbgct % 100 == 0) then puts "#{dbgct}/#{filecount.size} files processed and #{wout.size} duplicates" end
 
 end
 
