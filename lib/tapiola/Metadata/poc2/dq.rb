@@ -672,7 +672,7 @@ albs.each_value do |a|
     end
     cs = ""
     compsa = comps.to_a
-    compsa.sort_by{|e| e[0]}.sort_by{|e| -e[1]}.each do |f|
+    compsa.sort_by{|e| "#{e[0]}"}.sort_by{|e| -e[1]}.each do |f|
         c = f[0]
         cs = cs + "_" + (c ? c : "")
     end
@@ -687,8 +687,10 @@ albs.each_value do |a|
 
     a.each do |f|
         newdest = ""
-        topdir = f.directory.match("flac\/+(.+?)\/")[1]
-        nextdir = f.directory.match("flac\/+(.+?)\/+(.+?)\/")[2]
+        topm = f.directory.match("flac\/+(.+?)\/")
+        if topm then topdir = topm[1] else topdir = "" end
+        nextm = f.directory.match("flac\/+(.+?)\/+(.+?)\/")
+        if nextm && nextm.length > 2 then nextdir = nextm[2] else nextdir = "" end
 
         unless f.genre 
             puts ("#{f.directory}/#{f.base} genre missing")
