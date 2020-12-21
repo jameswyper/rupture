@@ -716,7 +716,7 @@ albs.each_value do |a|
 
         if topdir == "classical"
             if nextdir == "boxsets"
-                newdest == "#{topdir}/#{nextdir}/#{f.album.sanitise}/#{f.track.sanitise}_#{f.title.sanitise}"
+                newdest = "#{topdir}/#{nextdir}/#{f.album.sanitise}/#{f.track.sanitise}_#{f.title.sanitise}"
             else
                 newdest = "#{topdir}/#{cs.sanitise}/#{f.albumartist.sanitise}/#{f.album.sanitise}/#{f.track.sanitise}_#{f.title.sanitise}"
             end
