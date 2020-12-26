@@ -3,6 +3,8 @@ require 'fileutils'
 
 require 'writeexcel'
 require 'damerau-levenshtein'
+require 'shellwords'
+require 'pathname'
 
 String.class_eval do
 
@@ -116,22 +118,32 @@ end
 
 save = false
 restore = false
+move = false
+movepath = ""
 
 
 case ARGV.length
 when 1
     sourcepath = ARGV[0]
-when 2
+when 2,4
     unless ARGV[0] == "-r" then abort "Should specify -r (filename)" end
     savepath = ARGV[1]
     restore = true
-when 3
+    if ARGV[2] == "-m"
+        move = true
+        movepath = ARGV[3]
+    end
+when 3,5
     unless ARGV[0] == "-d" then abort "Should specify -d (filename) (path)" end
     savepath = ARGV[1]
     sourcepath = ARGV[2]
     save = true
+    if ARGV[3] == "-m"
+        move = true
+        movepath = ARGV[4]
+    end
 else
-    abort "Should have max 1-3 arguments"        
+    abort "Should have max 1-5 arguments"        
 end
 
 if (!restore)
@@ -730,7 +742,7 @@ albs.each_value do |a|
         end 
     end
 
-    if (dbgct % 100 == 0) then puts "#{dbgct}/#{albs.size} albums processed" end
+    #if (dbgct % 100 == 0) then puts "#{dbgct}/#{albs.size} albums processed" end
 end
 
 puts "#{filecount.size} combinations to process"
@@ -746,6 +758,8 @@ filecount.each do |dest, fs|
     #if (dbgct % 100 == 0) then puts "#{dbgct}/#{filecount.size} files processed and #{wout.size} duplicates" end
 
 end
+
+puts "#{wout.size} duplicates"
 
 ws17.write_col(2,0,wout.sort_by {|r| [r[2],r[0],r[1]] })
 
@@ -766,6 +780,23 @@ newdirs.each_key { |d| wout << [d] }
 
 ws18.write_col(0,0,wout.sort_by {|r| [r[0]] })
 
+if (move)
+    mf = File.open(movepath,"w")
+    filecount.each do |dest, fs|
+        f = fs[0]
+        source = f.name
+        if (dir.pathname + dest).length > 248
+            mdest = (dir.pathname + "/" + dest)[0..247] + ".flac"
+        else
+            mdest = dir.pathname + "/" + dest + ".flac"
+        end
+        mdir = Pathname.new(mdest).dirname
+        if (source != mdest)
+            mf.write("mkdir -p #{Shellwords.escape(mdir)}\n")
+            mf.write("mv #{Shellwords.escape(source)} #{Shellwords.escape(mdest)}\n")
+        end
+    end
+end
 
 
 =begin

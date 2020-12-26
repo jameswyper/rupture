@@ -13,7 +13,7 @@
             "program": "${file}",
             //"args": ["/media/james/karelia/Music/flac/classical/orchestral/concerts/karajan"]
             //"args" : ["-d","/home/james/marshal","/media/james/karelia/Music/flac/"]
-           "args" : ["-r","/media/james/karelia/marshal"]
+           "args" : ["-r","/home/james/marshal","-m","/home/james/movescript"]
         }
     ]
 }
