@@ -798,6 +798,31 @@ if (move)
     end
 end
 
+puts "Check 19: Long names"
+
+wout = Array.new
+ws19 = xls.add_worksheet("19 - Long")
+
+longalb = Hash.new
+longtit = Hash.new
+
+dir.files.each do |f|
+    if f.album.length > 120
+        longalb[f.album] = f
+    end
+    if f.title.length > 120
+        longtit[f.title] = f
+    end
+end
+
+longalb.each {|a,f| wout << [Pathname.new(f.name).dirname.to_s, a, ""]}
+longtit.each {|t,f| wout << [f.name,"",t]}
+
+#newdirs.each_key { |d| wout << [d] }
+
+ws19.write_col(0,0,wout.sort_by {|r| [r[0]] })
+
+
 
 =begin
 To do:
