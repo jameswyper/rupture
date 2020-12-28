@@ -85,9 +85,11 @@ threads.times do
                 mut.synchronize {FileUtils.makedirs(destdir)}
                 cmd = "flac --decode -c -s --apply-replaygain-which-is-not-lossless #{Shellwords.escape(sourcefile)} | lame --silent #{lameopts} - #{Shellwords.escape(destfile)}"
                 stdout,stderr,status = Open3.capture3(cmd)
-                flactag = GenericTag::Metadata.from_flac(sourcefile,false)
-                mp3tag = GenericTag::Metadata.convert(:id3v24,flactag)
-                mp3tag.to_mp3(destfile,true)
+                mut.synchronize do
+                    flactag = GenericTag::Metadata.from_flac(sourcefile,false)
+                    mp3tag = GenericTag::Metadata.convert(:id3v24,flactag)
+                    mp3tag.to_mp3(destfile,true)
+                end
                 log << stderr
             end
         end    
