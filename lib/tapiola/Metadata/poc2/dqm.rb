@@ -708,34 +708,44 @@ albs.each_value do |a|
 
         unless f.genre 
             puts ("#{f.directory}/#{f.base} genre missing")
-            f.genre = ""
+#            f.set_genre ""
         end
     
         unless f.album 
             puts ("#{f.directory}/#{f.base} album missing") 
-            f.album = "" 
+#          f.set_album "" 
         end
         unless f.title 
             puts ("#{f.directory}/#{f.base} title missing") 
-            f.title = "" 
+ #           f.set_title  "" 
         end
         unless f.albumartist 
             puts ("#{f.directory}/#{f.base} albumartist missing") 
-            f.albumartist = "" 
+ #           f.set_albumartist  "" 
         end
         unless f.track 
             puts ("#{f.directory}/#{f.base} track missing")
-            f.track = "" 
+#            f.set_track  "" 
         end
+
+        sanalbum = (f.album ? f.album : "").sanitise
+        sanalbumartist = (f.albumartist ? f.albumartist : "").sanitise
+        santrack = (f.track ? f.track : "").sanitise
+        sanartist = (f.artist ? f.artist : "").sanitise
+        santitle = (f.title ? f.title : "").sanitise
 
         if topdir == "classical"
             if nextdir == "boxsets"
-                newdest = "#{topdir}/#{nextdir}/#{f.album.sanitise}/#{f.track.sanitise}_#{f.title.sanitise}"
+                newdest = "#{topdir}/#{nextdir}/#{sanalbum}/#{santrack}_#{santitle}"
             else
-                newdest = "#{topdir}/#{cs.sanitise}/#{f.albumartist.sanitise}/#{f.album.sanitise}/#{f.track.sanitise}_#{f.title.sanitise}"
+                newdest = "#{topdir}/#{cs.sanitise}/#{sanalbumartist}/#{sanalbum}/#{santrack}_#{f.santitle}"
             end
         else
-            newdest = "#{topdir}/#{f.albumartist.sanitise}/#{f.album.sanitise}/#{f.track.sanitise}_#{f.title.sanitise}"
+            unless f.albumartist && f.album && f.track && f.title && topdir
+                puts "oops"
+            end
+            
+            newdest = "#{topdir}/#{sanalbumartist}/#{sanalbum}/#{santrack}_#{santitle}"
         end 
         if filecount[newdest] 
             filecount[newdest.dup] = filecount[newdest.dup] << f.dup
@@ -809,10 +819,10 @@ longalb = Hash.new
 longtit = Hash.new
 
 dir.files.each do |f|
-    if f.album.length > 120
+    if f.album && f.album.length > 120
         longalb[f.album] = f
     end
-    if f.title.length > 120
+    if f.title && f.title.length > 120
         longtit[f.title] = f
     end
 end

@@ -83,7 +83,7 @@ module GenericTag
         albumartist,TPE2,ALBUMARTIST
         albumartistsort,TSO2,ALBUMARTISTSORT
         artists,TXXX:Artists,ARTISTS
-        date,TDRC id3v24,DATE
+        date,TDRC,DATE
         composer,TCOM,COMPOSER
         composersort,TSOC,COMPOSERSORT
         lyricist,TEXT,LYRICIST
@@ -100,7 +100,7 @@ module GenericTag
         tracknumber,TRCK,TRACKNUMBER
         discnumber,TPOS,DISCNUMBER
         compilation,TCMP,COMPILATION
-        comment:description,COMM:description,COMMENT
+        comment,COMM:description,COMMENT
         genre,TCON,GENRE
         releasestatus,TXXX:MusicBrainz Album Status,RELEASESTATUS
         releasetype,TXXX:MusicBrainz Album Type,RELEASETYPE
@@ -159,9 +159,10 @@ module GenericTag
                 v = @tags[@@mappings[@type][k]]
                 v ? v.values : []
             end
-            define_method "#{k}=".to_sym do |t| 
-                self.set(@@mappings[@type][k],t)
-            end
+#            self.instance_variable_set("@#{k}".to_sym,"")
+#            define_method "set_#{k}".to_sym do |t| 
+#                self.set(@@mappings[@type][k],t)
+#            end
         end
 
         @@picnum2name = {
