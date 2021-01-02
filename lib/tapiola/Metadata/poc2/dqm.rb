@@ -267,10 +267,11 @@ ws4.write_row(1,0,["Directory","File","Artist","Other Artist","Album Artist"])
 
 albs = Hash.new
 dir.files.each do |f|
-    if albs[f.album + f.directory]
-        albs[f.album + f.directory] << f
+  k = "#{f.album}#{f.directory}"
+    if albs[k]
+        albs[k] << f
     else
-        albs[f.album + f.directory] = [f]
+        albs[k] = [f]
     end
 end
 
@@ -697,7 +698,8 @@ albs.each_value do |a|
         if cs[-1] == "_" then cs = cs[0..-2] end
     end
 
-    a.each do |f|
+    a.each do |g|
+        f = g
         newdest = ""
         topm = f.directory.match("flac\/+(.+?)\/")
         if topm then topdir = topm[1] else topdir = "" end
