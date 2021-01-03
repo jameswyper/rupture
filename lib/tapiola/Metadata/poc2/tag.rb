@@ -108,7 +108,7 @@ module GenericTag
         barcode,TXXX:BARCODE,BARCODE
         isrc,TSRC,ISRC
         asin,TXXX:ASIN,ASIN
-        musicbrainz_recordingid,UFID://musicbrainz.org,MUSICBRAINZ_TRACKID
+        musicbrainz_recordingid,UFID:http//musicbrainz.org,MUSICBRAINZ_TRACKID
         musicbrainz_trackid,TXXX:MusicBrainz Release Track Id,MUSICBRAINZ_RELEASETRACKID
         musicbrainz_albumid,TXXX:MusicBrainz Album Id,MUSICBRAINZ_ALBUMID
         musicbrainz_originalalbumid,TXXX:MusicBrainz Original Album Id,MUSICBRAINZ_ORIGINALALBUMID
@@ -285,15 +285,20 @@ module GenericTag
             ts = Metadata.new(:id3v24)
             TagLib::MPEG::File.open(file) do |f|
                 f.id3v2_tag.frame_list.each do |frame|
-                    if frame.is_a? TagLib::ID3v2::TextIdentificationFrame
+                    case 
+                    when (frame.is_a? TagLib::ID3v2::TextIdentificationFrame) && !(frame.is_a? TagLib::ID3v2::UserTextIdentificationFrame)
                         frame.field_list.each do |field|
                             ts.append(frame.frame_id.to_sym,field.dup)
                         end
-                    else
-                        if frame.is_a? TagLib::ID3v2::AttachedPictureFrame
-                            px = Picture.new(frame.type,frame.description,frame.mime_type,frame.picture,nil,nil,nil,nil,md5only)
-                            px.create_md5sum(frame.picture)
-                            ts.add_pic(px)
+                    when (frame.is_a? TagLib::ID3v2::AttachedPictureFrame) 
+                        px = Picture.new(frame.type,frame.description,frame.mime_type,frame.picture,nil,nil,nil,nil,md5only)
+                        px.create_md5sum(frame.picture)
+                        ts.add_pic(px)
+                    when (frame.is_a? TagLib::ID3v2::UniqueFileIdentifierFrame)
+                        ts.append("UFID:#{frame.owner}".to_sym,frame.identifier.dup)
+                    when (frame.is_a? TagLib::ID3v2::UserTextIdentificationFrame) 
+                        frame.field_list[1..-1].each do |field|
+                            ts.append("TXXX:#{frame.field_list[0]}".to_sym, field.dup)
                         end
                     end
                 end

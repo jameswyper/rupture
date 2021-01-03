@@ -11,9 +11,9 @@
             "type": "Ruby",
             "request": "launch",
             "program": "${file}",
-            //"args": ["/media/james/karelia/Music/flac/classical/orchestral/concerts/karajan"]
-            //"args" : ["-d","/home/james/marshal","/media/james/karelia/Music/flac/"]
-           "args" : ["-r","/home/james/marshalmp3","-m","/home/james/movescript"]
+            //"args": ["/home/james/wag"]
+            "args" : ["-d","/home/james/marshal","/media/james/karelia/Music/mp3/originals"]
+           //"args" : ["-r","/home/james/marshalmp3","-m","/home/james/movescript"]
         }
     ]
 }
