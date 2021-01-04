@@ -172,7 +172,7 @@ puts "Check 1: Every Track has a Release and a Recording"
 ws1 = xls.add_worksheet("1 - Rel - rec")
 root = Hash.new
 dir.files.each do |f|
-#    puts "#{f.name} has release #{f.release} and recording #{f.recording}"
+    puts "#{f.name} has release #{f.release} and recording #{f.recording}"
     root[f.release] = Release.new unless root[f.release]
     root[f.release].add_track(f)
 end

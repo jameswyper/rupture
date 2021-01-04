@@ -108,7 +108,7 @@ module GenericTag
         barcode,TXXX:BARCODE,BARCODE
         isrc,TSRC,ISRC
         asin,TXXX:ASIN,ASIN
-        musicbrainz_recordingid,UFID:http//musicbrainz.org,MUSICBRAINZ_TRACKID
+        musicbrainz_recordingid,UFID:http://musicbrainz.org,MUSICBRAINZ_TRACKID
         musicbrainz_trackid,TXXX:MusicBrainz Release Track Id,MUSICBRAINZ_RELEASETRACKID
         musicbrainz_albumid,TXXX:MusicBrainz Album Id,MUSICBRAINZ_ALBUMID
         musicbrainz_originalalbumid,TXXX:MusicBrainz Original Album Id,MUSICBRAINZ_ORIGINALALBUMID

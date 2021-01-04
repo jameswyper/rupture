@@ -12,8 +12,8 @@
             "request": "launch",
             "program": "${file}",
             //"args": ["/home/james/wag"]
-            "args" : ["-d","/home/james/marshal","/media/james/karelia/Music/mp3/originals"]
-           //"args" : ["-r","/home/james/marshalmp3","-m","/home/james/movescript"]
+            "args" : ["-d","/home/james/marshal","/media/james/ainola/Music/mp3/originals/classical/opera/Wagner/Wagner-Ring-Janowski"]
+           //"args" : ["-r","/home/james/marshal","-m","/home/james/movescript"]
         }
     ]
 }
