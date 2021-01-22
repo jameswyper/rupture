@@ -9,7 +9,7 @@ require 'pathname'
 String.class_eval do
 
 def sanitise
-    return self.gsub(" ","_").gsub('/','-').gsub(":","_").gsub('-',"_")
+    return self.gsub(" ","_").gsub('/','-').gsub(":","-").gsub("\\",'-').gsub('"','').gsub(">","").gsub("<","").gsub('|','').gsub("*","+").gsub("?","")
 end
 
 end
@@ -22,9 +22,15 @@ class Directory
 	attr_reader :files, :pathname
     def scan
         c = 0
-        d = Dir.glob(@pathname + '/**//*.flac')
-        ds = d.size
-        d.each do |f|
+        dm = Dir.glob(@pathname + '/**//*.mp3')
+        df = Dir.glob(@pathname + '/**//*.flac')
+        ds = dm.size + df.size
+        dm.each do |f|
+            yield f, c, ds if block_given?
+            @files << MusicFile.new(f)
+            c = c + 1
+        end
+        df.each do |f|
             yield f, c, ds if block_given?
             @files << MusicFile.new(f)
             c = c + 1
@@ -37,7 +43,7 @@ class MusicFile
     attr_reader :metadata, :name
     def initialize(f)
         @name = f
-        @metadata = GenericTag::Metadata.from_flac(f)
+        @metadata = f.end_with?("mp3") ?  GenericTag::Metadata.from_mp3(f) :  GenericTag::Metadata.from_flac(f)
     end
     def release 
         @metadata.musicbrainz_albumid[0] 
@@ -172,7 +178,7 @@ puts "Check 1: Every Track has a Release and a Recording"
 ws1 = xls.add_worksheet("1 - Rel - rec")
 root = Hash.new
 dir.files.each do |f|
-#    puts "#{f.name} has release #{f.release} and recording #{f.recording}"
+    #puts "#{f.name} has release #{f.release} and recording #{f.recording}"
     root[f.release] = Release.new unless root[f.release]
     root[f.release].add_track(f)
 end
@@ -267,10 +273,11 @@ ws4.write_row(1,0,["Directory","File","Artist","Other Artist","Album Artist"])
 
 albs = Hash.new
 dir.files.each do |f|
-    if albs[f.album + f.directory]
-        albs[f.album + f.directory] << f
+  k = "#{f.album}#{f.directory}"
+    if albs[k]
+        albs[k] << f
     else
-        albs[f.album + f.directory] = [f]
+        albs[k] = [f]
     end
 end
 
@@ -697,7 +704,8 @@ albs.each_value do |a|
         if cs[-1] == "_" then cs = cs[0..-2] end
     end
 
-    a.each do |f|
+    a.each do |g|
+        f = g
         newdest = ""
         topm = f.directory.match("flac\/+(.+?)\/")
         if topm then topdir = topm[1] else topdir = "" end
@@ -706,34 +714,44 @@ albs.each_value do |a|
 
         unless f.genre 
             puts ("#{f.directory}/#{f.base} genre missing")
-            f.genre = ""
+#            f.set_genre ""
         end
     
         unless f.album 
             puts ("#{f.directory}/#{f.base} album missing") 
-            f.album = "" 
+#          f.set_album "" 
         end
         unless f.title 
             puts ("#{f.directory}/#{f.base} title missing") 
-            f.title = "" 
+ #           f.set_title  "" 
         end
         unless f.albumartist 
             puts ("#{f.directory}/#{f.base} albumartist missing") 
-            f.albumartist = "" 
+ #           f.set_albumartist  "" 
         end
         unless f.track 
             puts ("#{f.directory}/#{f.base} track missing")
-            f.track = "" 
+#            f.set_track  "" 
         end
+
+        sanalbum = (f.album ? f.album : "").sanitise
+        sanalbumartist = (f.albumartist ? f.albumartist : "").sanitise
+        santrack = (f.track ? f.track : "").sanitise
+        sanartist = (f.artist ? f.artist : "").sanitise
+        santitle = (f.title ? f.title : "").sanitise
 
         if topdir == "classical"
             if nextdir == "boxsets"
-                newdest = "#{topdir}/#{nextdir}/#{f.album.sanitise}/#{f.track.sanitise}_#{f.title.sanitise}"
+                newdest = "#{topdir}/#{nextdir}/#{sanalbum}/#{santrack}_#{santitle}"
             else
-                newdest = "#{topdir}/#{cs.sanitise}/#{f.albumartist.sanitise}/#{f.album.sanitise}/#{f.track.sanitise}_#{f.title.sanitise}"
+                newdest = "#{topdir}/#{cs.sanitise}/#{sanalbumartist}/#{sanalbum}/#{santrack}_#{santitle}"
             end
         else
-            newdest = "#{topdir}/#{f.albumartist.sanitise}/#{f.album.sanitise}/#{f.track.sanitise}_#{f.title.sanitise}"
+            unless f.albumartist && f.album && f.track && f.title && topdir
+                puts "oops"
+            end
+            
+            newdest = "#{topdir}/#{sanalbumartist}/#{sanalbum}/#{santrack}_#{santitle}"
         end 
         if filecount[newdest] 
             filecount[newdest.dup] = filecount[newdest.dup] << f.dup
@@ -807,10 +825,10 @@ longalb = Hash.new
 longtit = Hash.new
 
 dir.files.each do |f|
-    if f.album.length > 120
+    if f.album && f.album.length > 120
         longalb[f.album] = f
     end
-    if f.title.length > 120
+    if f.title && f.title.length > 120
         longtit[f.title] = f
     end
 end
