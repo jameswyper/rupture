@@ -312,14 +312,31 @@ module GenericTag
                 filetag = f.id3v2_tag(true)
                 self.each_tag do |tag|
                     id3_name = tag.name.to_s
-                    if id3_name 
-                        frame = TagLib::ID3v2::TextIdentificationFrame.new(id3_name, TagLib::String::UTF8)
-                        text = ""
-                        tag.values.each do |value|
-                            text << "\n" if text != "" 
-                            text << value
+                    if id3_name
+                        if id3_name.start_with?("TXXX")
+                            frame = TagLib::ID3v2::UserTextIdentificationFrame.new(TagLib::String::UTF8)
+                            frame.description = id3_name[5..-1]
+                            text = ""
+                            tag.values.each do |value|
+                                text << "\n" if text != "" 
+                                text << value
+                            end
+                            frame.text = text
+                        else
+                            if id3_name.start_with?("UFID")
+                                frame = TagLib::ID3v2::UniqueFileIdentifierFrame.new(id3_name[5..-1],tag.values[0])
+                            else
+                                frame = TagLib::ID3v2::TextIdentificationFrame.new(id3_name, TagLib::String::UTF8)
+                                text = ""
+                                tag.values.each do |value|
+                                    text << "\n" if text != "" 
+                                    text << value
+                                end
+                                frame.text = text
+                            end
                         end
-                        frame.text = text
+                        
+
                         filetag.add_frame(frame)
                     end
                 end
