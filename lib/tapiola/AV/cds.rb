@@ -1,3 +1,7 @@
+
+
+require 'rexml/document'
+
 module AV
 
 class CDSetupError < ::StandardError
@@ -10,14 +14,14 @@ class CDObject
 #	
 	@@properties = {
 					:CDObject => 
-					{ 	:id => PropertyMeta.new( :attribute, :DIDL, true, false),
-						:parentID => PropertyMeta.new(:attribute, :DIDL, true, false),
-						:title => PropertyMeta.new(:element,:DC,true,false),
-						:creator => PropertyMeta.new(:element,:DC,false,false),
-						:res => PropertyMeta.new(:element, :DIDL,false,true),
-						:class => PropertyMeta.new(:element, :UPnP,true,false),
-						:restricted => PropertyMeta.new(:attribute, :DIDL,true,false),
-						:writeStatus => PropertyMeta.new(:element, :UPnP,false,false)
+					{ 	:id => PropertyMeta.new( :attribute, "", true, false),
+						:parentID => PropertyMeta.new(:attribute, "", true, false),
+						:title => PropertyMeta.new(:element,:dc,true,false),
+						:creator => PropertyMeta.new(:element,:dc,false,false),
+						:res => PropertyMeta.new(:element, "",false,true),
+						:class => PropertyMeta.new(:element, :upnp,true,false),
+						:restricted => PropertyMeta.new(:attribute, "",true,false),
+						:writeStatus => PropertyMeta.new(:element, :upnp,false,false)
 					}
 				}
 #				
@@ -26,37 +30,37 @@ class CDObject
 #
 	@@properties.merge! ({ :CDItem => @@properties[:CDObject].merge(
 					{
-					:refID => PropertyMeta.new(:attribute,:DIDL,false,false),
+					:refID => PropertyMeta.new(:attribute,"",false,false),
 					}
 					)  })
 # and so on..					
 	@@properties.merge! ({ :CDContainer => @@properties[:CDObject].merge(
 					{
-					:childCount => PropertyMeta.new(:attribute,:DIDL,false,false),
-					:createClass => PropertyMeta.new(:element,:UPnP,false,true),
-					:searchClass => PropertyMeta.new(:element,:UPnP,false,true),
-					:searchable => PropertyMeta.new(:attribute,:UPnP,false,false)
+					:childCount => PropertyMeta.new(:attribute,"",false,false),
+					:createClass => PropertyMeta.new(:element,:upnp,false,true),
+					:searchClass => PropertyMeta.new(:element,:upnp,false,true),
+					:searchable => PropertyMeta.new(:attribute,:upnp,false,false)
 					}
 					)  })
 	@@properties.merge! ({ :CDAlbum => @@properties[:CDContainer].merge(
 					{
-					:storageMedium => PropertyMeta.new(:element,:UPnP,false,false),
-					:longDescription => PropertyMeta.new(:element,:UPnP,false,false),
-					:description => PropertyMeta.new(:element,:DC,false,false),
-					:publisher => PropertyMeta.new(:element, :DC,false,true),
-					:contributor => PropertyMeta.new(:element, :DC,false,true),
-					:date => PropertyMeta.new(:element, :DC,false,false),
-					:relation => PropertyMeta.new(:element, :DC,false,true),
-					:rights => PropertyMeta.new(:element, :DC,false,true)
+					:storageMedium => PropertyMeta.new(:element,:upnp,false,false),
+					:longDescription => PropertyMeta.new(:element,:upnp,false,false),
+					:description => PropertyMeta.new(:element,:dc,false,false),
+					:publisher => PropertyMeta.new(:element, :dc,false,true),
+					:contributor => PropertyMeta.new(:element, :dc,false,true),
+					:date => PropertyMeta.new(:element, :dc,false,false),
+					:relation => PropertyMeta.new(:element, :dc,false,true),
+					:rights => PropertyMeta.new(:element, :dc,false,true)
 					}
 					)  })
 	@@properties.merge! ({ :CDMusicAlbum => @@properties[:CDAlbum].merge(
 					{
-					:artist => PropertyMeta.new(:element,:UPnP,false,true),
-					:genre => PropertyMeta.new(:element,:UPnP,false,true),
-					:producer => PropertyMeta.new(:element,:UPnP,false,true),
-					:albumArtURI => PropertyMeta.new(:element,:UPnP,false,true),
-					:toc => PropertyMeta.new(:element,:UPnP,false,false)
+					:artist => PropertyMeta.new(:element,:upnp,false,true),
+					:genre => PropertyMeta.new(:element,:upnp,false,true),
+					:producer => PropertyMeta.new(:element,:upnp,false,true),
+					:albumArtURI => PropertyMeta.new(:element,:upnp,false,true),
+					:toc => PropertyMeta.new(:element,:upnp,false,false)
 					}
 					)  })
 	@@classes = { :CDItem => "object.item", 
@@ -103,6 +107,7 @@ class CDObject
 			raise CDSetupError, "Property #{name} not defined for class #{@classname}"
 		end
 		@updateID = @updateID + 1
+		# todo handle multiple values
 	end
 	
 	def checkProperties
@@ -130,10 +135,30 @@ class CDObject
 		end
 	end
 	
-	def createXMLFragment(filter)
+	def XMLFragment(doc,filter)
+		object_or_container = @children ? "container" : "object"
+		obj = doc.root.add_element(object_or_container)
+		@property.each do |k,val|
+			attrs = @@properties[@classname][k]
+			if (filter == '*') || (filter.include? k.to_s) || (attrs.required)
+				if attrs.xmlType == :attribute
+					obj.add_attribute(k.to_s,val)
+				else
+					element = attrs.namespace.to_s + ':' + k.to_s
+					obj.add_element(element).add_text(val)
+				end
+			end
+		end
+		return doc
 	end
 		
 	
+end
+
+class CDItem < CDObject
+	def initialize(classname,parent)
+		super
+	end
 end
 
 class CDContainer < CDObject
