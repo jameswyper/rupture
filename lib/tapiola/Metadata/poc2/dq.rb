@@ -689,6 +689,8 @@ end
 
 puts "We have #{albs.size} albums"
 
+roots = ["classical","folk","heather","humour","jazz","rock","soundtrack","xmas"]
+rootsmatch = Regexp.new("(.*)\/(" + roots.join("|") + ")\/(.*)")
 albs.each_value do |a|
     
     dbgct = dbgct + 1
@@ -715,10 +717,24 @@ albs.each_value do |a|
     a.each do |g|
         f = g
         newdest = ""
+=begin
         topm = f.directory.match("originals\/+(.+?)\/")
         if topm then topdir = topm[1] else topdir = "" end
         nextm = f.directory.match("originals\/+(.+?)\/+(.+?)\/")
         if nextm && nextm.length > 2 then nextdir = nextm[2] else nextdir = "" end
+=end
+        path_mat = rootsmatch.match(f.directory)
+        path_frags = Array.new
+        path_frags = path_mat.captures if path_mat
+        if (path_frags.length == 3)
+            prefix = path_frags[0]
+            topdir = path_frags[1]
+            restdir = path_frags[2]
+        else
+            prefix = ""
+            topdir = ""
+            restdir = ""
+        end
 
         unless f.genre 
             puts ("#{f.directory}/#{f.base} genre missing")
@@ -749,17 +765,17 @@ albs.each_value do |a|
         santitle = (f.title ? f.title : "").sanitise
 
         if topdir == "classical"
-            if nextdir == "boxsets"
-                newdest = "#{topdir}/#{nextdir}/#{sanalbum}/#{santrack}_#{santitle}"
+            if restdir.start_with?("boxsets")
+                newdest = "#{prefix}/#{topdir}/boxsets/#{sanalbum}/#{santrack}_#{santitle}"
             else
-                newdest = "#{topdir}/#{cs.sanitise}/#{sanalbumartist}/#{sanalbum}/#{santrack}_#{santitle}"
+                newdest = "#{prefix}/#{topdir}/#{cs.sanitise}/#{sanalbumartist}/#{sanalbum}/#{santrack}_#{santitle}"
             end
         else
             unless f.albumartist && f.album && f.track && f.title && topdir
                 puts "oops"
             end
             
-            newdest = "#{topdir}/#{sanalbumartist}/#{sanalbum}/#{santrack}_#{santitle}"
+            newdest = "#{prefix}/#{topdir}/#{sanalbumartist}/#{sanalbum}/#{santrack}_#{santitle}"
         end 
         if filecount[newdest] 
             filecount[newdest.dup] = filecount[newdest.dup] << f.dup
@@ -811,15 +827,19 @@ if (move)
     filecount.each do |dest, fs|
         f = fs[0]
         source = Pathname.new(f.name).cleanpath.to_s
-        if (dir.pathname + dest).length > 248
-           mdest = (dir.pathname + "/" + dest)[0..247] + ( source.end_with?("flac") ? ".flac" : ".mp3" )
+        if dest.length > 249
+           mdest = dest[0..248] + ( source.end_with?("flac") ? ".flac" : ".mp3" )
         else
-          mdest = dir.pathname + "/" + dest + ( source.end_with?("flac") ?  ".flac" : ".mp3" )
+          mdest = dest + ( source.end_with?("flac") ?  ".flac" : ".mp3" )
         end
         mdest = Pathname.new(mdest).cleanpath.to_s
-        while (mdest.end_with?(".")) do
-          mdest.chop!
+        mbits = mdest.split("/")
+        mbits.each do |bit|
+            while bit.end_with?(".") do
+                 bit.chop!
+            end
         end
+        mdest = mbits.join("/")
         mdir = Pathname.new(mdest).dirname.to_s
         if (source != mdest)
             mf.write("mkdir -p #{Shellwords.escape(mdir)}\n")
