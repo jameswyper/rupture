@@ -116,3 +116,23 @@ create
 renew
 cancel
 event - to create the message.  check first if sub has expired, update subscription ID number
+
+
+AV work
+
+extend classes to include audioItem, musicTrack, album and musicAlbum
+implement browse
+
+create method(s) to add containers and items
+containerupdateID processing and eventing
+
+implement getSortCapabilities
+implement search
+implement getSearchCapabilities
+
+create SQLite database from metadata
+create AV classes from database
+
+server for the actual media files
+icons??
+
