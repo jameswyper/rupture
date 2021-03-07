@@ -27,12 +27,20 @@ class Directory
         ds = dm.size + df.size
         dm.each do |f|
             yield f, c, ds if block_given?
-            @files << MusicFile.new(f)
+            begin
+              @files << MusicFile.new(f)
+            rescue  => e
+              puts "Error #{e.message} with #{f}"
+            end
             c = c + 1
         end
         df.each do |f|
             yield f, c, ds if block_given?
-            @files << MusicFile.new(f)
+            begin
+              @files << MusicFile.new(f)
+            rescue  => e
+              puts "Error #{e.message} with #{f}"
+            end
             c = c + 1
 		end
 	end
@@ -707,9 +715,9 @@ albs.each_value do |a|
     a.each do |g|
         f = g
         newdest = ""
-        topm = f.directory.match("flac\/+(.+?)\/")
+        topm = f.directory.match("originals\/+(.+?)\/")
         if topm then topdir = topm[1] else topdir = "" end
-        nextm = f.directory.match("flac\/+(.+?)\/+(.+?)\/")
+        nextm = f.directory.match("originals\/+(.+?)\/+(.+?)\/")
         if nextm && nextm.length > 2 then nextdir = nextm[2] else nextdir = "" end
 
         unless f.genre 
@@ -802,13 +810,17 @@ if (move)
     mf = File.open(movepath,"w")
     filecount.each do |dest, fs|
         f = fs[0]
-        source = f.name
+        source = Pathname.new(f.name).cleanpath.to_s
         if (dir.pathname + dest).length > 248
-            mdest = (dir.pathname + "/" + dest)[0..247] + ".flac"
+           mdest = (dir.pathname + "/" + dest)[0..247] + ( source.end_with?("flac") ? ".flac" : ".mp3" )
         else
-            mdest = dir.pathname + "/" + dest + ".flac"
+          mdest = dir.pathname + "/" + dest + ( source.end_with?("flac") ?  ".flac" : ".mp3" )
         end
-        mdir = Pathname.new(mdest).dirname
+        mdest = Pathname.new(mdest).cleanpath.to_s
+        while (mdest.end_with?(".")) do
+          mdest.chop!
+        end
+        mdir = Pathname.new(mdest).dirname.to_s
         if (source != mdest)
             mf.write("mkdir -p #{Shellwords.escape(mdir)}\n")
             mf.write("mv #{Shellwords.escape(source)} #{Shellwords.escape(mdest)}\n")
