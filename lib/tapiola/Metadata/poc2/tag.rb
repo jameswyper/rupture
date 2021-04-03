@@ -316,23 +316,21 @@ module GenericTag
                         if id3_name.start_with?("TXXX")
                             frame = TagLib::ID3v2::UserTextIdentificationFrame.new(TagLib::String::UTF8)
                             frame.description = id3_name[5..-1]
-                            text = ""
-                            tag.values.each do |value|
-                                text << "\n" if text != "" 
-                                text << value
-                            end
-                            frame.text = text
+                            if tag.values.length > 0 
+                                frame.text = tag.values[0]
+                            else
+                                frame.text = ""
+                            end 
                         else
                             if id3_name.start_with?("UFID")
                                 frame = TagLib::ID3v2::UniqueFileIdentifierFrame.new(id3_name[5..-1],tag.values[0])
                             else
                                 frame = TagLib::ID3v2::TextIdentificationFrame.new(id3_name, TagLib::String::UTF8)
-                                text = ""
-                                tag.values.each do |value|
-                                    text << "\n" if text != "" 
-                                    text << value
-                                end
-                                frame.text = text
+                                if tag.values.length > 0 
+                                    frame.text = tag.values[0]
+                                else
+                                    frame.text = ""
+                                end 
                             end
                         end
                         
