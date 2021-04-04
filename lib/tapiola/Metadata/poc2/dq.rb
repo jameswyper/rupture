@@ -657,8 +657,8 @@ ws16.write_row(1,0,["Directory", "File","Tag"])
 
 dir.files.each do |f|
     
-    f.metadata.tags.each_value do |tag|
-        if tag.values.length > 1
+    f.metadata.tags.each do |name,tag|
+        if (tag.values.length > 1) && ([:ARTIST,:ALBUMARTIST,:COMPOSER].include? name)
             wout << [f.directory,f.base,tag.name]
         end
     end
